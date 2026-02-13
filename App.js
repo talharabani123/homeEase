@@ -15,6 +15,8 @@ import OTPVerificationScreen from './src/screens/auth/OTPVerificationScreen';
 import CustomerTabNavigator from './src/navigation/CustomerTabNavigator';
 import ServiceRequestScreen from './src/screens/customer/ServiceRequestScreen';
 import ProviderMatchingScreen from './src/screens/customer/ProviderMatchingScreen';
+import ProviderDetailsScreen from './src/screens/customer/ProviderDetailsScreen';
+import LiveTrackingScreen from './src/screens/customer/LiveTrackingScreen';
 
 const Stack = createStackNavigator();
 
@@ -36,6 +38,8 @@ export default function App() {
         <Stack.Screen name="CustomerDashboard" component={CustomerTabNavigator} />
         <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
         <Stack.Screen name="ProviderMatching" component={ProviderMatchingScreen} />
+        <Stack.Screen name="ProviderDetails" component={ProviderDetailsScreen} />
+        <Stack.Screen name="LiveTracking" component={LiveTrackingScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
