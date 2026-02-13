@@ -7,17 +7,14 @@ import { TYPOGRAPHY } from '../../constants/typography';
 const Logo = () => (
   <View style={styles.logoContainer}>
     <Svg width="50" height="50" viewBox="0 0 50 50">
-      <Circle cx="18" cy="25" r="15" fill={COLORS.primaryGreen} opacity="0.9" />
-      <Circle cx="32" cy="25" r="15" fill={COLORS.primaryGreen} opacity="0.9" />
+      <Circle cx="18" cy="25" r="15" fill={COLORS.textBlack} opacity="0.9" />
+      <Circle cx="32" cy="25" r="15" fill={COLORS.textBlack} opacity="0.9" />
     </Svg>
     <Text style={styles.logoText}>HomeEase</Text>
-    <View style={styles.providerBadge}>
-      <Text style={styles.providerBadgeText}>Service Provider</Text>
-    </View>
   </View>
 );
 
-const ProviderLoginScreen = ({ navigation }) => {
+const CustomerLoginScreen = ({ navigation }) => {
   const [loginMethod, setLoginMethod] = useState('password'); // 'password' or 'otp'
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -46,14 +43,13 @@ const ProviderLoginScreen = ({ navigation }) => {
         // Navigate to OTP verification
         navigation.navigate('OTPVerification', {
           phoneNumber,
-          verificationType: 'provider_login',
-          role: 'service_provider',
+          verificationType: 'login',
+          role: 'customer',
         });
       } else {
         // TODO: Implement password login API call
-        console.log('Provider Login with password:', { phoneNumber, password });
-        // Check account status and navigate accordingly
-        // navigation.navigate('ProviderDashboard') or navigation.navigate('PendingVerification')
+        console.log('Login with password:', { phoneNumber, password });
+        // navigation.navigate('CustomerDashboard');
       }
     }
   };
@@ -67,8 +63,8 @@ const ProviderLoginScreen = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Logo />
 
-        <Text style={styles.title}>Provider Login</Text>
-        <Text style={styles.subtitle}>Sign in to manage your services</Text>
+        <Text style={styles.title}>Welcome Back</Text>
+        <Text style={styles.subtitle}>Sign in to continue</Text>
 
         {/* Login Method Toggle */}
         <View style={styles.toggleMethodContainer}>
@@ -147,7 +143,7 @@ const ProviderLoginScreen = ({ navigation }) => {
         {/* Signup Link */}
         <View style={styles.toggleContainer}>
           <Text style={styles.toggleText}>Don't have an account?</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('ProviderSignup')}>
+          <TouchableOpacity onPress={() => navigation.navigate('CustomerSignup')}>
             <Text style={styles.toggleLink}> Sign Up</Text>
           </TouchableOpacity>
         </View>
@@ -176,18 +172,6 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.headerWeight,
     color: COLORS.textBlack,
     marginTop: 8,
-  },
-  providerBadge: {
-    backgroundColor: COLORS.primaryGreen,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginTop: 8,
-  },
-  providerBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.white,
   },
   title: {
     fontSize: TYPOGRAPHY.mainHeading,
@@ -302,4 +286,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ProviderLoginScreen;
+export default CustomerLoginScreen;

@@ -4,7 +4,11 @@ import { createStackNavigator } from '@react-navigation/stack';
 import SplashScreen from './src/screens/SplashScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import LoginScreen from './src/screens/auth/LoginScreen';
+import CustomerLoginScreen from './src/screens/auth/CustomerLoginScreen';
+import CustomerSignupScreen from './src/screens/auth/CustomerSignupScreen';
 import ProviderLoginScreen from './src/screens/auth/ProviderLoginScreen';
+import ProviderSignupScreen from './src/screens/auth/ProviderSignupScreen';
+import PendingVerificationScreen from './src/screens/auth/PendingVerificationScreen';
 import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
 import OTPVerificationScreen from './src/screens/auth/OTPVerificationScreen';
 
@@ -16,8 +20,12 @@ export default function App() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Login" component={CustomerLoginScreen} />
+        <Stack.Screen name="CustomerLogin" component={CustomerLoginScreen} />
+        <Stack.Screen name="CustomerSignup" component={CustomerSignupScreen} />
         <Stack.Screen name="ProviderLogin" component={ProviderLoginScreen} />
+        <Stack.Screen name="ProviderSignup" component={ProviderSignupScreen} />
+        <Stack.Screen name="PendingVerification" component={PendingVerificationScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
       </Stack.Navigator>
