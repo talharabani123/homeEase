@@ -75,8 +75,7 @@ const CustomerSignupScreen = ({ navigation }) => {
   const handleSuccessModalClose = (action) => {
     setShowSuccessModal(false);
     if (action === 'dashboard') {
-      // TODO: Navigate to customer dashboard
-      console.log('Navigate to dashboard');
+      navigation.navigate('CustomerDashboard');
     } else {
       navigation.navigate('CustomerLogin');
     }

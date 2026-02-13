@@ -12,6 +12,7 @@ import PendingVerificationScreen from './src/screens/auth/PendingVerificationScr
 import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
 import ResetPasswordScreen from './src/screens/auth/ResetPasswordScreen';
 import OTPVerificationScreen from './src/screens/auth/OTPVerificationScreen';
+import CustomerTabNavigator from './src/navigation/CustomerTabNavigator';
 
 const Stack = createStackNavigator();
 
@@ -30,6 +31,7 @@ export default function App() {
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
+        <Stack.Screen name="CustomerDashboard" component={CustomerTabNavigator} />
       </Stack.Navigator>
     </NavigationContainer>
   );

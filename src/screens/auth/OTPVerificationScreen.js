@@ -72,8 +72,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         // TODO: Check account status
         navigation.navigate('PendingVerification'); // or ProviderDashboard
       } else {
-        // TODO: Navigate to customer dashboard
-        navigation.navigate('CustomerLogin');
+        navigation.navigate('CustomerDashboard');
       }
     }
   };
