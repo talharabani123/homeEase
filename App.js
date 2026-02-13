@@ -13,6 +13,8 @@ import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
 import ResetPasswordScreen from './src/screens/auth/ResetPasswordScreen';
 import OTPVerificationScreen from './src/screens/auth/OTPVerificationScreen';
 import CustomerTabNavigator from './src/navigation/CustomerTabNavigator';
+import ServiceRequestScreen from './src/screens/customer/ServiceRequestScreen';
+import ProviderMatchingScreen from './src/screens/customer/ProviderMatchingScreen';
 
 const Stack = createStackNavigator();
 
@@ -32,6 +34,8 @@ export default function App() {
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
         <Stack.Screen name="CustomerDashboard" component={CustomerTabNavigator} />
+        <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
+        <Stack.Screen name="ProviderMatching" component={ProviderMatchingScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

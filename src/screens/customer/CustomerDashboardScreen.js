@@ -115,13 +115,16 @@ const CustomerDashboardScreen = ({ navigation }) => {
 
   const handleCategoryPress = (category) => {
     console.log('Selected category:', category.name);
-    // TODO: Navigate to service request screen
-    // navigation.navigate('ServiceRequest', { category });
+    navigation.navigate('ServiceRequest', { category });
   };
 
   const handleEmergencyPress = () => {
     console.log('Emergency request');
-    // TODO: Open emergency request screen
+    // Navigate to service request with urgent flag
+    navigation.navigate('ServiceRequest', {
+      category: { name: 'Emergency', color: '#FF4444' },
+      isEmergency: true,
+    });
   };
 
   const handleTrackPress = () => {
