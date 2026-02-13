@@ -9,7 +9,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
   const [canResend, setCanResend] = useState(false);
   const inputRefs = useRef([]);
 
-  const { email, isProvider } = route.params || {};
+  const { phoneNumber, verificationType, role, userData, onSuccess, resetMethod } = route.params || {};
 
   useEffect(() => {
     if (timer > 0) {
@@ -43,14 +43,44 @@ const OTPVerificationScreen = ({ navigation, route }) => {
 
   const handleVerify = () => {
     const otpCode = otp.join('');
-    console.log('Verify OTP:', otpCode);
+    console.log('Verify OTP:', otpCode, 'Type:', verificationType);
+    
     // TODO: Implement OTP verification API call
-    navigation.navigate('Login');
+    
+    // Handle different verification types
+    if (verificationType === 'password_reset') {
+      // Navigate to reset password screen
+      navigation.navigate('ResetPassword', {
+        phoneNumber,
+        resetMethod,
+      });
+    } else if (verificationType === 'signup' || verificationType === 'provider_signup') {
+      // Call success callback if provided
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        // Default navigation
+        if (role === 'service_provider') {
+          navigation.navigate('PendingVerification');
+        } else {
+          navigation.navigate('CustomerLogin');
+        }
+      }
+    } else {
+      // Login verification
+      if (role === 'service_provider') {
+        // TODO: Check account status
+        navigation.navigate('PendingVerification'); // or ProviderDashboard
+      } else {
+        // TODO: Navigate to customer dashboard
+        navigation.navigate('CustomerLogin');
+      }
+    }
   };
 
   const handleResend = () => {
     if (canResend) {
-      console.log('Resend OTP to:', email);
+      console.log('Resend OTP to:', phoneNumber);
       setTimer(60);
       setCanResend(false);
       setOtp(['', '', '', '', '', '']);
@@ -82,10 +112,12 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Verify Your Account</Text>
+        <Text style={styles.title}>
+          {verificationType === 'password_reset' ? 'Verify Your Identity' : 'Verify Your Account'}
+        </Text>
         <Text style={styles.subtitle}>
           We've sent a verification code to{'\n'}
-          <Text style={styles.email}>{email || 'your email'}</Text>
+          <Text style={styles.email}>{phoneNumber || 'your phone'}</Text>
         </Text>
 
         {/* OTP Input Fields */}

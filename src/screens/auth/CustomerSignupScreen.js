@@ -3,6 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, Keyboar
 import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
+import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError, getPasswordError } from '../../utils/validation';
+import RegistrationSuccessModal from '../../components/RegistrationSuccessModal';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -20,8 +22,18 @@ const CustomerSignupScreen = ({ navigation }) => {
     phoneNumber: '',
     password: '',
     confirmPassword: '',
+    email: '', // Optional for password reset
   });
   const [errors, setErrors] = useState({});
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const handlePhoneChange = (value) => {
+    const formatted = formatPakistaniPhone(value);
+    setFormData({ ...formData, phoneNumber: formatted });
+    if (errors.phoneNumber) {
+      setErrors({ ...errors, phoneNumber: null });
+    }
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -30,17 +42,11 @@ const CustomerSignupScreen = ({ navigation }) => {
       newErrors.fullName = 'Full name is required';
     }
     
-    if (!formData.phoneNumber.trim()) {
-      newErrors.phoneNumber = 'Phone number is required';
-    } else if (!/^[0-9]{11}$/.test(formData.phoneNumber)) {
-      newErrors.phoneNumber = 'Enter valid 11-digit phone number';
-    }
+    const phoneError = getPhoneError(formData.phoneNumber);
+    if (phoneError) newErrors.phoneNumber = phoneError;
     
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
+    const passwordError = getPasswordError(formData.password);
+    if (passwordError) newErrors.password = passwordError;
     
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
@@ -54,13 +60,25 @@ const CustomerSignupScreen = ({ navigation }) => {
     if (validateForm()) {
       // Navigate to OTP verification
       navigation.navigate('OTPVerification', {
-        phoneNumber: formData.phoneNumber,
+        phoneNumber: cleanPhoneNumber(formData.phoneNumber),
         userData: {
           ...formData,
+          phoneNumber: cleanPhoneNumber(formData.phoneNumber),
           role: 'customer',
         },
         verificationType: 'signup',
+        onSuccess: () => setShowSuccessModal(true),
       });
+    }
+  };
+
+  const handleSuccessModalClose = (action) => {
+    setShowSuccessModal(false);
+    if (action === 'dashboard') {
+      // TODO: Navigate to customer dashboard
+      console.log('Navigate to dashboard');
+    } else {
+      navigation.navigate('CustomerLogin');
     }
   };
 
@@ -101,14 +119,27 @@ const CustomerSignupScreen = ({ navigation }) => {
           <Text style={styles.label}>Phone Number</Text>
           <TextInput
             style={[styles.input, errors.phoneNumber && styles.inputError]}
-            placeholder="03XXXXXXXXX"
+            placeholder="+92 300 1234 567"
             placeholderTextColor={COLORS.textGrey}
             value={formData.phoneNumber}
-            onChangeText={(value) => updateField('phoneNumber', value)}
+            onChangeText={handlePhoneChange}
             keyboardType="phone-pad"
-            maxLength={11}
           />
           {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
+        </View>
+
+        {/* Email (Optional) */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Email (Optional - for password recovery)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="your.email@example.com"
+            placeholderTextColor={COLORS.textGrey}
+            value={formData.email}
+            onChangeText={(value) => updateField('email', value)}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
         </View>
 
         {/* Password */}
@@ -152,6 +183,14 @@ const CustomerSignupScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Success Modal */}
+      <RegistrationSuccessModal
+        visible={showSuccessModal}
+        onClose={handleSuccessModalClose}
+        userRole="customer"
+        userName={formData.fullName}
+      />
     </KeyboardAvoidingView>
   );
 };

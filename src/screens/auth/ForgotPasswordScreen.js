@@ -1,22 +1,67 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
+import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError, getEmailError } from '../../utils/validation';
+
+const Logo = () => (
+  <View style={styles.logoContainer}>
+    <Svg width="50" height="50" viewBox="0 0 50 50">
+      <Circle cx="18" cy="25" r="15" fill={COLORS.textBlack} opacity="0.9" />
+      <Circle cx="32" cy="25" r="15" fill={COLORS.textBlack} opacity="0.9" />
+    </Svg>
+    <Text style={styles.logoText}>HomeEase</Text>
+  </View>
+);
 
 const ForgotPasswordScreen = ({ navigation, route }) => {
+  const [resetMethod, setResetMethod] = useState('phone'); // 'phone' or 'email'
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const { isProvider } = route.params || {};
+  const [errors, setErrors] = useState({});
 
-  const handleSubmit = () => {
-    console.log('Reset password for:', email);
-    setIsSubmitted(true);
-    // TODO: Implement forgot password API call
+  const handlePhoneChange = (value) => {
+    const formatted = formatPakistaniPhone(value);
+    setPhoneNumber(formatted);
+    if (errors.phoneNumber) {
+      setErrors({ ...errors, phoneNumber: null });
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
     
-    // Navigate to OTP screen after 2 seconds
-    setTimeout(() => {
-      navigation.navigate('OTPVerification', { email, isProvider });
-    }, 2000);
+    if (resetMethod === 'phone') {
+      const phoneError = getPhoneError(phoneNumber);
+      if (phoneError) newErrors.phoneNumber = phoneError;
+    } else {
+      const emailError = getEmailError(email);
+      if (emailError) newErrors.email = emailError;
+      if (!email) newErrors.email = 'Email is required';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleResetPassword = () => {
+    if (validateForm()) {
+      if (resetMethod === 'phone') {
+        // Navigate to OTP verification for phone reset
+        navigation.navigate('OTPVerification', {
+          phoneNumber: cleanPhoneNumber(phoneNumber),
+          verificationType: 'password_reset',
+          resetMethod: 'phone',
+        });
+      } else {
+        // TODO: Send email reset link
+        console.log('Send reset email to:', email);
+        // Show success message
+        alert('Password reset link has been sent to your email');
+        navigation.goBack();
+      }
+    }
   };
 
   return (
@@ -25,77 +70,109 @@ const ForgotPasswordScreen = ({ navigation, route }) => {
       style={styles.container}
     >
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
-      
-      {/* Back Button */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.backButtonText}>← Back</Text>
-      </TouchableOpacity>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
 
-      <View style={styles.content}>
-        {/* Icon */}
-        <View style={styles.iconContainer}>
-          <Text style={styles.icon}>🔒</Text>
-        </View>
+        <Logo />
 
-        {/* Title */}
-        <Text style={styles.title}>Forgot Password?</Text>
+        <Text style={styles.title}>Reset Password</Text>
         <Text style={styles.subtitle}>
-          {isSubmitted
-            ? 'Check your email for a verification code'
-            : 'Enter your email address and we\'ll send you a code to reset your password'}
+          Choose how you want to reset your password
         </Text>
 
-        {!isSubmitted ? (
-          <>
-            {/* Email Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your registered email"
-                placeholderTextColor={COLORS.textGrey}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
-            {/* Submit Button */}
-            <TouchableOpacity
-              style={[styles.submitButton, !email && styles.submitButtonDisabled]}
-              onPress={handleSubmit}
-              disabled={!email}
-            >
-              <Text style={styles.submitButtonText}>Send Reset Code</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <View style={styles.successContainer}>
-            <View style={styles.successIcon}>
-              <Text style={styles.successIconText}>✓</Text>
-            </View>
-            <Text style={styles.successText}>
-              Verification code sent to{'\n'}
-              <Text style={styles.emailText}>{email}</Text>
+        {/* Reset Method Toggle */}
+        <View style={styles.toggleMethodContainer}>
+          <TouchableOpacity
+            style={[styles.methodButton, resetMethod === 'phone' && styles.methodButtonActive]}
+            onPress={() => setResetMethod('phone')}
+          >
+            <Text style={[styles.methodButtonText, resetMethod === 'phone' && styles.methodButtonTextActive]}>
+              📱 Mobile Number
             </Text>
-            <Text style={styles.redirectText}>Redirecting to verification...</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.methodButton, resetMethod === 'email' && styles.methodButtonActive]}
+            onPress={() => setResetMethod('email')}
+          >
+            <Text style={[styles.methodButtonText, resetMethod === 'email' && styles.methodButtonTextActive]}>
+              ✉️ Email
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Phone Number Input */}
+        {resetMethod === 'phone' && (
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Phone Number</Text>
+            <TextInput
+              style={[styles.input, errors.phoneNumber && styles.inputError]}
+              placeholder="+92 300 1234 567"
+              placeholderTextColor={COLORS.textGrey}
+              value={phoneNumber}
+              onChangeText={handlePhoneChange}
+              keyboardType="phone-pad"
+            />
+            {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
+            <Text style={styles.helperText}>
+              We'll send an OTP to verify your identity
+            </Text>
           </View>
         )}
 
-        {/* Back to Login */}
-        <TouchableOpacity
-          style={styles.backToLoginContainer}
-          onPress={() => navigation.navigate(isProvider ? 'ProviderLogin' : 'Login')}
-        >
-          <Text style={styles.backToLoginText}>
-            ← Back to {isProvider ? 'Provider ' : ''}Login
+        {/* Email Input */}
+        {resetMethod === 'email' && (
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Email Address</Text>
+            <TextInput
+              style={[styles.input, errors.email && styles.inputError]}
+              placeholder="your.email@example.com"
+              placeholderTextColor={COLORS.textGrey}
+              value={email}
+              onChangeText={(value) => {
+                setEmail(value);
+                if (errors.email) setErrors({ ...errors, email: null });
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+            <Text style={styles.helperText}>
+              We'll send a password reset link to your email
+            </Text>
+          </View>
+        )}
+
+        {/* Info Box */}
+        <View style={styles.infoBox}>
+          <Text style={styles.infoIcon}>ℹ️</Text>
+          <Text style={styles.infoText}>
+            {resetMethod === 'phone'
+              ? 'Make sure you have access to this phone number to receive the OTP'
+              : 'If this email is not registered with your account, you won\'t receive the reset link'}
+          </Text>
+        </View>
+
+        {/* Submit Button */}
+        <TouchableOpacity style={styles.primaryButton} onPress={handleResetPassword}>
+          <Text style={styles.primaryButtonText}>
+            {resetMethod === 'phone' ? 'Send OTP' : 'Send Reset Link'}
           </Text>
         </TouchableOpacity>
-      </View>
+
+        {/* Back to Login */}
+        <View style={styles.toggleContainer}>
+          <Text style={styles.toggleText}>Remember your password?</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={styles.toggleLink}> Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
@@ -105,54 +182,78 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.white,
   },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
   backButton: {
     alignSelf: 'flex-start',
     paddingVertical: 8,
-    paddingHorizontal: 24,
-    marginTop: 20,
+    paddingHorizontal: 4,
+    marginBottom: 20,
   },
   backButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.primaryGreen,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F0F9F4',
-    justifyContent: 'center',
+  logoContainer: {
     alignItems: 'center',
     marginBottom: 24,
   },
-  icon: {
-    fontSize: 40,
+  logoText: {
+    fontSize: 20,
+    fontWeight: TYPOGRAPHY.headerWeight,
+    color: COLORS.textBlack,
+    marginTop: 8,
   },
   title: {
     fontSize: TYPOGRAPHY.mainHeading,
     fontWeight: TYPOGRAPHY.headerWeight,
     color: COLORS.textBlack,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: TYPOGRAPHY.subHeading,
+    fontSize: 15,
     fontWeight: TYPOGRAPHY.bodyWeight,
     color: COLORS.textGrey,
     textAlign: 'center',
-    marginBottom: 40,
-    lineHeight: 22,
-    paddingHorizontal: 20,
+    marginBottom: 32,
+  },
+  toggleMethodContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 24,
+  },
+  methodButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  methodButtonActive: {
+    backgroundColor: COLORS.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  methodButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textGrey,
+  },
+  methodButtonTextActive: {
+    color: COLORS.primaryGreen,
   },
   inputContainer: {
-    width: '100%',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   label: {
     fontSize: 14,
@@ -170,8 +271,39 @@ const styles = StyleSheet.create({
     color: COLORS.textBlack,
     backgroundColor: '#F9F9F9',
   },
-  submitButton: {
-    width: '100%',
+  inputError: {
+    borderColor: '#FF4444',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#FF4444',
+    marginTop: 4,
+  },
+  helperText: {
+    fontSize: 12,
+    color: COLORS.textGrey,
+    marginTop: 6,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: '#E3F2FD',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  infoIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#1976D2',
+    lineHeight: 18,
+  },
+  primaryButton: {
     height: 52,
     backgroundColor: COLORS.primaryGreen,
     borderRadius: 12,
@@ -184,56 +316,22 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  submitButtonDisabled: {
-    backgroundColor: '#D1D1D1',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  submitButtonText: {
+  primaryButtonText: {
     fontSize: 16,
     fontWeight: TYPOGRAPHY.buttonWeight,
     color: COLORS.white,
   },
-  successContainer: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  successIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: COLORS.primaryGreen,
+  toggleContainer: {
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
   },
-  successIconText: {
-    fontSize: 32,
-    color: COLORS.white,
-    fontWeight: 'bold',
-  },
-  successText: {
-    fontSize: 16,
-    color: COLORS.textGrey,
-    textAlign: 'center',
-    marginBottom: 12,
-    lineHeight: 24,
-  },
-  emailText: {
-    fontWeight: '600',
-    color: COLORS.textBlack,
-  },
-  redirectText: {
+  toggleText: {
     fontSize: 14,
-    color: COLORS.primaryGreen,
-    fontWeight: '600',
+    color: COLORS.textGrey,
   },
-  backToLoginContainer: {
-    marginTop: 'auto',
-    paddingVertical: 20,
-  },
-  backToLoginText: {
-    fontSize: 15,
+  toggleLink: {
+    fontSize: 14,
     fontWeight: '600',
     color: COLORS.primaryGreen,
   },

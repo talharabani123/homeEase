@@ -3,6 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, Keyboar
 import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
+import { formatPakistaniPhone, formatCNIC, cleanPhoneNumber, getCNICError, getPhoneError, getPasswordError } from '../../utils/validation';
+import RegistrationSuccessModal from '../../components/RegistrationSuccessModal';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -28,6 +30,7 @@ const serviceCategories = [
 
 const ProviderSignupScreen = ({ navigation }) => {
   const [currentStep, setCurrentStep] = useState(1);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [formData, setFormData] = useState({
     // Step 1: Personal Info
     fullName: '',
@@ -58,33 +61,38 @@ const ProviderSignupScreen = ({ navigation }) => {
 
   const totalSteps = 6;
 
+  const handlePhoneChange = (value) => {
+    const formatted = formatPakistaniPhone(value);
+    updateField('phoneNumber', formatted);
+  };
+
+  const handleCNICChange = (value) => {
+    const formatted = formatCNIC(value);
+    updateField('cnicNumber', formatted);
+  };
+
   const validateStep = (step) => {
     const newErrors = {};
     
     switch (step) {
       case 1:
         if (!formData.fullName.trim()) newErrors.fullName = 'Full name is required';
-        if (!formData.phoneNumber.trim()) {
-          newErrors.phoneNumber = 'Phone number is required';
-        } else if (!/^[0-9]{11}$/.test(formData.phoneNumber)) {
-          newErrors.phoneNumber = 'Enter valid 11-digit phone number';
-        }
-        if (!formData.password) {
-          newErrors.password = 'Password is required';
-        } else if (formData.password.length < 6) {
-          newErrors.password = 'Password must be at least 6 characters';
-        }
+        
+        const phoneError = getPhoneError(formData.phoneNumber);
+        if (phoneError) newErrors.phoneNumber = phoneError;
+        
+        const passwordError = getPasswordError(formData.password);
+        if (passwordError) newErrors.password = passwordError;
+        
         if (formData.password !== formData.confirmPassword) {
           newErrors.confirmPassword = 'Passwords do not match';
         }
         break;
         
       case 2:
-        if (!formData.cnicNumber.trim()) {
-          newErrors.cnicNumber = 'CNIC number is required';
-        } else if (!/^[0-9]{13}$/.test(formData.cnicNumber)) {
-          newErrors.cnicNumber = 'Enter valid 13-digit CNIC number';
-        }
+        const cnicError = getCNICError(formData.cnicNumber);
+        if (cnicError) newErrors.cnicNumber = cnicError;
+        
         if (!formData.cnicFront) newErrors.cnicFront = 'CNIC front image is required';
         if (!formData.cnicBack) newErrors.cnicBack = 'CNIC back image is required';
         break;
@@ -129,14 +137,23 @@ const ProviderSignupScreen = ({ navigation }) => {
   const handleSubmit = () => {
     // Navigate to OTP verification
     navigation.navigate('OTPVerification', {
-      phoneNumber: formData.phoneNumber,
+      phoneNumber: cleanPhoneNumber(formData.phoneNumber),
       userData: {
         ...formData,
+        phoneNumber: cleanPhoneNumber(formData.phoneNumber),
         role: 'service_provider',
         accountStatus: 'pending_verification',
       },
       verificationType: 'provider_signup',
+      onSuccess: () => setShowSuccessModal(true),
     });
+  };
+
+  const handleSuccessModalClose = (action) => {
+    setShowSuccessModal(false);
+    if (action === 'login') {
+      navigation.navigate('ProviderLogin');
+    }
   };
 
   const updateField = (field, value) => {
@@ -180,12 +197,11 @@ const ProviderSignupScreen = ({ navigation }) => {
               <Text style={styles.label}>Phone Number</Text>
               <TextInput
                 style={[styles.input, errors.phoneNumber && styles.inputError]}
-                placeholder="03XXXXXXXXX"
+                placeholder="+92 300 1234 567"
                 placeholderTextColor={COLORS.textGrey}
                 value={formData.phoneNumber}
-                onChangeText={(value) => updateField('phoneNumber', value)}
+                onChangeText={handlePhoneChange}
                 keyboardType="phone-pad"
-                maxLength={11}
               />
               {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
             </View>
@@ -226,12 +242,11 @@ const ProviderSignupScreen = ({ navigation }) => {
               <Text style={styles.label}>CNIC Number</Text>
               <TextInput
                 style={[styles.input, errors.cnicNumber && styles.inputError]}
-                placeholder="XXXXXXXXXXXXX (13 digits)"
+                placeholder="35202-1234567-1"
                 placeholderTextColor={COLORS.textGrey}
                 value={formData.cnicNumber}
-                onChangeText={(value) => updateField('cnicNumber', value)}
+                onChangeText={handleCNICChange}
                 keyboardType="number-pad"
-                maxLength={13}
               />
               {errors.cnicNumber && <Text style={styles.errorText}>{errors.cnicNumber}</Text>}
             </View>
@@ -502,6 +517,14 @@ const ProviderSignupScreen = ({ navigation }) => {
           </View>
         )}
       </ScrollView>
+
+      {/* Success Modal */}
+      <RegistrationSuccessModal
+        visible={showSuccessModal}
+        onClose={handleSuccessModalClose}
+        userRole="service_provider"
+        userName={formData.fullName}
+      />
     </KeyboardAvoidingView>
   );
 };

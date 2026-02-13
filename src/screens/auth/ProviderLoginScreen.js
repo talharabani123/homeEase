@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, Keyboar
 import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
+import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError } from '../../utils/validation';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -23,14 +24,19 @@ const ProviderLoginScreen = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
 
+  const handlePhoneChange = (value) => {
+    const formatted = formatPakistaniPhone(value);
+    setPhoneNumber(formatted);
+    if (errors.phoneNumber) {
+      setErrors({ ...errors, phoneNumber: null });
+    }
+  };
+
   const validateForm = () => {
     const newErrors = {};
     
-    if (!phoneNumber.trim()) {
-      newErrors.phoneNumber = 'Phone number is required';
-    } else if (!/^[0-9]{11}$/.test(phoneNumber)) {
-      newErrors.phoneNumber = 'Enter valid 11-digit phone number';
-    }
+    const phoneError = getPhoneError(phoneNumber);
+    if (phoneError) newErrors.phoneNumber = phoneError;
     
     if (loginMethod === 'password' && !password) {
       newErrors.password = 'Password is required';
@@ -45,13 +51,13 @@ const ProviderLoginScreen = ({ navigation }) => {
       if (loginMethod === 'otp') {
         // Navigate to OTP verification
         navigation.navigate('OTPVerification', {
-          phoneNumber,
+          phoneNumber: cleanPhoneNumber(phoneNumber),
           verificationType: 'provider_login',
           role: 'service_provider',
         });
       } else {
         // TODO: Implement password login API call
-        console.log('Provider Login with password:', { phoneNumber, password });
+        console.log('Provider Login with password:', { phoneNumber: cleanPhoneNumber(phoneNumber), password });
         // Check account status and navigate accordingly
         // navigation.navigate('ProviderDashboard') or navigation.navigate('PendingVerification')
       }
@@ -95,15 +101,11 @@ const ProviderLoginScreen = ({ navigation }) => {
           <Text style={styles.label}>Phone Number</Text>
           <TextInput
             style={[styles.input, errors.phoneNumber && styles.inputError]}
-            placeholder="03XXXXXXXXX"
+            placeholder="+92 300 1234 567"
             placeholderTextColor={COLORS.textGrey}
             value={phoneNumber}
-            onChangeText={(value) => {
-              setPhoneNumber(value);
-              if (errors.phoneNumber) setErrors({ ...errors, phoneNumber: null });
-            }}
+            onChangeText={handlePhoneChange}
             keyboardType="phone-pad"
-            maxLength={11}
           />
           {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
         </View>
