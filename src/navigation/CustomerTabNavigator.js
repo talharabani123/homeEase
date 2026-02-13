@@ -7,18 +7,13 @@ import { COLORS } from '../constants/colors';
 // Import screens
 import CustomerDashboardScreen from '../screens/customer/CustomerDashboardScreen';
 import HistoryScreen from '../screens/customer/HistoryScreen';
+import RequestsScreen from '../screens/customer/RequestsScreen';
+import ProfileScreen from '../screens/customer/ProfileScreen';
 
 // Placeholder screens (to be implemented)
 const MessagesScreen = () => (
   <View style={styles.placeholderContainer}>
     <Text style={styles.placeholderText}>Messages Screen</Text>
-    <Text style={styles.placeholderSubtext}>Coming Soon</Text>
-  </View>
-);
-
-const ProfileScreen = () => (
-  <View style={styles.placeholderContainer}>
-    <Text style={styles.placeholderText}>Profile Screen</Text>
     <Text style={styles.placeholderSubtext}>Coming Soon</Text>
   </View>
 );
@@ -83,6 +78,13 @@ const CustomerTabNavigator = () => {
       <Tab.Screen
         name="History"
         component={HistoryScreen}
+        options={{
+          tabBarIcon: ({ focused }) => <RequestsIcon focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Requests"
+        component={RequestsScreen}
         options={{
           tabBarIcon: ({ focused }) => <RequestsIcon focused={focused} />,
         }}
