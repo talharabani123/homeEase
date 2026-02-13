@@ -17,6 +17,8 @@ import ServiceRequestScreen from './src/screens/customer/ServiceRequestScreen';
 import ProviderMatchingScreen from './src/screens/customer/ProviderMatchingScreen';
 import ProviderDetailsScreen from './src/screens/customer/ProviderDetailsScreen';
 import LiveTrackingScreen from './src/screens/customer/LiveTrackingScreen';
+import PaymentScreen from './src/screens/customer/PaymentScreen';
+import RatingScreen from './src/screens/customer/RatingScreen';
 
 const Stack = createStackNavigator();
 
@@ -40,6 +42,8 @@ export default function App() {
         <Stack.Screen name="ProviderMatching" component={ProviderMatchingScreen} />
         <Stack.Screen name="ProviderDetails" component={ProviderDetailsScreen} />
         <Stack.Screen name="LiveTracking" component={LiveTrackingScreen} />
+        <Stack.Screen name="Payment" component={PaymentScreen} />
+        <Stack.Screen name="Rating" component={RatingScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
