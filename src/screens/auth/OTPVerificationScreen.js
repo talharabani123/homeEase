@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, Keyboard } from 'react-native';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
+import { KeyboardDismissView } from '../../components/KeyboardDismissView';
 
 const OTPVerificationScreen = ({ navigation, route }) => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -32,6 +33,9 @@ const OTPVerificationScreen = ({ navigation, route }) => {
     // Auto-focus next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
+    } else if (value && index === 5) {
+      // Dismiss keyboard when last digit is entered
+      Keyboard.dismiss();
     }
   };
 
@@ -42,6 +46,9 @@ const OTPVerificationScreen = ({ navigation, route }) => {
   };
 
   const handleVerify = () => {
+    // Dismiss keyboard before navigation
+    Keyboard.dismiss();
+    
     const otpCode = otp.join('');
     console.log('Verify OTP:', otpCode, 'Type:', verificationType);
     
@@ -90,10 +97,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
   const isOtpComplete = otp.every((digit) => digit !== '');
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
+    <KeyboardDismissView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       
       {/* Back Button */}
@@ -169,7 +173,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           Didn't receive the code? Check your spam folder
         </Text>
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardDismissView>
   );
 };
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, SafeAreaView } from 'react-native';
-import Svg, { Path, Circle, Rect, G } from 'react-native-svg';
+import Svg, { Path, Circle, Rect as SvgRect, G } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 
@@ -58,7 +58,7 @@ const ServiceIcon = ({ type, color }) => {
     ),
     ac: (
       <Svg width="32" height="32" viewBox="0 0 32 32">
-        <Rect x="4" y="8" width="24" height="8" rx="2" fill={color} />
+        <SvgRect x="4" y="8" width="24" height="8" rx="2" fill={color} />
         <Path d="M8 16v8M16 16v8M24 16v8" stroke={color} strokeWidth="2" opacity="0.7" />
       </Svg>
     ),
@@ -77,7 +77,7 @@ const ServiceIcon = ({ type, color }) => {
     cleaner: (
       <Svg width="32" height="32" viewBox="0 0 32 32">
         <Path d="M16 4l-4 8h8l-4-8z" fill={color} />
-        <Rect x="12" y="12" width="8" height="16" rx="1" fill={color} opacity="0.7" />
+        <SvgRect x="12" y="12" width="8" height="16" rx="1" fill={color} opacity="0.7" />
       </Svg>
     ),
     gardener: (
@@ -137,6 +137,9 @@ const CustomerDashboardScreen = ({ navigation }) => {
         cat.name.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : serviceCategories;
+
+  // Safety check
+  const safeCategories = filteredCategories || [];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -242,7 +245,7 @@ const CustomerDashboardScreen = ({ navigation }) => {
         <View style={styles.categoriesSection}>
           <Text style={styles.sectionTitle}>Services</Text>
           <View style={styles.categoriesGrid}>
-            {filteredCategories.map((category) => (
+            {safeCategories.map((category) => (
               <TouchableOpacity
                 key={category.id}
                 style={styles.categoryCard}

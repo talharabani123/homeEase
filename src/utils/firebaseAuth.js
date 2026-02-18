@@ -12,6 +12,9 @@ import { Alert } from 'react-native';
  * @returns {string} - Formatted phone number (e.g., "+923001234567")
  */
 export const formatPhoneNumber = (phone) => {
+  // Safety check
+  if (!phone) return '';
+  
   // Remove all spaces and dashes
   let cleaned = phone.replace(/[\s-]/g, '');
   
@@ -171,6 +174,8 @@ export const updatePhoneNumber = async (newPhoneNumber) => {
  * @returns {object} - Validation result
  */
 export const validatePhoneNumber = (phone) => {
+  if (!phone) return { valid: false, message: 'Phone number is required' };
+  
   const cleaned = phone.replace(/[\s-]/g, '');
   
   // Check if it's a valid Pakistani number

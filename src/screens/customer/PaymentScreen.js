@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView } from 'react-native';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Circle, Rect as SvgRect } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 
@@ -20,7 +20,7 @@ const CheckIcon = () => (
 
 const CashIcon = () => (
   <Svg width="28" height="28" viewBox="0 0 28 28">
-    <Rect x="2" y="8" width="24" height="12" rx="2" fill={COLORS.primaryGreen} />
+    <SvgRect x="2" y="8" width="24" height="12" rx="2" fill={COLORS.primaryGreen} />
     <Circle cx="14" cy="14" r="3" fill={COLORS.white} />
   </Svg>
 );
@@ -31,15 +31,15 @@ const WalletIcon = () => (
       d="M4 8h20c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V10c0-1.1.9-2 2-2z"
       fill="#2196F3"
     />
-    <Rect x="18" y="13" width="6" height="6" rx="1" fill={COLORS.white} />
+    <SvgRect x="18" y="13" width="6" height="6" rx="1" fill={COLORS.white} />
   </Svg>
 );
 
 const CardIcon = () => (
   <Svg width="28" height="28" viewBox="0 0 28 28">
-    <Rect x="2" y="6" width="24" height="16" rx="2" fill="#FF9800" />
-    <Rect x="2" y="10" width="24" height="3" fill={COLORS.white} opacity="0.3" />
-    <Rect x="4" y="16" width="8" height="2" rx="1" fill={COLORS.white} />
+    <SvgRect x="2" y="6" width="24" height="16" rx="2" fill="#FF9800" />
+    <SvgRect x="2" y="10" width="24" height="3" fill={COLORS.white} opacity="0.3" />
+    <SvgRect x="4" y="16" width="8" height="2" rx="1" fill={COLORS.white} />
   </Svg>
 );
 

@@ -99,13 +99,22 @@ const LiveTrackingScreen = ({ navigation, route }) => {
   }, []);
 
   const handleCall = () => {
+    if (!providerData.phoneNumber) {
+      Alert.alert('Error', 'Phone number not available');
+      return;
+    }
     const phoneNumber = providerData.phoneNumber.replace(/\s/g, '');
     Linking.openURL(`tel:${phoneNumber}`);
   };
 
   const handleChat = () => {
-    // TODO: Navigate to chat screen
-    console.log('Open chat');
+    // Navigate to chat screen with request and provider info
+    navigation.navigate('Chat', {
+      requestId: requestData?.requestId || 'mock-request-123',
+      providerId: providerData.id || 'provider1',
+      providerName: providerData.name,
+      customerName: 'You', // In production, get from auth context
+    });
   };
 
   const handleCancelRequest = () => {

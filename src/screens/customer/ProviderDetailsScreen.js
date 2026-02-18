@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView, Alert, Linking } from 'react-native';
-import Svg, { Path, Circle, Polygon } from 'react-native-svg';
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
+import { useTheme } from '../../context/ThemeContext';
 
 // Icons
-const BackIcon = () => (
+const BackIcon = ({ color }) => (
   <Svg width="24" height="24" viewBox="0 0 24 24">
-    <Path d="M15 18l-6-6 6-6" stroke={COLORS.textBlack} strokeWidth="2" fill="none" />
+    <Path d="M15 18l-6-6 6-6" stroke={color} strokeWidth="2" fill="none" />
   </Svg>
 );
 
@@ -20,49 +21,16 @@ const StarIcon = ({ filled }) => (
   </Svg>
 );
 
-const PhoneIcon = () => (
-  <Svg width="24" height="24" viewBox="0 0 24 24">
-    <Path
-      d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
-      fill={COLORS.white}
-    />
-  </Svg>
-);
-
-const ChatIcon = () => (
-  <Svg width="24" height="24" viewBox="0 0 24 24">
-    <Path
-      d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"
-      fill={COLORS.white}
-    />
-  </Svg>
-);
-
-const LocationIcon = () => (
-  <Svg width="20" height="20" viewBox="0 0 20 20">
-    <Path
-      d="M10 2C6.69 2 4 4.69 4 8c0 4.5 6 10 6 10s6-5.5 6-10c0-3.31-2.69-6-6-6zm0 8c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"
-      fill={COLORS.primaryGreen}
-    />
-  </Svg>
-);
-
-const ClockIcon = () => (
-  <Svg width="20" height="20" viewBox="0 0 20 20">
-    <Circle cx="10" cy="10" r="8" stroke={COLORS.primaryGreen} strokeWidth="2" fill="none" />
-    <Path d="M10 6v4l3 3" stroke={COLORS.primaryGreen} strokeWidth="2" fill="none" />
-  </Svg>
-);
-
 const CheckIcon = () => (
   <Svg width="20" height="20" viewBox="0 0 20 20">
-    <Circle cx="10" cy="10" r="9" fill={COLORS.primaryGreen} />
+    <Path d="M10 2 A8 8 0 1 1 10 18 A8 8 0 1 1 10 2 Z" fill={COLORS.primaryGreen} />
     <Path d="M6 10l3 3 5-5" stroke={COLORS.white} strokeWidth="2" fill="none" />
   </Svg>
 );
 
 const ProviderDetailsScreen = ({ navigation, route }) => {
-  const { provider, requestData } = route.params || {};
+  const { colors } = useTheme();
+  const { provider } = route.params || {};
   
   // Mock provider data
   const providerData = provider || {
@@ -71,52 +39,13 @@ const ProviderDetailsScreen = ({ navigation, route }) => {
     rating: 4.8,
     totalReviews: 156,
     experienceYears: 8,
-    distance: '2.5 km',
-    estimatedArrival: '15 mins',
     phoneNumber: '+92 300 1234567',
     profileImage: null,
     serviceType: 'Plumber',
     completedJobs: 342,
     skills: ['Pipe Repair', 'Leak Fixing', 'Installation', 'Maintenance'],
     verified: true,
-    status: 'On the way',
-  };
-
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
-
-  const handleCall = () => {
-    const phoneNumber = providerData.phoneNumber.replace(/\s/g, '');
-    Linking.openURL(`tel:${phoneNumber}`);
-  };
-
-  const handleChat = () => {
-    // TODO: Navigate to chat screen
-    navigation.navigate('Chat', { providerId: providerData.id });
-  };
-
-  const handleTrack = () => {
-    navigation.navigate('LiveTracking', {
-      provider: providerData,
-      requestData: requestData,
-    });
-  };
-
-  const handleCancelRequest = () => {
-    setShowCancelDialog(true);
-  };
-
-  const confirmCancel = () => {
-    setShowCancelDialog(false);
-    Alert.alert(
-      'Request Cancelled',
-      'Your service request has been cancelled',
-      [
-        {
-          text: 'OK',
-          onPress: () => navigation.navigate('CustomerDashboard'),
-        },
-      ]
-    );
+    status: 'Available',
   };
 
   const renderStars = (rating) => {
@@ -128,15 +57,15 @@ const ProviderDetailsScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <BackIcon />
+          <BackIcon color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Provider Details</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Provider Details</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -152,7 +81,7 @@ const ProviderDetailsScreen = ({ navigation, route }) => {
         </View>
 
         {/* Provider Profile Card */}
-        <View style={styles.profileCard}>
+        <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <View style={styles.profileHeader}>
             <View style={styles.profileImageContainer}>
               <View style={styles.profileImage}>
@@ -161,21 +90,21 @@ const ProviderDetailsScreen = ({ navigation, route }) => {
                 </Text>
               </View>
               {providerData.verified && (
-                <View style={styles.verifiedBadge}>
+                <View style={[styles.verifiedBadge, { backgroundColor: colors.background }]}>
                   <CheckIcon />
                 </View>
               )}
             </View>
 
             <View style={styles.profileInfo}>
-              <Text style={styles.providerName}>{providerData.name}</Text>
-              <Text style={styles.serviceType}>{providerData.serviceType}</Text>
+              <Text style={[styles.providerName, { color: colors.text }]}>{providerData.name}</Text>
+              <Text style={[styles.serviceType, { color: colors.textSecondary }]}>{providerData.serviceType}</Text>
               
               <View style={styles.ratingContainer}>
                 <View style={styles.stars}>
                   {renderStars(providerData.rating)}
                 </View>
-                <Text style={styles.ratingText}>
+                <Text style={[styles.ratingText, { color: colors.textSecondary }]}>
                   {providerData.rating} ({providerData.totalReviews} reviews)
                 </Text>
               </View>
@@ -183,40 +112,24 @@ const ProviderDetailsScreen = ({ navigation, route }) => {
           </View>
 
           {/* Stats Row */}
-          <View style={styles.statsRow}>
+          <View style={[styles.statsRow, { borderTopColor: colors.border }]}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{providerData.experienceYears}</Text>
-              <Text style={styles.statLabel}>Years Exp.</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>{providerData.experienceYears}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Years Exp.</Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{providerData.completedJobs}</Text>
-              <Text style={styles.statLabel}>Jobs Done</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>{providerData.completedJobs}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Jobs Done</Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{providerData.distance}</Text>
-              <Text style={styles.statLabel}>Distance</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Arrival Info */}
-        <View style={styles.arrivalCard}>
-          <View style={styles.arrivalIconContainer}>
-            <ClockIcon />
-          </View>
-          <View style={styles.arrivalInfo}>
-            <Text style={styles.arrivalLabel}>Estimated Arrival</Text>
-            <Text style={styles.arrivalTime}>{providerData.estimatedArrival}</Text>
           </View>
         </View>
 
         {/* Skills */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Skills & Expertise</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Skills & Expertise</Text>
           <View style={styles.skillsContainer}>
-            {providerData.skills.map((skill, index) => (
+            {(providerData.skills || []).map((skill, index) => (
               <View key={index} style={styles.skillChip}>
                 <Text style={styles.skillText}>{skill}</Text>
               </View>
@@ -224,88 +137,8 @@ const ProviderDetailsScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* Service Details */}
-        {requestData && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Service Request</Text>
-            <View style={styles.requestCard}>
-              <View style={styles.requestRow}>
-                <Text style={styles.requestLabel}>Category:</Text>
-                <Text style={styles.requestValue}>{requestData.category}</Text>
-              </View>
-              <View style={styles.requestRow}>
-                <Text style={styles.requestLabel}>Urgency:</Text>
-                <Text style={[
-                  styles.requestValue,
-                  requestData.urgency === 'urgent' && styles.urgentText
-                ]}>
-                  {requestData.urgency === 'urgent' ? 'Urgent' : 'Normal'}
-                </Text>
-              </View>
-              {requestData.problemDescription && (
-                <View style={styles.requestDescription}>
-                  <Text style={styles.requestLabel}>Problem:</Text>
-                  <Text style={styles.requestDescriptionText}>
-                    {requestData.problemDescription}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.callButton} onPress={handleCall}>
-            <PhoneIcon />
-            <Text style={styles.actionButtonText}>Call</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.chatButton} onPress={handleChat}>
-            <ChatIcon />
-            <Text style={styles.actionButtonText}>Chat</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Track Button */}
-        <TouchableOpacity style={styles.trackButton} onPress={handleTrack}>
-          <LocationIcon />
-          <Text style={styles.trackButtonText}>Track Live Location</Text>
-        </TouchableOpacity>
-
-        {/* Cancel Button */}
-        <TouchableOpacity style={styles.cancelButton} onPress={handleCancelRequest}>
-          <Text style={styles.cancelButtonText}>Cancel Request</Text>
-        </TouchableOpacity>
-
         <View style={styles.bottomSpacing} />
       </ScrollView>
-
-      {/* Cancel Confirmation Dialog */}
-      {showCancelDialog && (
-        <View style={styles.dialogOverlay}>
-          <View style={styles.dialogContent}>
-            <Text style={styles.dialogTitle}>Cancel Request?</Text>
-            <Text style={styles.dialogMessage}>
-              Are you sure you want to cancel this service request?
-            </Text>
-            <View style={styles.dialogButtons}>
-              <TouchableOpacity
-                style={styles.dialogButtonSecondary}
-                onPress={() => setShowCancelDialog(false)}
-              >
-                <Text style={styles.dialogButtonSecondaryText}>No, Keep It</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.dialogButtonPrimary}
-                onPress={confirmCancel}
-              >
-                <Text style={styles.dialogButtonPrimaryText}>Yes, Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
     </SafeAreaView>
   );
 };
@@ -313,7 +146,6 @@ const ProviderDetailsScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
   },
   
   // Header
@@ -324,7 +156,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
   },
   backButton: {
     width: 40,
@@ -335,7 +166,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: TYPOGRAPHY.headerWeight,
-    color: COLORS.textBlack,
   },
   headerSpacer: {
     width: 40,
@@ -376,12 +206,10 @@ const styles = StyleSheet.create({
 
   // Profile Card
   profileCard: {
-    backgroundColor: COLORS.white,
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -416,7 +244,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -427,12 +254,10 @@ const styles = StyleSheet.create({
   providerName: {
     fontSize: 20,
     fontWeight: TYPOGRAPHY.headerWeight,
-    color: COLORS.textBlack,
     marginBottom: 4,
   },
   serviceType: {
     fontSize: 14,
-    color: COLORS.textGrey,
     marginBottom: 8,
   },
   ratingContainer: {
@@ -445,7 +270,6 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 13,
-    color: COLORS.textGrey,
   },
 
   // Stats Row
@@ -453,7 +277,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
   },
   statItem: {
     flex: 1,
@@ -462,51 +285,14 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.textBlack,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: COLORS.textGrey,
   },
   statDivider: {
     width: 1,
     height: 40,
-    backgroundColor: '#E0E0E0',
-  },
-
-  // Arrival Card
-  arrivalCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F9F5',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: COLORS.primaryGreen,
-  },
-  arrivalIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  arrivalInfo: {
-    flex: 1,
-  },
-  arrivalLabel: {
-    fontSize: 13,
-    color: COLORS.textGrey,
-    marginBottom: 2,
-  },
-  arrivalTime: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.primaryGreen,
   },
 
   // Section
@@ -516,7 +302,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: TYPOGRAPHY.headerWeight,
-    color: COLORS.textBlack,
     marginBottom: 12,
   },
 
@@ -538,182 +323,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: COLORS.primaryGreen,
-  },
-
-  // Request Card
-  requestCard: {
-    backgroundColor: '#F9F9F9',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  requestRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  requestLabel: {
-    fontSize: 14,
-    color: COLORS.textGrey,
-    fontWeight: '500',
-  },
-  requestValue: {
-    fontSize: 14,
-    color: COLORS.textBlack,
-    fontWeight: '600',
-  },
-  urgentText: {
-    color: '#FF4444',
-  },
-  requestDescription: {
-    marginTop: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-  },
-  requestDescriptionText: {
-    fontSize: 14,
-    color: COLORS.textBlack,
-    lineHeight: 20,
-    marginTop: 6,
-  },
-
-  // Action Buttons
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  callButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.primaryGreen,
-    paddingVertical: 14,
-    borderRadius: 12,
-    shadowColor: COLORS.primaryGreen,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  chatButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2196F3',
-    paddingVertical: 14,
-    borderRadius: 12,
-    shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  actionButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.white,
-    marginLeft: 8,
-  },
-
-  // Track Button
-  trackButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.white,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.primaryGreen,
-    marginBottom: 12,
-  },
-  trackButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.primaryGreen,
-    marginLeft: 8,
-  },
-
-  // Cancel Button
-  cancelButton: {
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#FFE5E5',
-    borderWidth: 1,
-    borderColor: '#FF4444',
-  },
-  cancelButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FF4444',
-    textAlign: 'center',
-  },
-
-  // Dialog
-  dialogOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  dialogContent: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-  },
-  dialogTitle: {
-    fontSize: 20,
-    fontWeight: TYPOGRAPHY.headerWeight,
-    color: COLORS.textBlack,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  dialogMessage: {
-    fontSize: 15,
-    color: COLORS.textGrey,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  dialogButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  dialogButtonSecondary: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#F5F5F5',
-  },
-  dialogButtonSecondaryText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.textBlack,
-    textAlign: 'center',
-  },
-  dialogButtonPrimary: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#FF4444',
-  },
-  dialogButtonPrimaryText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.white,
-    textAlign: 'center',
   },
 
   // Bottom Spacing

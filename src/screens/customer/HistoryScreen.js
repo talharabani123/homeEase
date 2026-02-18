@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, SafeArea
 import Svg, { Path, Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
+import { useTheme } from '../../context/ThemeContext';
 
 // Icons
 const SearchIcon = () => (
@@ -34,6 +35,7 @@ const RefreshIcon = () => (
 );
 
 const HistoryScreen = ({ navigation }) => {
+  const { colors } = useTheme();
   // Mock history data
   const [historyData] = useState([
     {
@@ -142,11 +144,11 @@ const HistoryScreen = ({ navigation }) => {
   };
 
   const renderHistoryItem = ({ item }) => (
-    <View style={styles.historyCard}>
+    <View style={[styles.historyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
       <View style={styles.cardHeader}>
         <View style={styles.serviceInfo}>
-          <Text style={styles.serviceType}>{item.serviceType}</Text>
-          <Text style={styles.providerName}>{item.providerName}</Text>
+          <Text style={[styles.serviceType, { color: colors.text }]}>{item.serviceType}</Text>
+          <Text style={[styles.providerName, { color: colors.textSecondary }]}>{item.providerName}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusBgColor(item.status) }]}>
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
@@ -158,24 +160,24 @@ const HistoryScreen = ({ navigation }) => {
       <View style={styles.cardDetails}>
         <View style={styles.detailRow}>
           <CalendarIcon />
-          <Text style={styles.detailText}>{formatDate(item.date)}</Text>
+          <Text style={[styles.detailText, { color: colors.textSecondary }]}>{formatDate(item.date)}</Text>
         </View>
         <Text style={styles.amountText}>Rs {item.amount}</Text>
       </View>
 
       {item.rating > 0 && (
         <View style={styles.ratingRow}>
-          <Text style={styles.ratingLabel}>Your Rating:</Text>
+          <Text style={[styles.ratingLabel, { color: colors.textSecondary }]}>Your Rating:</Text>
           {renderStars(item.rating)}
         </View>
       )}
 
       <View style={styles.cardActions}>
         <TouchableOpacity
-          style={styles.actionButton}
+          style={[styles.actionButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
           onPress={() => handleViewDetails(item)}
         >
-          <Text style={styles.actionButtonText}>View Details</Text>
+          <Text style={[styles.actionButtonText, { color: colors.text }]}>View Details</Text>
         </TouchableOpacity>
         
         {item.status === 'completed' && (
@@ -196,37 +198,37 @@ const HistoryScreen = ({ navigation }) => {
     : historyData.filter(item => item.status === filter);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
+      <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
       
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Service History</Text>
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Service History</Text>
       </View>
 
       {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
+      <View style={[styles.filterContainer, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.filterTab, filter === 'all' && styles.filterTabActive]}
+          style={[styles.filterTab, { backgroundColor: colors.backgroundSecondary }, filter === 'all' && styles.filterTabActive]}
           onPress={() => setFilter('all')}
         >
-          <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
+          <Text style={[styles.filterText, { color: colors.textSecondary }, filter === 'all' && styles.filterTextActive]}>
             All
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.filterTab, filter === 'completed' && styles.filterTabActive]}
+          style={[styles.filterTab, { backgroundColor: colors.backgroundSecondary }, filter === 'completed' && styles.filterTabActive]}
           onPress={() => setFilter('completed')}
         >
-          <Text style={[styles.filterText, filter === 'completed' && styles.filterTextActive]}>
+          <Text style={[styles.filterText, { color: colors.textSecondary }, filter === 'completed' && styles.filterTextActive]}>
             Completed
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.filterTab, filter === 'cancelled' && styles.filterTabActive]}
+          style={[styles.filterTab, { backgroundColor: colors.backgroundSecondary }, filter === 'cancelled' && styles.filterTabActive]}
           onPress={() => setFilter('cancelled')}
         >
-          <Text style={[styles.filterText, filter === 'cancelled' && styles.filterTextActive]}>
+          <Text style={[styles.filterText, { color: colors.textSecondary }, filter === 'cancelled' && styles.filterTextActive]}>
             Cancelled
           </Text>
         </TouchableOpacity>
@@ -244,8 +246,8 @@ const HistoryScreen = ({ navigation }) => {
       ) : (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>📋</Text>
-          <Text style={styles.emptyTitle}>No History Found</Text>
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>No History Found</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             {filter === 'all'
               ? 'You haven\'t booked any services yet'
               : `No ${filter} services found`}
@@ -259,38 +261,31 @@ const HistoryScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
 
   // Header
   header: {
-    backgroundColor: COLORS.white,
     paddingHorizontal: 20,
     paddingVertical: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: TYPOGRAPHY.headerWeight,
-    color: COLORS.textBlack,
   },
 
   // Filter Container
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: COLORS.white,
     paddingHorizontal: 20,
     paddingVertical: 12,
     gap: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
   },
   filterTab: {
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#F5F5F5',
   },
   filterTabActive: {
     backgroundColor: COLORS.primaryGreen,
@@ -298,7 +293,6 @@ const styles = StyleSheet.create({
   filterText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.textGrey,
   },
   filterTextActive: {
     color: COLORS.white,
@@ -311,12 +305,10 @@ const styles = StyleSheet.create({
 
   // History Card
   historyCard: {
-    backgroundColor: COLORS.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -335,12 +327,10 @@ const styles = StyleSheet.create({
   serviceType: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.textBlack,
     marginBottom: 4,
   },
   providerName: {
     fontSize: 14,
-    color: COLORS.textGrey,
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -371,7 +361,6 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
-    color: COLORS.textGrey,
   },
   amountText: {
     fontSize: 18,
@@ -388,7 +377,6 @@ const styles = StyleSheet.create({
   },
   ratingLabel: {
     fontSize: 13,
-    color: COLORS.textGrey,
   },
   starsContainer: {
     flexDirection: 'row',
@@ -404,15 +392,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#F5F5F5',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.textBlack,
   },
   rebookButton: {
     flex: 1,
@@ -444,12 +429,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.textBlack,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 15,
-    color: COLORS.textGrey,
     textAlign: 'center',
     lineHeight: 22,
   },

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, SafeAreaView, FlatList, Alert } from 'react-native';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Circle, Rect as SvgRect } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 
@@ -11,7 +11,7 @@ const WalletIcon = () => (
       d="M6 10h20c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V12c0-1.1.9-2 2-2z"
       fill={COLORS.white}
     />
-    <Rect x="22" y="16" width="4" height="4" rx="1" fill={COLORS.primaryGreen} />
+    <SvgRect x="22" y="16" width="4" height="4" rx="1" fill={COLORS.primaryGreen} />
   </Svg>
 );
 

@@ -6,6 +6,7 @@
  * Example: 35202-1234567-1
  */
 export const validateCNIC = (cnic) => {
+  if (!cnic) return false;
   const cnicRegex = /^[0-9]{5}-[0-9]{7}-[0-9]{1}$/;
   return cnicRegex.test(cnic);
 };
@@ -16,6 +17,9 @@ export const validateCNIC = (cnic) => {
  * Output: 35202-1234567-1
  */
 export const formatCNIC = (value) => {
+  // Safety check
+  if (!value) return '';
+  
   // Remove all non-numeric characters
   const numbers = value.replace(/\D/g, '');
   
@@ -40,6 +44,7 @@ export const formatCNIC = (value) => {
  * Format: +92 XXX XXXX XXX
  */
 export const validatePakistaniPhone = (phone) => {
+  if (!phone) return false;
   const phoneRegex = /^(\+92|0)3[0-9]{9}$/;
   return phoneRegex.test(phone.replace(/\s/g, ''));
 };
@@ -50,6 +55,9 @@ export const validatePakistaniPhone = (phone) => {
  * Output: +92 300 1234 567
  */
 export const formatPakistaniPhone = (value) => {
+  // Safety check
+  if (!value) return '';
+  
   // Remove all non-numeric characters except +
   let numbers = value.replace(/[^\d+]/g, '');
   
@@ -98,6 +106,7 @@ export const formatPakistaniPhone = (value) => {
  * Output: +923001234567
  */
 export const cleanPhoneNumber = (phone) => {
+  if (!phone) return '';
   return phone.replace(/\s/g, '');
 };
 
@@ -105,16 +114,46 @@ export const cleanPhoneNumber = (phone) => {
  * Validates email format
  */
 export const validateEmail = (email) => {
+  if (!email) return false;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 };
 
 /**
  * Validates password strength
- * Minimum 6 characters
+ * Requirements:
+ * - Minimum 8 characters
+ * - At least 1 uppercase letter
+ * - At least 1 lowercase letter
+ * - At least 1 number
+ * - At least 1 special character (@#$%&*!^)
  */
 export const validatePassword = (password) => {
-  return password && password.length >= 6;
+  if (!password || password.length < 8) return false;
+  
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecialChar = /[@#$%&*!^]/.test(password);
+  
+  return hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar;
+};
+
+/**
+ * Validates address
+ * Requirements:
+ * - Minimum 10 characters
+ * - Must contain letters and numbers
+ * - Cannot be just numbers or just letters
+ */
+export const validateAddress = (address) => {
+  if (!address || address.trim().length < 10) return false;
+  
+  const hasLetters = /[a-zA-Z]/.test(address);
+  const hasNumbers = /[0-9]/.test(address);
+  
+  // Must have both letters and numbers (house/street number + street name)
+  return hasLetters && hasNumbers;
 };
 
 /**
@@ -150,6 +189,21 @@ export const getEmailError = (email) => {
  */
 export const getPasswordError = (password) => {
   if (!password) return 'Password is required';
-  if (!validatePassword(password)) return 'Password must be at least 6 characters';
+  if (password.length < 8) return 'Password must be at least 8 characters';
+  if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter';
+  if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter';
+  if (!/[0-9]/.test(password)) return 'Password must contain at least one number';
+  if (!/[@#$%&*!^]/.test(password)) return 'Password must contain at least one special character (@#$%&*!^)';
+  return null;
+};
+
+/**
+ * Get address error message
+ */
+export const getAddressError = (address) => {
+  if (!address || !address.trim()) return 'Address is required';
+  if (address.trim().length < 10) return 'Address must be at least 10 characters';
+  if (!/[a-zA-Z]/.test(address)) return 'Please enter a valid complete address';
+  if (!/[0-9]/.test(address)) return 'Address must include house/street number';
   return null;
 };

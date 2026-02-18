@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+ import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Keyboard } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError } from '../../utils/validation';
+import { KeyboardDismissView } from '../../components/KeyboardDismissView';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -45,6 +46,9 @@ const CustomerLoginScreen = ({ navigation }) => {
 
   const handleLogin = () => {
     if (validateForm()) {
+      // Dismiss keyboard before navigation
+      Keyboard.dismiss();
+      
       if (loginMethod === 'otp') {
         // Navigate to OTP verification
         navigation.navigate('OTPVerification', {
@@ -61,10 +65,7 @@ const CustomerLoginScreen = ({ navigation }) => {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
+    <KeyboardDismissView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Logo />
@@ -150,7 +151,7 @@ const CustomerLoginScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardDismissView>
   );
 };
 
