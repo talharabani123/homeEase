@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, Keyboard } from 'react-native';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
+import { KeyboardDismissView } from '../../components/KeyboardDismissView';
 
 const OTPVerificationScreen = ({ navigation, route }) => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -9,7 +10,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
   const [canResend, setCanResend] = useState(false);
   const inputRefs = useRef([]);
 
-  const { email, isProvider } = route.params || {};
+  const { phoneNumber, verificationType, role, userData, onSuccess, resetMethod } = route.params || {};
 
   useEffect(() => {
     if (timer > 0) {
@@ -32,6 +33,9 @@ const OTPVerificationScreen = ({ navigation, route }) => {
     // Auto-focus next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
+    } else if (value && index === 5) {
+      // Dismiss keyboard when last digit is entered
+      Keyboard.dismiss();
     }
   };
 
@@ -42,15 +46,47 @@ const OTPVerificationScreen = ({ navigation, route }) => {
   };
 
   const handleVerify = () => {
+    // Dismiss keyboard before navigation
+    Keyboard.dismiss();
+    
     const otpCode = otp.join('');
-    console.log('Verify OTP:', otpCode);
+    console.log('Verify OTP:', otpCode, 'Type:', verificationType);
+    
     // TODO: Implement OTP verification API call
-    navigation.navigate('Login');
+    
+    // Handle different verification types
+    if (verificationType === 'password_reset') {
+      // Navigate to reset password screen
+      navigation.navigate('ResetPassword', {
+        phoneNumber,
+        resetMethod,
+      });
+    } else if (verificationType === 'signup' || verificationType === 'provider_signup') {
+      // Call success callback if provided
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        // Default navigation
+        if (role === 'service_provider') {
+          navigation.navigate('PendingVerification');
+        } else {
+          navigation.navigate('CustomerLogin');
+        }
+      }
+    } else {
+      // Login verification
+      if (role === 'service_provider') {
+        // TODO: Check account status
+        navigation.navigate('PendingVerification'); // or ProviderDashboard
+      } else {
+        navigation.navigate('CustomerDashboard');
+      }
+    }
   };
 
   const handleResend = () => {
     if (canResend) {
-      console.log('Resend OTP to:', email);
+      console.log('Resend OTP to:', phoneNumber);
       setTimer(60);
       setCanResend(false);
       setOtp(['', '', '', '', '', '']);
@@ -61,10 +97,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
   const isOtpComplete = otp.every((digit) => digit !== '');
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
+    <KeyboardDismissView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       
       {/* Back Button */}
@@ -82,10 +115,12 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Verify Your Account</Text>
+        <Text style={styles.title}>
+          {verificationType === 'password_reset' ? 'Verify Your Identity' : 'Verify Your Account'}
+        </Text>
         <Text style={styles.subtitle}>
           We've sent a verification code to{'\n'}
-          <Text style={styles.email}>{email || 'your email'}</Text>
+          <Text style={styles.email}>{phoneNumber || 'your phone'}</Text>
         </Text>
 
         {/* OTP Input Fields */}
@@ -138,7 +173,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           Didn't receive the code? Check your spam folder
         </Text>
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardDismissView>
   );
 };
 
