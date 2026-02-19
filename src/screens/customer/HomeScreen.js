@@ -15,8 +15,9 @@ import {
 import Svg, { Circle, Path, G } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
-import { getTopRatedProviders, getRecentServices, saveRecentService } from '../../services/homeDataService';
 import { useTheme } from '../../context/ThemeContext';
+import { getTopRatedProviders, getRecentServices, saveRecentService } from '../../services/homeDataService';
+import { SERVICE_CATEGORIES } from '../../services/mockDataService';
 
 // Get device dimensions for responsive design
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -85,8 +86,8 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const handleRecentServicePress = async (service) => {
-    // Find the full service details from categories
-    const fullService = categories.find(cat => cat.id === service.id);
+    // Find the full service details from SERVICE_CATEGORIES
+    const fullService = SERVICE_CATEGORIES.find(cat => cat.id === service.id);
     if (fullService) {
       await handleServicePress(fullService);
     } else {
@@ -210,7 +211,7 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Popular Services</Text>
           <View style={styles.categoriesGrid}>
-            {categories.map((category) => (
+            {SERVICE_CATEGORIES.map((category) => (
               <TouchableOpacity 
                 key={category.id} 
                 style={styles.categoryCard}
@@ -313,23 +314,6 @@ const HomeScreen = ({ navigation }) => {
     </SafeAreaView>
   );
 };
-
-const categories = [
-  { id: 'plumber', name: 'Plumber', icon: '🔧', priceRange: 'Rs. 500', description: 'Pipe repairs, leak fixing, bathroom & kitchen plumbing' },
-  { id: 'electrician', name: 'Electrician', icon: '💡', priceRange: 'Rs. 600', description: 'Wiring, switch repairs, appliance installation' },
-  { id: 'carpenter', name: 'Carpenter', icon: '🪚', priceRange: 'Rs. 800', description: 'Furniture repair, door & window fixing, custom woodwork' },
-  { id: 'cleaner', name: 'Cleaner', icon: '🧹', priceRange: 'Rs. 1,000', description: 'Deep cleaning, regular cleaning, move-in/out cleaning' },
-  { id: 'painter', name: 'Painter', icon: '🎨', priceRange: 'Rs. 1,500', description: 'Interior & exterior painting, wall texture' },
-  { id: 'ac-repair', name: 'AC Repair', icon: '❄️', priceRange: 'Rs. 700', description: 'AC installation, repair, maintenance, gas refilling' },
-  { id: 'mechanic', name: 'Mechanic', icon: '🔩', priceRange: 'Rs. 1,200', description: 'Car & bike repair, maintenance, oil change' },
-  { id: 'gardener', name: 'Gardener', icon: '🌱', priceRange: 'Rs. 900', description: 'Lawn care, plant maintenance, landscaping' },
-];
-
-const providers = [
-  { id: 1, name: 'Ahmed Khan', service: 'Plumber', rating: 4.8, reviews: 120 },
-  { id: 2, name: 'Ali Raza', service: 'Electrician', rating: 4.9, reviews: 95 },
-  { id: 3, name: 'Hassan Ali', service: 'Carpenter', rating: 4.7, reviews: 80 },
-];
 
 const styles = StyleSheet.create({
   container: {

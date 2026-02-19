@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
-import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError, getEmailError } from '../../utils/validation';
+import { getEmailError } from '../../utils/validation';
+import { sendPasswordResetEmail } from '../../services/firebaseAuthService';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -16,50 +17,48 @@ const Logo = () => (
 );
 
 const ForgotPasswordScreen = ({ navigation, route }) => {
-  const [resetMethod, setResetMethod] = useState('phone'); // 'phone' or 'email'
-  const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
   const [errors, setErrors] = useState({});
-
-  const handlePhoneChange = (value) => {
-    const formatted = formatPakistaniPhone(value);
-    setPhoneNumber(formatted);
-    if (errors.phoneNumber) {
-      setErrors({ ...errors, phoneNumber: null });
-    }
-  };
+  const [loading, setLoading] = useState(false);
 
   const validateForm = () => {
     const newErrors = {};
     
-    if (resetMethod === 'phone') {
-      const phoneError = getPhoneError(phoneNumber);
-      if (phoneError) newErrors.phoneNumber = phoneError;
-    } else {
-      const emailError = getEmailError(email);
-      if (emailError) newErrors.email = emailError;
-      if (!email) newErrors.email = 'Email is required';
-    }
+    const emailError = getEmailError(email);
+    if (emailError) newErrors.email = emailError;
+    if (!email) newErrors.email = 'Email is required';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleResetPassword = () => {
+  const handleResetPassword = async () => {
     if (validateForm()) {
-      if (resetMethod === 'phone') {
-        // Navigate to OTP verification for phone reset
-        navigation.navigate('OTPVerification', {
-          phoneNumber: cleanPhoneNumber(phoneNumber),
-          verificationType: 'password_reset',
-          resetMethod: 'phone',
-        });
-      } else {
-        // TODO: Send email reset link
-        console.log('Send reset email to:', email);
-        // Show success message
-        alert('Password reset link has been sent to your email');
-        navigation.goBack();
+      setLoading(true);
+      
+      try {
+        const result = await sendPasswordResetEmail(email.trim());
+        
+        setLoading(false);
+        
+        if (result.success) {
+          Alert.alert(
+            'Email Sent',
+            'Password reset link has been sent to your email. Please check your inbox.',
+            [
+              {
+                text: 'OK',
+                onPress: () => navigation.goBack()
+              }
+            ]
+          );
+        } else {
+          Alert.alert('Error', result.error || 'Failed to send reset email');
+        }
+      } catch (error) {
+        setLoading(false);
+        Alert.alert('Error', 'Something went wrong. Please try again.');
+        console.error('Password reset error:', error);
       }
     }
   };
@@ -83,86 +82,49 @@ const ForgotPasswordScreen = ({ navigation, route }) => {
 
         <Text style={styles.title}>Reset Password</Text>
         <Text style={styles.subtitle}>
-          Choose how you want to reset your password
+          Enter your email to receive a password reset link
         </Text>
 
-        {/* Reset Method Toggle */}
-        <View style={styles.toggleMethodContainer}>
-          <TouchableOpacity
-            style={[styles.methodButton, resetMethod === 'phone' && styles.methodButtonActive]}
-            onPress={() => setResetMethod('phone')}
-          >
-            <Text style={[styles.methodButtonText, resetMethod === 'phone' && styles.methodButtonTextActive]}>
-              📱 Mobile Number
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.methodButton, resetMethod === 'email' && styles.methodButtonActive]}
-            onPress={() => setResetMethod('email')}
-          >
-            <Text style={[styles.methodButtonText, resetMethod === 'email' && styles.methodButtonTextActive]}>
-              ✉️ Email
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Phone Number Input */}
-        {resetMethod === 'phone' && (
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Phone Number</Text>
-            <TextInput
-              style={[styles.input, errors.phoneNumber && styles.inputError]}
-              placeholder="+92 300 1234 567"
-              placeholderTextColor={COLORS.textGrey}
-              value={phoneNumber}
-              onChangeText={handlePhoneChange}
-              keyboardType="phone-pad"
-            />
-            {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
-            <Text style={styles.helperText}>
-              We'll send an OTP to verify your identity
-            </Text>
-          </View>
-        )}
-
         {/* Email Input */}
-        {resetMethod === 'email' && (
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={[styles.input, errors.email && styles.inputError]}
-              placeholder="your.email@example.com"
-              placeholderTextColor={COLORS.textGrey}
-              value={email}
-              onChangeText={(value) => {
-                setEmail(value);
-                if (errors.email) setErrors({ ...errors, email: null });
-              }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-            <Text style={styles.helperText}>
-              We'll send a password reset link to your email
-            </Text>
-          </View>
-        )}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Email Address</Text>
+          <TextInput
+            style={[styles.input, errors.email && styles.inputError]}
+            placeholder="your.email@example.com"
+            placeholderTextColor={COLORS.textGrey}
+            value={email}
+            onChangeText={(value) => {
+              setEmail(value);
+              if (errors.email) setErrors({ ...errors, email: null });
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+          <Text style={styles.helperText}>
+            We'll send a password reset link to your email
+          </Text>
+        </View>
 
         {/* Info Box */}
         <View style={styles.infoBox}>
           <Text style={styles.infoIcon}>ℹ️</Text>
           <Text style={styles.infoText}>
-            {resetMethod === 'phone'
-              ? 'Make sure you have access to this phone number to receive the OTP'
-              : 'If this email is not registered with your account, you won\'t receive the reset link'}
+            If this email is registered with your account, you'll receive a password reset link
           </Text>
         </View>
 
         {/* Submit Button */}
-        <TouchableOpacity style={styles.primaryButton} onPress={handleResetPassword}>
-          <Text style={styles.primaryButtonText}>
-            {resetMethod === 'phone' ? 'Send OTP' : 'Send Reset Link'}
-          </Text>
+        <TouchableOpacity 
+          style={[styles.primaryButton, loading && styles.primaryButtonDisabled]} 
+          onPress={handleResetPassword}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color={COLORS.white} />
+          ) : (
+            <Text style={styles.primaryButtonText}>Send Reset Link</Text>
+          )}
         </TouchableOpacity>
 
         {/* Back to Login */}
@@ -315,6 +277,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+  },
+  primaryButtonDisabled: {
+    backgroundColor: '#A0A0A0',
   },
   primaryButtonText: {
     fontSize: 16,

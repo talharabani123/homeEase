@@ -1,10 +1,11 @@
  import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Keyboard } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Keyboard, Alert, ActivityIndicator } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
-import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError } from '../../utils/validation';
+import { getEmailError } from '../../utils/validation';
 import { KeyboardDismissView } from '../../components/KeyboardDismissView';
+import { signInWithEmail } from '../../services/firebaseAuthService';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -17,26 +18,19 @@ const Logo = () => (
 );
 
 const CustomerLoginScreen = ({ navigation }) => {
-  const [loginMethod, setLoginMethod] = useState('password'); // 'password' or 'otp'
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
-
-  const handlePhoneChange = (value) => {
-    const formatted = formatPakistaniPhone(value);
-    setPhoneNumber(formatted);
-    if (errors.phoneNumber) {
-      setErrors({ ...errors, phoneNumber: null });
-    }
-  };
+  const [loading, setLoading] = useState(false);
 
   const validateForm = () => {
     const newErrors = {};
     
-    const phoneError = getPhoneError(phoneNumber);
-    if (phoneError) newErrors.phoneNumber = phoneError;
+    const emailError = getEmailError(email);
+    if (emailError) newErrors.email = emailError;
     
-    if (loginMethod === 'password' && !password) {
+    if (!password) {
       newErrors.password = 'Password is required';
     }
     
@@ -44,22 +38,26 @@ const CustomerLoginScreen = ({ navigation }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (validateForm()) {
-      // Dismiss keyboard before navigation
+      setLoading(true);
       Keyboard.dismiss();
       
-      if (loginMethod === 'otp') {
-        // Navigate to OTP verification
-        navigation.navigate('OTPVerification', {
-          phoneNumber: cleanPhoneNumber(phoneNumber),
-          verificationType: 'login',
-          role: 'customer',
-        });
-      } else {
-        // TODO: Implement password login API call
-        console.log('Login with password:', { phoneNumber: cleanPhoneNumber(phoneNumber), password });
-        // navigation.navigate('CustomerDashboard');
+      try {
+        const result = await signInWithEmail(email.trim(), password);
+        
+        setLoading(false);
+        
+        if (result.success) {
+          // Navigate to dashboard
+          navigation.navigate('CustomerDashboard');
+        } else {
+          Alert.alert('Login Failed', result.error || 'Failed to sign in');
+        }
+      } catch (error) {
+        setLoading(false);
+        Alert.alert('Error', 'Something went wrong. Please try again.');
+        console.error('Login error:', error);
       }
     }
   };
@@ -73,46 +71,30 @@ const CustomerLoginScreen = ({ navigation }) => {
         <Text style={styles.title}>Welcome Back</Text>
         <Text style={styles.subtitle}>Sign in to continue</Text>
 
-        {/* Login Method Toggle */}
-        <View style={styles.toggleMethodContainer}>
-          <TouchableOpacity
-            style={[styles.methodButton, loginMethod === 'password' && styles.methodButtonActive]}
-            onPress={() => setLoginMethod('password')}
-          >
-            <Text style={[styles.methodButtonText, loginMethod === 'password' && styles.methodButtonTextActive]}>
-              Password
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.methodButton, loginMethod === 'otp' && styles.methodButtonActive]}
-            onPress={() => setLoginMethod('otp')}
-          >
-            <Text style={[styles.methodButtonText, loginMethod === 'otp' && styles.methodButtonTextActive]}>
-              OTP
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Phone Number */}
+        {/* Email */}
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Phone Number</Text>
+          <Text style={styles.label}>Email</Text>
           <TextInput
-            style={[styles.input, errors.phoneNumber && styles.inputError]}
-            placeholder="+92 300 1234 567"
+            style={[styles.input, errors.email && styles.inputError]}
+            placeholder="your.email@example.com"
             placeholderTextColor={COLORS.textGrey}
-            value={phoneNumber}
-            onChangeText={handlePhoneChange}
-            keyboardType="phone-pad"
+            value={email}
+            onChangeText={(value) => {
+              setEmail(value);
+              if (errors.email) setErrors({ ...errors, email: null });
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
           />
-          {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
+          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
         </View>
 
-        {/* Password (only if password method selected) */}
-        {loginMethod === 'password' && (
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
+        {/* Password */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Password</Text>
+          <View style={styles.passwordContainer}>
             <TextInput
-              style={[styles.input, errors.password && styles.inputError]}
+              style={[styles.passwordInput, errors.password && styles.inputError]}
               placeholder="Enter your password"
               placeholderTextColor={COLORS.textGrey}
               value={password}
@@ -120,27 +102,56 @@ const CustomerLoginScreen = ({ navigation }) => {
                 setPassword(value);
                 if (errors.password) setErrors({ ...errors, password: null });
               }}
-              secureTextEntry
+              secureTextEntry={!showPassword}
             />
-            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Svg width="20" height="20" viewBox="0 0 20 20">
+                {showPassword ? (
+                  <Path
+                    d="M10 4C5 4 1.73 7.11 1 10c.73 2.89 4 6 9 6s8.27-3.11 9-6c-.73-2.89-4-6-9-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+                    fill={COLORS.textGrey}
+                  />
+                ) : (
+                  <>
+                    <Path
+                      d="M10 4C5 4 1.73 7.11 1 10c.73 2.89 4 6 9 6s8.27-3.11 9-6c-.73-2.89-4-6-9-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"
+                      fill={COLORS.textGrey}
+                    />
+                    <Path
+                      d="M2 2l16 16"
+                      stroke={COLORS.textGrey}
+                      strokeWidth="2"
+                    />
+                  </>
+                )}
+              </Svg>
+            </TouchableOpacity>
           </View>
-        )}
+          {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+        </View>
 
         {/* Forgot Password */}
-        {loginMethod === 'password' && (
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ForgotPassword')}
-            style={styles.forgotPasswordContainer}
-          >
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('ForgotPassword')}
+          style={styles.forgotPasswordContainer}
+        >
+          <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+        </TouchableOpacity>
 
         {/* Login Button */}
-        <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>
-          <Text style={styles.primaryButtonText}>
-            {loginMethod === 'otp' ? 'Send OTP' : 'Sign In'}
-          </Text>
+        <TouchableOpacity 
+          style={[styles.primaryButton, loading && styles.primaryButtonDisabled]} 
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color={COLORS.white} />
+          ) : (
+            <Text style={styles.primaryButtonText}>Sign In</Text>
+          )}
         </TouchableOpacity>
 
         {/* Signup Link */}
@@ -219,6 +230,26 @@ const styles = StyleSheet.create({
   methodButtonTextActive: {
     color: COLORS.primaryGreen,
   },
+  passwordContainer: {
+    position: 'relative',
+  },
+  passwordInput: {
+    height: 52,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingRight: 50,
+    fontSize: 15,
+    color: COLORS.textBlack,
+    backgroundColor: '#F9F9F9',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+    padding: 4,
+  },
   inputContainer: {
     marginBottom: 20,
   },
@@ -267,6 +298,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+  },
+  primaryButtonDisabled: {
+    backgroundColor: '#A0A0A0',
   },
   primaryButtonText: {
     fontSize: 16,
