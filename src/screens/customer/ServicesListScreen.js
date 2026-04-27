@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, TextInput } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
-import { TYPOGRAPHY } from '../../constants/typography';
+import ScreenWrapper from '../../components/ScreenWrapper';
 
 const ServicesListScreen = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -17,8 +17,8 @@ const ServicesListScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
+    <ScreenWrapper variant="default">
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       
       {/* Header */}
       <View style={styles.header}>
@@ -86,7 +86,7 @@ const ServicesListScreen = ({ navigation }) => {
           </View>
         )}
       </ScrollView>
-    </View>
+    </ScreenWrapper>
   );
 };
 
@@ -168,7 +168,7 @@ const SERVICES = [
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',

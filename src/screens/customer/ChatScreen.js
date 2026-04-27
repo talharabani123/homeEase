@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
-import { TYPOGRAPHY } from '../../constants/typography';
+import ScreenWrapper from '../../components/ScreenWrapper';
 // import { sendMessage, listenToMessages, markMessagesAsRead } from '../../services/chatService';
 
 const ChatScreen = ({ navigation, route }) => {
@@ -86,11 +86,13 @@ const ChatScreen = ({ navigation, route }) => {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
+    <ScreenWrapper variant="default" useSafeArea={false}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -169,6 +171,7 @@ const ChatScreen = ({ navigation, route }) => {
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
+    </ScreenWrapper>
   );
 };
 
@@ -211,7 +214,7 @@ const MOCK_MESSAGES = [
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',

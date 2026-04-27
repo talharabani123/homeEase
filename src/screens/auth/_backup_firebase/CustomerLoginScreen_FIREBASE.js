@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { COLORS } from '../../constants/colors';
-import { TYPOGRAPHY } from '../../constants/typography';
-import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError } from '../../utils/validation';
-import { KeyboardDismissView } from '../../components/KeyboardDismissView';
-import { sendOTP, getUserProfile } from '../../services/firebaseAuthService';
+import { COLORS } from '../../../constants/colors';
+import { TYPOGRAPHY } from '../../../constants/typography';
+import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError } from '../../../utils/validation';
+import { KeyboardDismissView } from '../../../components/KeyboardDismissView';
+import { sendOTP, getUserProfile } from '../../../services/firebaseAuthService';
 import { CommonActions } from '@react-navigation/native';
 
 const Logo = () => (

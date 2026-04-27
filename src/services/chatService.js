@@ -1,10 +1,19 @@
 /**
  * In-App Chat Service
  * Real-time messaging between customer and provider using Firebase Realtime Database
+ * 
+ * COMMENTED OUT FOR EXPO GO - Firebase doesn't work in Expo Go
  */
 
+/*
 import database from '@react-native-firebase/database';
 import auth from '@react-native-firebase/auth';
+*/
+
+// Mock exports for Expo Go
+export const sendMessage = async () => ({ success: true });
+export const listenToMessages = (requestId, callback) => { callback([]); return () => {}; };
+export const markMessagesAsRead = async () => ({ success: true });
 
 /**
  * Send a message

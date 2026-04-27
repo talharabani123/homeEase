@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView, Switch, Alert } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import ScreenWrapper from '../../components/ScreenWrapper';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import ScreenHeader from '../../components/ScreenHeader';
@@ -183,8 +184,9 @@ const SettingsScreen = ({ navigation }) => {
   ];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
-      <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
+    <ScreenWrapper variant="light">
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+        <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" />
       
       {/* Header with Menu */}
       <ScreenHeader title="Settings" showBack={true} showMenu={false} navigation={navigation} />
@@ -244,6 +246,7 @@ const SettingsScreen = ({ navigation }) => {
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 

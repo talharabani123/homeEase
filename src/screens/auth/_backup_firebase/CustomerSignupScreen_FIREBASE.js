@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react';
 import Svg, { Circle } from 'react-native-svg';
-import { COLORS } from '../../constants/colors';
-import { TYPOGRAPHY } from '../../constants/typography';
-import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError, getPasswordError } from '../../utils/validation';
-import { KeyboardDismissView } from '../../components/KeyboardDismissView';
-import { sendOTP } from '../../services/firebaseAuthService';
+import { COLORS } from '../../../constants/colors';
+import { TYPOGRAPHY } from '../../../constants/typography';
+import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError, getPasswordError } from '../../../utils/validation';
+import { KeyboardDismissView } from '../../../components/KeyboardDismissView';
+import { sendOTP } from '../../../services/firebaseAuthService';
 
 const Logo = () => (
   <View style={styles.logoContainer}>

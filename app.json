@@ -1,9 +1,10 @@
-{
+﻿{
   "expo": {
     "name": "HomeEase",
     "slug": "homeease",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "homeease",
     "userInterfaceStyle": "light",
     "assetBundlePatterns": [
       "**/*"
@@ -12,11 +13,37 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.homeease.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "We need your location to show nearby service providers",
+        "NSLocationAlwaysUsageDescription": "We need your location to provide real-time tracking"
+      },
+      "associatedDomains": [
+        "applinks:homeease-97b9d.firebaseapp.com"
+      ]
     },
     "android": {
-      "package": "com.homeease.app"
+      "package": "com.homeease.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "homeease-97b9d.firebaseapp.com",
+              "pathPrefix": "/finishSignUp"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {},
     "extra": {

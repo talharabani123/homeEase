@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, Keyboard, Alert, ActivityIndicator } from 'react-native';
-import { COLORS } from '../../constants/colors';
-import { TYPOGRAPHY } from '../../constants/typography';
-import { KeyboardDismissView } from '../../components/KeyboardDismissView';
-import { verifyOTP, createUserProfile, sendOTP } from '../../services/firebaseAuthService';
+import { COLORS } from '../../../constants/colors';
+import { TYPOGRAPHY } from '../../../constants/typography';
+import { KeyboardDismissView } from '../../../components/KeyboardDismissView';
+import { verifyOTP, createUserProfile, sendOTP } from '../../../services/firebaseAuthService';
 import { CommonActions } from '@react-navigation/native';
 
 const OTPVerificationScreen = ({ navigation, route }) => {

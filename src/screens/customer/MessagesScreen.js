@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, SafeAreaView, Image, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Image, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { useTheme } from '../../context/ThemeContext';
+import ScreenWrapper from '../../components/ScreenWrapper';
 // import { getUserConversations, deleteConversation } from '../../services/chatService';
 
 // Icons
@@ -186,8 +187,8 @@ const MessagesScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
-      <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
+    <ScreenWrapper variant="default">
+      <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" translucent />
       
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
@@ -221,7 +222,7 @@ const MessagesScreen = ({ navigation }) => {
           }
         />
       )}
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 
@@ -302,6 +303,7 @@ const MOCK_CONVERSATIONS = [
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
 
   // Header

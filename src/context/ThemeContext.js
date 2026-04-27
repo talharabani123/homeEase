@@ -41,14 +41,14 @@ export const ThemeProvider = ({ children }) => {
     }
   };
 
-  const theme = {
-    isDarkMode,
+  const value = {
     colors: isDarkMode ? darkColors : lightColors,
+    isDarkMode,
     toggleTheme,
   };
 
   return (
-    <ThemeContext.Provider value={theme}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

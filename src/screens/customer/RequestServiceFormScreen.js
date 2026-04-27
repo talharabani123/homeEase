@@ -1,23 +1,52 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, StatusBar } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
-import { TYPOGRAPHY } from '../../constants/typography';
-// import { createInstantRequest } from '../../services/realTimeServiceSystem';
-// import auth from '@react-native-firebase/auth';
+import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { getCurrentLocation, getAddressFromCoords } from '../../services/locationService';
+import ScreenWrapper from '../../components/ScreenWrapper';
 
 const RequestServiceFormScreen = ({ navigation, route }) => {
+  const { colors } = useTheme();
+  const { user } = useAuth();
   const { service } = route.params;
   
   const [formData, setFormData] = useState({
     address: '',
     description: '',
-    latitude: 24.8607, // Mock location - Karachi
-    longitude: 67.0011,
+    latitude: null,
+    longitude: null,
   });
   
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [loadingLocation, setLoadingLocation] = useState(false);
+
+  useEffect(() => {
+    // Get current location on mount
+    fetchCurrentLocation();
+  }, []);
+
+  const fetchCurrentLocation = async () => {
+    setLoadingLocation(true);
+    const result = await getCurrentLocation();
+    
+    if (result.success) {
+      const { latitude, longitude } = result.location;
+      setFormData(prev => ({ ...prev, latitude, longitude }));
+      
+      // Get address from coordinates
+      const addressResult = await getAddressFromCoords(latitude, longitude);
+      if (addressResult.success) {
+        setFormData(prev => ({ ...prev, address: addressResult.address }));
+      }
+    } else {
+      Alert.alert('Location Error', 'Could not get your location. Please enter address manually.');
+    }
+    
+    setLoadingLocation(false);
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -41,78 +70,69 @@ const RequestServiceFormScreen = ({ navigation, route }) => {
       return;
     }
 
+    if (!formData.latitude || !formData.longitude) {
+      Alert.alert('Location Required', 'Please allow location access or enter your address');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Mock implementation for Expo Go
-      // In production, uncomment the Firebase code below
-      
-      /*
-      const currentUser = auth().currentUser;
-      
+      // Build request data to pass along with location
       const requestData = {
-        serviceType: service.id,
+        customerId: user?.id || 'customer_' + Date.now(),
+        customerName: user?.fullName || 'Customer',
+        customerPhone: user?.phone || '+92 300 1234567',
+        
+        serviceType: service.id || service.name.toLowerCase().replace(/\s+/g, '_'),
+        serviceName: service.name,
         description: formData.description.trim(),
-        latitude: formData.latitude,
-        longitude: formData.longitude,
-        address: formData.address.trim(),
-        customerName: currentUser?.displayName || '',
-        customerPhone: currentUser?.phoneNumber || '',
+        
+        location: {
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          address: formData.address
+        },
+        
+        radius: 10 // 10km search radius
       };
 
-      const result = await createInstantRequest(requestData);
-
-      if (result.success) {
-        // Navigate to offers screen to see provider bids
-        navigation.navigate('OfferList', { 
-          requestId: result.requestId,
-          serviceType: service.name
-        });
-      } else {
-        Alert.alert('Error', result.error || 'Failed to submit request');
-      }
-      */
-
-      // Mock success for Expo Go - Navigate to offers screen
-      setTimeout(() => {
-        setLoading(false);
-        navigation.navigate('OfferList', { 
-          requestId: 'mock_request_123',
-          serviceType: service.name,
-          serviceIcon: service.icon
-        });
-      }, 1000);
+      setLoading(false);
+      // Navigate to nearby providers list — user picks a provider first
+      navigation.replace('NearbyProviders', {
+        service,
+        formData: requestData,
+      });
     } catch (error) {
       setLoading(false);
       console.error('Submit error:', error);
-      Alert.alert('Error', 'An unexpected error occurred');
+      Alert.alert('Error', 'Something went wrong. Please try again.');
     }
   };
 
-
-
   return (
-    <View style={styles.container}>
+    <ScreenWrapper variant="default">
+      <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" translucent />
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Svg width="24" height="24" viewBox="0 0 24 24">
-            <Path d="M15 18 L9 12 L15 6" stroke={COLORS.textBlack} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            <Path d="M15 18 L9 12 L15 6" stroke={colors.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </Svg>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Request Service</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Request Service</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Service Info */}
-        <View style={styles.serviceInfo}>
-          <View style={styles.serviceIcon}>
+        <View style={[styles.serviceInfo, { backgroundColor: colors.primaryLight, borderBottomColor: colors.border }]}>
+          <View style={[styles.serviceIcon, { backgroundColor: colors.card }]}>
             <Text style={styles.serviceEmoji}>{service.icon}</Text>
           </View>
           <View style={styles.serviceDetails}>
-            <Text style={styles.serviceName}>{service.name}</Text>
-            <Text style={styles.servicePrice}>Starting from {service.priceRange}</Text>
+            <Text style={[styles.serviceName, { color: colors.text }]}>{service.name}</Text>
+            <Text style={[styles.servicePrice, { color: colors.textSecondary }]}>Starting from {service.priceRange}</Text>
           </View>
         </View>
 
@@ -123,7 +143,14 @@ const RequestServiceFormScreen = ({ navigation, route }) => {
             <Svg width="20" height="20" viewBox="0 0 20 20">
               <Path d="M10 2 C6.5 2 4 4.5 4 8 C4 12 10 18 10 18 C10 18 16 12 16 8 C16 4.5 13.5 2 10 2 Z M10 10 A2 2 0 1 1 10 6 A2 2 0 1 1 10 10 Z" fill={COLORS.primaryGreen} />
             </Svg>
-            <Text style={styles.locationText}>Using your current location</Text>
+            <Text style={styles.locationText}>
+              {loadingLocation ? 'Getting your location...' : 'Using your current location'}
+            </Text>
+            {!loadingLocation && (
+              <TouchableOpacity onPress={fetchCurrentLocation} style={styles.refreshButton}>
+                <Text style={styles.refreshText}>↻</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Address */}
@@ -210,14 +237,14 @@ const RequestServiceFormScreen = ({ navigation, route }) => {
           </Text>
         </View>
       </ScrollView>
-    </View>
+    </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
@@ -390,6 +417,15 @@ const styles = StyleSheet.create({
     color: COLORS.primaryGreen,
     fontWeight: '600',
     marginLeft: 8,
+    flex: 1,
+  },
+  refreshButton: {
+    padding: 4,
+  },
+  refreshText: {
+    fontSize: 20,
+    color: COLORS.primaryGreen,
+    fontWeight: 'bold',
   },
   loadingContainer: {
     flexDirection: 'row',

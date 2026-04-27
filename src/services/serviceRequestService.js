@@ -1,18 +1,27 @@
 /**
  * Service Request Service
  * Handles all service request operations with Firebase Realtime Database
+ * 
+ * COMMENTED OUT FOR EXPO GO - Firebase doesn't work in Expo Go
  */
 
+/*
 import database from '@react-native-firebase/database';
 import storage from '@react-native-firebase/storage';
 import auth from '@react-native-firebase/auth';
+*/
+
+// Mock exports for Expo Go
+export const createServiceRequest = async () => ({ success: true, requestId: 'mock_123' });
+export const getServiceRequests = async () => ({ success: true, requests: [] });
+export const updateServiceRequest = async () => ({ success: true });
 
 /**
  * Create a new service request
  * @param {object} requestData - Request details
  * @returns {Promise<object>} - { success, requestId, error }
  */
-export const createServiceRequest = async (requestData) => {
+// export const createServiceRequest = async (requestData) => {
   try {
     const currentUser = auth().currentUser;
     

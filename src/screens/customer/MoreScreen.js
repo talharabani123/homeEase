@@ -1,23 +1,90 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView, Image, Alert, ActivityIndicator } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import ScreenWrapper from '../../components/ScreenWrapper';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { getUserData, clearUserData } from '../../services/userStorageService';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { getUserRole, canSwitchToProvider } from '../../services/roleManagementService';
+import { getProviderProfile } from '../../services/providerRegistrationService';
 
 const MoreScreen = ({ navigation }) => {
   const { colors } = useTheme();
+  const { currentMode, switchMode } = useAuth();
   const [userData, setUserData] = useState(null);
+  const [userRole, setUserRole] = useState('customer');
+  const [providerStatus, setProviderStatus] = useState(null);
+  const [canSwitch, setCanSwitch] = useState(false);
+  const [switchingMode, setSwitchingMode] = useState(false);
 
   useEffect(() => {
     loadUserData();
+    checkProviderStatus();
   }, []);
 
   const loadUserData = async () => {
     const result = await getUserData();
     if (result.success && result.data) {
       setUserData(result.data);
+    }
+  };
+
+  const checkProviderStatus = async () => {
+    try {
+      // Get user role
+      const roleResult = await getUserRole();
+      if (roleResult.success) {
+        setUserRole(roleResult.role);
+      }
+
+      // Check if user can switch to provider mode
+      const canSwitchResult = await canSwitchToProvider();
+      setCanSwitch(canSwitchResult);
+
+      // Get provider profile if exists
+      const profileResult = await getProviderProfile();
+      if (profileResult.success && profileResult.data) {
+        setProviderStatus(profileResult.data);
+      }
+    } catch (error) {
+      console.error('Error checking provider status:', error);
+    }
+  };
+
+  const handleSwitchMode = async () => {
+    try {
+      setSwitchingMode(true);
+      
+      const newMode = currentMode === 'customer' ? 'provider' : 'customer';
+      const result = await switchMode(newMode);
+      
+      if (result.success) {
+        Alert.alert(
+          'Mode Switched',
+          `You are now in ${newMode === 'provider' ? 'Provider' : 'Customer'} mode`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                if (newMode === 'provider') {
+                  navigation.navigate('ProviderDashboard');
+                } else {
+                  navigation.navigate('CustomerDashboard');
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Failed to switch mode');
+      }
+    } catch (error) {
+      console.error('Switch mode error:', error);
+      Alert.alert('Error', 'Something went wrong');
+    } finally {
+      setSwitchingMode(false);
     }
   };
 
@@ -39,7 +106,69 @@ const MoreScreen = ({ navigation }) => {
     );
   };
 
+  // Dynamic provider/mode button based on user role and status
+  const getProviderButton = () => {
+    // If user is verified provider (can switch modes)
+    if (canSwitch && providerStatus?.isVerified) {
+      return {
+        id: 'switchMode',
+        label: currentMode === 'customer' ? 'Switch to Provider Mode' : 'Switch to Customer Mode',
+        subtitle: currentMode === 'customer' ? 'Start receiving job requests' : 'Browse and hire services',
+        icon: () => (
+          <Svg width="24" height="24" viewBox="0 0 24 24">
+            <Path
+              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"
+              fill="#10B981"
+            />
+          </Svg>
+        ),
+        onPress: handleSwitchMode,
+        highlight: true,
+        loading: switchingMode,
+      };
+    }
+    
+    // If user is pending verification
+    if (providerStatus && !providerStatus.isVerified) {
+      return {
+        id: 'pendingVerification',
+        label: 'Provider Registration Pending',
+        subtitle: 'Your application is under review',
+        icon: () => (
+          <Svg width="24" height="24" viewBox="0 0 24 24">
+            <Path
+              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+              fill="#F59E0B"
+            />
+          </Svg>
+        ),
+        onPress: () => navigation.navigate('SubmissionStatus'),
+        highlight: true,
+      };
+    }
+    
+    // Default: Show "Become a Provider" for customers
+    return {
+      id: 'provider',
+      label: 'Earn as a Service Provider',
+      subtitle: 'Register and start earning',
+      icon: () => (
+        <Svg width="24" height="24" viewBox="0 0 24 24">
+          <Path
+            d="M20 6h-2.18c.11-.31.18-.65.18-1 0-1.66-1.34-3-3-3-1.05 0-1.96.54-2.5 1.35l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z"
+            fill="#F59E0B"
+          />
+        </Svg>
+      ),
+      onPress: () => navigation.navigate('ProviderRegistrationIntro'),
+      highlight: true,
+    };
+  };
+
+  const providerButton = getProviderButton();
+
   const menuItems = [
+    providerButton,
     {
       id: 'payment',
       label: 'Payment Methods',
@@ -136,8 +265,9 @@ const MoreScreen = ({ navigation }) => {
   const initials = userData?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
-      <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
+    <ScreenWrapper variant="default">
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+        <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" />
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
@@ -171,16 +301,30 @@ const MoreScreen = ({ navigation }) => {
           {menuItems.map((item) => (
             <TouchableOpacity
               key={item.id}
-              style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
+              style={[
+                styles.menuItem, 
+                { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                item.highlight && { borderColor: '#F59E0B', borderWidth: 2, backgroundColor: '#FEF3C7' }
+              ]}
               onPress={item.onPress}
+              disabled={item.loading}
             >
               <View style={styles.menuIconContainer}>
                 {item.icon()}
               </View>
-              <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>
-              <Svg width="20" height="20" viewBox="0 0 20 20">
-                <Path d="M7 6 L13 10 L7 14" stroke={colors.textSecondary} strokeWidth="2" fill="none" />
-              </Svg>
+              <View style={styles.menuContent}>
+                <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>
+                {item.subtitle && (
+                  <Text style={[styles.menuSubtitle, { color: colors.textSecondary }]}>{item.subtitle}</Text>
+                )}
+              </View>
+              {item.loading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Svg width="20" height="20" viewBox="0 0 20 20">
+                  <Path d="M7 6 L13 10 L7 14" stroke={colors.textSecondary} strokeWidth="2" fill="none" />
+                </Svg>
+              )}
             </TouchableOpacity>
           ))}
         </View>
@@ -199,6 +343,7 @@ const MoreScreen = ({ navigation }) => {
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 
@@ -280,10 +425,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 16,
   },
-  menuLabel: {
+  menuContent: {
     flex: 1,
+  },
+  menuLabel: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  menuSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
   },
   logoutButton: {
     flexDirection: 'row',

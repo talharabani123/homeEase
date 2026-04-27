@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import Svg, { Path, Rect as SvgRect, Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
-import { TYPOGRAPHY } from '../../constants/typography';
 import ScreenHeader from '../../components/ScreenHeader';
 import { useTheme } from '../../context/ThemeContext';
+import ScreenWrapper from '../../components/ScreenWrapper';
 
 const PaymentMethodsScreen = ({ navigation }) => {
   const { colors } = useTheme();
@@ -71,8 +71,8 @@ const PaymentMethodsScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
-      <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
+    <ScreenWrapper variant="default">
+      <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" translucent />
       
       {/* Header with Menu */}
       <ScreenHeader title="Payment Methods" showBack={true} showMenu={false} navigation={navigation} />
@@ -127,13 +127,14 @@ const PaymentMethodsScreen = ({ navigation }) => {
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',

@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Alert, Linking } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
-import { TYPOGRAPHY } from '../../constants/typography';
+import { useTheme } from '../../context/ThemeContext';
+import ScreenWrapper from '../../components/ScreenWrapper';
 
 const SafetyScreen = ({ navigation }) => {
+  const { colors } = useTheme();
   const handleEmergencyCall = () => {
     Alert.alert(
       'Emergency Contact',
@@ -88,18 +90,18 @@ const SafetyScreen = ({ navigation }) => {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
+    <ScreenWrapper variant="default">
+      <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" translucent />
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Svg width="24" height="24" viewBox="0 0 24 24">
-              <Path d="M15 18 L9 12 L15 6" stroke={COLORS.textBlack} strokeWidth="2" fill="none" />
+              <Path d="M15 18 L9 12 L15 6" stroke={colors.text} strokeWidth="2" fill="none" />
             </Svg>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Safety Information</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Safety Information</Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -123,16 +125,16 @@ const SafetyScreen = ({ navigation }) => {
 
         {/* Safety Tips */}
         <View style={styles.tipsSection}>
-          <Text style={styles.sectionTitle}>Safety Guidelines</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Safety Guidelines</Text>
           
           {safetyTips.map((tip) => (
-            <View key={tip.id} style={styles.tipCard}>
-              <View style={styles.tipIcon}>
+            <View key={tip.id} style={[styles.tipCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+              <View style={[styles.tipIcon, { backgroundColor: colors.primaryLight }]}>
                 {tip.icon()}
               </View>
               <View style={styles.tipContent}>
-                <Text style={styles.tipTitle}>{tip.title}</Text>
-                <Text style={styles.tipDescription}>{tip.description}</Text>
+                <Text style={[styles.tipTitle, { color: colors.text }]}>{tip.title}</Text>
+                <Text style={[styles.tipDescription, { color: colors.textSecondary }]}>{tip.description}</Text>
               </View>
             </View>
           ))}
@@ -140,38 +142,38 @@ const SafetyScreen = ({ navigation }) => {
 
         {/* Additional Resources */}
         <View style={styles.resourcesSection}>
-          <Text style={styles.sectionTitle}>Additional Resources</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Additional Resources</Text>
           
-          <TouchableOpacity style={styles.resourceCard}>
-            <Text style={styles.resourceTitle}>Safety Center</Text>
+          <TouchableOpacity style={[styles.resourceCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.resourceTitle, { color: colors.text }]}>Safety Center</Text>
             <Svg width="20" height="20" viewBox="0 0 20 20">
-              <Path d="M7 6 L13 10 L7 14" stroke={COLORS.textGrey} strokeWidth="2" fill="none" />
+              <Path d="M7 6 L13 10 L7 14" stroke={colors.textSecondary} strokeWidth="2" fill="none" />
             </Svg>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.resourceCard}>
-            <Text style={styles.resourceTitle}>Community Guidelines</Text>
+          <TouchableOpacity style={[styles.resourceCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.resourceTitle, { color: colors.text }]}>Community Guidelines</Text>
             <Svg width="20" height="20" viewBox="0 0 20 20">
-              <Path d="M7 6 L13 10 L7 14" stroke={COLORS.textGrey} strokeWidth="2" fill="none" />
+              <Path d="M7 6 L13 10 L7 14" stroke={colors.textSecondary} strokeWidth="2" fill="none" />
             </Svg>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.resourceCard}>
-            <Text style={styles.resourceTitle}>Report Safety Concern</Text>
+          <TouchableOpacity style={[styles.resourceCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.resourceTitle, { color: colors.text }]}>Report Safety Concern</Text>
             <Svg width="20" height="20" viewBox="0 0 20 20">
-              <Path d="M7 6 L13 10 L7 14" stroke={COLORS.textGrey} strokeWidth="2" fill="none" />
+              <Path d="M7 6 L13 10 L7 14" stroke={colors.textSecondary} strokeWidth="2" fill="none" />
             </Svg>
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'transparent',
   },
   scrollView: {
     flex: 1,
@@ -180,11 +182,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.white,
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
   },
   backButton: {
     width: 40,
@@ -195,7 +195,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.textBlack,
   },
   emergencySection: {
     padding: 20,
@@ -241,23 +240,19 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.textBlack,
     marginBottom: 16,
   },
   tipCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.white,
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
   tipIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F0F9F5',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -268,12 +263,10 @@ const styles = StyleSheet.create({
   tipTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.textBlack,
     marginBottom: 4,
   },
   tipDescription: {
     fontSize: 14,
-    color: COLORS.textGrey,
     lineHeight: 20,
   },
   resourcesSection: {
@@ -283,17 +276,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.white,
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
   resourceTitle: {
     fontSize: 15,
     fontWeight: '500',
-    color: COLORS.textBlack,
   },
 });
 

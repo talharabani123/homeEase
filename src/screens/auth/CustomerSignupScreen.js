@@ -7,7 +7,7 @@ import { TYPOGRAPHY } from '../../constants/typography';
 import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError, getPasswordError, getAddressError, getEmailError } from '../../utils/validation';
 import RegistrationSuccessModal from '../../components/RegistrationSuccessModal';
 import { KeyboardDismissView } from '../../components/KeyboardDismissView';
-import { saveUserData } from '../../services/userStorageService';
+import { sendEmailOTP } from '../../services/emailOTPService';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -135,40 +135,36 @@ const CustomerSignupScreen = ({ navigation }) => {
       Keyboard.dismiss();
       
       try {
-        // Prepare user data (never save plain password)
+        // Prepare user data for later account creation
         const userData = {
-          fullName: formData.fullName.trim(),
-          phoneNumber: cleanPhoneNumber(formData.phoneNumber),
           email: formData.email.trim(),
+          password: formData.password,
+          fullName: formData.fullName.trim(),
+          phone: cleanPhoneNumber(formData.phoneNumber),
           address: formData.address.trim(),
-          profileImage: formData.profileImage,
           role: 'customer',
-          createdAt: new Date().toISOString(),
         };
 
-        // Save to local storage
-        const result = await saveUserData(userData);
+        // Send OTP to email
+        const result = await sendEmailOTP(formData.email.trim(), 'signup');
+        
+        setLoading(false);
         
         if (result.success) {
-          setLoading(false);
-          // Show success and navigate to home
-          Alert.alert(
-            'Success!',
-            'Your account has been created successfully.',
-            [
-              {
-                text: 'Get Started',
-                onPress: () => navigation.navigate('CustomerDashboard')
-              }
-            ]
-          );
+          // Navigate to OTP verification screen
+          navigation.navigate('EmailOTPVerification', {
+            email: formData.email.trim(),
+            userData: userData,
+            otpId: result.otpId,
+            devOTP: result.devOTP, // Only for development
+          });
         } else {
-          setLoading(false);
-          Alert.alert('Error', 'Failed to save user data. Please try again.');
+          Alert.alert('Error', result.error || 'Failed to send OTP');
         }
       } catch (error) {
         setLoading(false);
         Alert.alert('Error', 'Something went wrong. Please try again.');
+        console.error('Signup error:', error);
       }
     }
   };
@@ -244,7 +240,7 @@ const CustomerSignupScreen = ({ navigation }) => {
 
         {/* Email */}
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Email (Optional)</Text>
+          <Text style={styles.label}>Email *</Text>
           <TextInput
             style={[styles.input, errors.email && styles.inputError]}
             placeholder="your.email@example.com"
