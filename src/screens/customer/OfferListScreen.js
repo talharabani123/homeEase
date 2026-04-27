@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, StatusBar } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
-import { TYPOGRAPHY } from '../../constants/typography';
+import ScreenWrapper from '../../components/ScreenWrapper';
 // import { listenToOffers, acceptOffer } from '../../services/realTimeServiceSystem';
 
 const OfferListScreen = ({ navigation, route }) => {
@@ -105,7 +105,8 @@ const OfferListScreen = ({ navigation, route }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <ScreenWrapper variant="default">
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -220,7 +221,7 @@ const OfferListScreen = ({ navigation, route }) => {
 
         <View style={{ height: 20 }} />
       </ScrollView>
-    </View>
+    </ScreenWrapper>
   );
 };
 
@@ -261,7 +262,7 @@ const MOCK_OFFERS = [
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',

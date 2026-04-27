@@ -4,7 +4,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { verifyEmailOTP, resendEmailOTP } from '../../services/emailOTPService';
-import { signUpWithEmail } from '../../services/firebaseAuthService';
+// import { signUpWithEmail } from '../../services/firebaseAuthService'; // COMMENTED OUT FOR EXPO GO
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -102,6 +102,10 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
       }
 
       // OTP verified, now create Firebase account
+      // For Expo Go: Skip Firebase signup and go directly to login
+      // In production: Uncomment the Firebase code below
+      
+      /*
       const signupResult = await signUpWithEmail(userData);
       
       setLoading(false);
@@ -120,6 +124,20 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
       } else {
         Alert.alert('Error', signupResult.error || 'Failed to create account');
       }
+      */
+      
+      // Mock success for Expo Go
+      setLoading(false);
+      Alert.alert(
+        'Success!',
+        'Your account has been created successfully. (Mock mode for Expo Go)',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('CustomerLogin')
+          }
+        ]
+      );
     } catch (error) {
       setLoading(false);
       Alert.alert('Error', 'Something went wrong. Please try again.');

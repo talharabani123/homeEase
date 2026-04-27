@@ -1,28 +1,38 @@
 /**
  * Firebase Configuration and Initialization
+ * Using Firebase JS SDK for Expo compatibility
  */
 
-import { getApp, getApps, initializeApp } from '@react-native-firebase/app';
-import '@react-native-firebase/auth';
-import '@react-native-firebase/firestore';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getDatabase } from 'firebase/database';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
-// Firebase configuration from google-services.json
+// Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBb3dTmjdtL2hITRgoBOvUqbxzHekzbvYY",
+  apiKey: "AIzaSyCGL7g2oyW24Dj-Rd-VwyCiXpYuOUavGAo",
   authDomain: "homeease-97b9d.firebaseapp.com",
+  databaseURL: "https://homeease-97b9d-default-rtdb.firebaseio.com",
   projectId: "homeease-97b9d",
   storageBucket: "homeease-97b9d.firebasestorage.app",
   messagingSenderId: "274324828136",
-  appId: "1:274324828136:android:7d79c54a897ee1dfae3e5d",
-  databaseURL: "https://homeease-97b9d-default-rtdb.firebaseio.com"
+  appId: "1:274324828136:web:7d38bee17d59ab95ae3e5d",
+  measurementId: "G-FVCK0GK4FQ"
 };
 
 // Initialize Firebase if not already initialized
+let app;
 if (getApps().length === 0) {
-  initializeApp(firebaseConfig);
+  app = initializeApp(firebaseConfig);
   console.log('Firebase initialized successfully');
 } else {
+  app = getApp();
   console.log('Firebase already initialized');
 }
 
-export default getApp();
+// Initialize services
+export const database = getDatabase(app);
+export const auth = getAuth(app);
+export const firestore = getFirestore(app);
+
+export default app;

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, SafeAreaView, ActivityIndicator } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
-import { TYPOGRAPHY } from '../../constants/typography';
 import { getTopRatedProviders } from '../../services/homeDataService';
 import { useTheme } from '../../context/ThemeContext';
+import ScreenWrapper from '../../components/ScreenWrapper';
 
 const TopRatedProvidersScreen = ({ navigation }) => {
   const { colors } = useTheme();
@@ -102,19 +102,19 @@ const TopRatedProvidersScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
-        <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
+      <ScreenWrapper variant="default">
+        <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" translucent />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primaryGreen} />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading providers...</Text>
         </View>
-      </SafeAreaView>
+      </ScreenWrapper>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
-      <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
+    <ScreenWrapper variant="default">
+      <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" translucent />
       
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
@@ -134,13 +134,14 @@ const TopRatedProvidersScreen = ({ navigation }) => {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   loadingContainer: {
     flex: 1,

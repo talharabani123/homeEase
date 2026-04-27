@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, SafeAreaView, Alert } from 'react-native';
 import Svg, { Path, Circle, Rect as SvgRect, G } from 'react-native-svg';
+import ScreenWrapper from '../../components/ScreenWrapper';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 
@@ -142,12 +143,13 @@ const CustomerDashboardScreen = ({ navigation }) => {
   const safeCategories = filteredCategories || [];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
-      
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
+    <ScreenWrapper variant="default">
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" />
+        
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
         {/* Header with Location and Profile */}
@@ -200,6 +202,26 @@ const CustomerDashboardScreen = ({ navigation }) => {
             <Text x="12" y="16" fontSize="14" fill="#FFF" textAnchor="middle" fontWeight="bold">!</Text>
           </Svg>
           <Text style={styles.emergencyText}>Emergency Service</Text>
+        </TouchableOpacity>
+
+        {/* View Map Button */}
+        <TouchableOpacity 
+          style={styles.mapButton} 
+          onPress={() => {
+            Alert.alert(
+              'Map Feature',
+              'Maps require a standalone build and are not available in Expo Go. Build the app to use real-time map tracking.',
+              [{ text: 'OK' }]
+            );
+          }}
+        >
+          <Svg width="24" height="24" viewBox="0 0 24 24">
+            <Path
+              d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+              fill={COLORS.primaryGreen}
+            />
+          </Svg>
+          <Text style={styles.mapButtonText}>View Nearby Providers (Build Required)</Text>
         </TouchableOpacity>
 
         {/* Ongoing Request Card */}
@@ -264,13 +286,14 @@ const CustomerDashboardScreen = ({ navigation }) => {
         <View style={styles.bottomSpacing} />
       </ScrollView>
     </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: 'transparent',
   },
   scrollView: {
     flex: 1,
@@ -371,7 +394,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFE5E5',
     borderRadius: 12,
     marginHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 12,
     paddingVertical: 14,
     borderWidth: 1,
     borderColor: '#FF4444',
@@ -380,6 +403,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FF4444',
+    marginLeft: 8,
+  },
+
+  // Map Button
+  mapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: COLORS.primaryGreen,
+  },
+  mapButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.primaryGreen,
     marginLeft: 8,
   },
 

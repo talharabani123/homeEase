@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, StatusBar, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, StatusBar } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { TYPOGRAPHY } from '../constants/typography';
@@ -78,7 +78,6 @@ const IsometricIllustration = () => (
 
 const OnboardingScreen = ({ navigation }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [showRoleModal, setShowRoleModal] = useState(false);
   const scrollViewRef = useRef(null);
 
   const handleNext = () => {
@@ -87,16 +86,8 @@ const OnboardingScreen = ({ navigation }) => {
       scrollViewRef.current?.scrollTo({ x: width * nextIndex, animated: true });
       setCurrentIndex(nextIndex);
     } else {
-      setShowRoleModal(true);
-    }
-  };
-
-  const handleRoleSelection = (role) => {
-    setShowRoleModal(false);
-    if (role === 'customer') {
-      navigation.navigate('CustomerLogin');
-    } else if (role === 'provider') {
-      navigation.navigate('ProviderSignup');
+      // Navigate to RoleSelectionScreen
+      navigation.replace('RoleSelection');
     }
   };
 
@@ -188,36 +179,6 @@ const OnboardingScreen = ({ navigation }) => {
           <Text style={styles.getStartedText}>Get Started</Text>
         </TouchableOpacity>
       )}
-
-      {/* Role Selection Modal */}
-      <Modal
-        visible={showRoleModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowRoleModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              Do you want to offer home services as a provider or hire a service professional?
-            </Text>
-            
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => handleRoleSelection('provider')}
-            >
-              <Text style={styles.modalButtonText}>Become a Service Provider</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.modalButton, styles.modalButtonSecondary]}
-              onPress={() => handleRoleSelection('customer')}
-            >
-              <Text style={styles.modalButtonText}>Hire a Service Professional</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
@@ -475,55 +436,6 @@ const styles = StyleSheet.create({
   },
   getStartedText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.white,
-    textAlign: 'center',
-  },
-  
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  modalContent: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 32,
-    width: '100%',
-    maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: COLORS.textBlack,
-    textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 28,
-  },
-  modalButton: {
-    backgroundColor: COLORS.buttonGreen,
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  modalButtonSecondary: {
-    backgroundColor: COLORS.primaryGreen,
-  },
-  modalButtonText: {
-    fontSize: 16,
     fontWeight: '600',
     color: COLORS.white,
     textAlign: 'center',

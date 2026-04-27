@@ -54,35 +54,8 @@ const EmergencyServiceScreen = ({ navigation }) => {
   ];
 
   const handleRequestEmergency = () => {
-    if (!selectedService) {
-      Alert.alert('Select Service', 'Please select an emergency service type');
-      return;
-    }
-
-    const service = emergencyServices.find(s => s.id === selectedService);
-    
-    Alert.alert(
-      'Confirm Emergency Request',
-      `Request ${service.name}?\n\nEstimated arrival: ${service.responseTime}\n\nNote: Emergency services have priority pricing.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          style: 'default',
-          onPress: () => {
-            // TODO: Create emergency service request
-            navigation.navigate('ProviderMatching', {
-              requestData: {
-                serviceType: service.id,
-                serviceName: service.name,
-                isEmergency: true,
-                priority: 'high',
-              }
-            });
-          }
-        }
-      ]
-    );
+    // Navigate to new Emergency Home Screen
+    navigation.navigate('EmergencyHome');
   };
 
   return (
@@ -191,12 +164,8 @@ const EmergencyServiceScreen = ({ navigation }) => {
       {/* Request Button */}
       <View style={[styles.bottomContainer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
         <TouchableOpacity
-          style={[
-            styles.requestButton,
-            !selectedService && styles.requestButtonDisabled
-          ]}
+          style={styles.requestButton}
           onPress={handleRequestEmergency}
-          disabled={!selectedService}
         >
           <Text style={styles.requestButtonText}>
             🚨 Request Emergency Service

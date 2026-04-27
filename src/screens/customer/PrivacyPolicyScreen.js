@@ -1,13 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
-import { TYPOGRAPHY } from '../../constants/typography';
+import ScreenWrapper from '../../components/ScreenWrapper';
 
 const PrivacyPolicyScreen = ({ navigation }) => {
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
+    <ScreenWrapper variant="default">
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       
       {/* Header */}
       <View style={styles.header}>
@@ -90,14 +90,14 @@ const PrivacyPolicyScreen = ({ navigation }) => {
           <Text style={styles.contactInfo}>Address: Islamabad, Pakistan</Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',

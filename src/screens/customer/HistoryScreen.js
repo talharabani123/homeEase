@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, SafeAreaView } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
+import ScreenWrapper from '../../components/ScreenWrapper';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { useTheme } from '../../context/ThemeContext';
@@ -198,8 +199,9 @@ const HistoryScreen = ({ navigation }) => {
     : historyData.filter(item => item.status === filter);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
-      <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
+    <ScreenWrapper variant="default">
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+        <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" />
       
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
@@ -255,6 +257,7 @@ const HistoryScreen = ({ navigation }) => {
         </View>
       )}
     </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 

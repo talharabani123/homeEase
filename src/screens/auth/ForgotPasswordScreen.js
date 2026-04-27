@@ -4,7 +4,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { getEmailError } from '../../utils/validation';
-import { sendPasswordResetEmail } from '../../services/firebaseAuthService';
+// import { sendPasswordResetEmail } from '../../services/firebaseAuthService'; // COMMENTED OUT FOR EXPO GO
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -37,6 +37,10 @@ const ForgotPasswordScreen = ({ navigation, route }) => {
       setLoading(true);
       
       try {
+        // Mock password reset for Expo Go
+        // In production: Uncomment Firebase code below
+        
+        /*
         const result = await sendPasswordResetEmail(email.trim());
         
         setLoading(false);
@@ -55,6 +59,22 @@ const ForgotPasswordScreen = ({ navigation, route }) => {
         } else {
           Alert.alert('Error', result.error || 'Failed to send reset email');
         }
+        */
+        
+        // Mock success for Expo Go
+        setLoading(false);
+        console.log('Mock password reset for:', email);
+        Alert.alert(
+          'Email Sent',
+          'Password reset link has been sent to your email. (Mock mode for Expo Go)',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack()
+            }
+          ]
+        );
+        
       } catch (error) {
         setLoading(false);
         Alert.alert('Error', 'Something went wrong. Please try again.');

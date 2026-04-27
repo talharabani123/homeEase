@@ -1,10 +1,18 @@
 /**
  * Firebase Authentication Utilities
  * Helper functions for phone authentication with Firebase
+ * 
+ * COMMENTED OUT FOR EXPO GO - Firebase doesn't work in Expo Go
  */
 
+/*
 import auth from '@react-native-firebase/auth';
+*/
 import { Alert } from 'react-native';
+
+// Mock exports for Expo Go
+export const sendOTP = async () => ({ success: true, message: 'Mock OTP sent' });
+export const verifyOTP = async () => ({ success: true, message: 'Mock OTP verified' });
 
 /**
  * Format phone number to international format

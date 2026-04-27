@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
-import { TYPOGRAPHY } from '../../constants/typography';
+import ScreenWrapper from '../../components/ScreenWrapper';
 
 const ServiceDetailScreen = ({ navigation, route }) => {
   const { service } = route.params;
@@ -12,8 +12,8 @@ const ServiceDetailScreen = ({ navigation, route }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
+    <ScreenWrapper variant="default">
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       
       {/* Header */}
       <View style={styles.header}>
@@ -95,7 +95,7 @@ const ServiceDetailScreen = ({ navigation, route }) => {
           <Text style={styles.requestButtonText}>Request Service</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </ScreenWrapper>
   );
 };
 
@@ -128,7 +128,7 @@ const STEPS = [
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',

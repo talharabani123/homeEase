@@ -5,7 +5,7 @@ import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { getEmailError } from '../../utils/validation';
 import { KeyboardDismissView } from '../../components/KeyboardDismissView';
-import { signInWithEmail } from '../../services/firebaseAuthService';
+// import { signInWithEmail } from '../../services/firebaseAuthService'; // COMMENTED OUT FOR EXPO GO
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -44,16 +44,26 @@ const CustomerLoginScreen = ({ navigation }) => {
       Keyboard.dismiss();
       
       try {
+        // Mock login for Expo Go
+        // In production: Uncomment Firebase code below
+        
+        /*
         const result = await signInWithEmail(email.trim(), password);
         
         setLoading(false);
         
         if (result.success) {
-          // Navigate to dashboard
           navigation.navigate('CustomerDashboard');
         } else {
           Alert.alert('Login Failed', result.error || 'Failed to sign in');
         }
+        */
+        
+        // Mock success for Expo Go
+        setLoading(false);
+        console.log('Mock login for:', email);
+        navigation.navigate('CustomerDashboard');
+        
       } catch (error) {
         setLoading(false);
         Alert.alert('Error', 'Something went wrong. Please try again.');

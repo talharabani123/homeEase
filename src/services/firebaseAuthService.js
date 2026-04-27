@@ -1,13 +1,25 @@
 /**
  * Firebase Authentication Service
  * Email/Password and Phone OTP authentication
+ * 
+ * COMMENTED OUT FOR EXPO GO - Firebase doesn't work in Expo Go
+ * Uncomment when building with EAS for production
  */
 
+/*
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, FieldValue } from '@react-native-firebase/firestore';
 
 const auth = getAuth();
 const firestore = getFirestore();
+*/
+
+// Mock exports for Expo Go
+export const signInWithEmail = async () => ({ success: false, error: 'Firebase not available in Expo Go' });
+export const signUpWithEmail = async () => ({ success: false, error: 'Firebase not available in Expo Go' });
+export const sendPasswordResetEmail = async () => ({ success: false, error: 'Firebase not available in Expo Go' });
+export const onAuthStateChanged = (callback) => { callback(null); return () => {}; };
+export const getUserProfile = async () => ({ success: false, error: 'Firebase not available in Expo Go' });
 
 // ============================================
 // EMAIL/PASSWORD AUTHENTICATION

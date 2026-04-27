@@ -17,3 +17,8 @@ dist/
 # Temporary files
 *.log
 *.tmp
+*.env
+*.sh
+*.bat
+*.plist
+
