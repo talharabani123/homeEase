@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, SafeAreaView, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, SafeAreaView, ActivityIndicator, Image } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
+import { useAuth } from '../../context/AuthContext';
+import { updateUserProfile } from '../../services/firebaseAuthService';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
+import * as ImagePicker from 'expo-image-picker';
 
 // Icons
 const EditIcon = () => (
@@ -48,30 +53,97 @@ const ChevronIcon = () => (
 );
 
 const ProfileScreen = ({ navigation }) => {
-  // Mock user data
-  const [userData] = useState({
-    name: 'Muhammad Ali',
-    phone: '+92 300 1234567',
-    email: 'ali@example.com',
-    address: 'House 123, Street 5, F-7, Islamabad',
-    savedLocations: [
-      { id: 1, label: 'Home', address: 'House 123, Street 5, F-7, Islamabad' },
-      { id: 2, label: 'Office', address: 'Plot 45, Blue Area, Islamabad' },
-    ],
+  const { user, userData, signOut: authSignOut, refreshUserData } = useAuth();
+  const alert = useAlert();
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [editedData, setEditedData] = useState({
+    fullName: '',
+    address: '',
+    phone: '',
+    profileImage: null,
   });
 
+  // Load user data when component mounts or userData changes
+  useEffect(() => {
+    if (userData) {
+      setEditedData({
+        fullName: userData.fullName || '',
+        address: userData.address || '',
+        phone: userData.phone || '',
+        profileImage: userData.profileImage || null,
+      });
+    }
+  }, [userData]);
+
   // Safety checks
-  const safeName = userData?.name || 'User';
-  const safeSavedLocations = userData?.savedLocations || [];
+  const safeName = userData?.fullName || user?.displayName || 'User';
+  const safeEmail = userData?.email || user?.email || 'Not available';
+  const safePhone = userData?.phone || 'Not added';
+  const safeAddress = userData?.address || 'Not added';
+  const safeProfileImage = userData?.profileImage || user?.photoURL || null;
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedName, setEditedName] = useState(userData.name);
-  const [editedAddress, setEditedAddress] = useState(userData.address);
+  const handleImagePick = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        alert.warning(
+          'Permission Required',
+          'Please allow access to your photos to upload a profile picture.'
+        );
+        return;
+      }
 
-  const handleSaveProfile = () => {
-    // TODO: Save to backend
-    Alert.alert('Success', 'Profile updated successfully');
-    setIsEditing(false);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (!result.canceled) {
+        setEditedData({ ...editedData, profileImage: result.assets[0].uri });
+      }
+    } catch (error) {
+      alert.error('Error', 'Failed to pick image');
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editedData.fullName.trim()) {
+      alert.warning('Validation Error', 'Please enter your full name');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const updates = {
+        fullName: editedData.fullName.trim(),
+        address: editedData.address.trim(),
+        phone: editedData.phone.trim(),
+        profileImage: editedData.profileImage,
+      };
+
+      const result = await updateUserProfile(user.uid, updates);
+
+      setLoading(false);
+
+      if (result.success) {
+        // Refresh user data in context
+        await refreshUserData();
+        setIsEditing(false);
+        alert.success('Success', 'Profile updated successfully');
+      } else {
+        alert.error('Error', result.error || 'Failed to update profile');
+      }
+    } catch (error) {
+      setLoading(false);
+      alert.error('Error', 'Something went wrong. Please try again.');
+      console.error('Update profile error:', error);
+    }
   };
 
   const handleResetPassword = () => {
@@ -79,28 +151,24 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const handleLogout = () => {
-    Alert.alert(
+    alert.confirm(
       'Logout',
       'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: () => navigation.navigate('Login'),
-        },
-      ]
+      async () => {
+        setLoading(true);
+        const result = await authSignOut();
+        setLoading(false);
+        
+        if (result.success) {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        } else {
+          alert.error('Error', 'Failed to logout. Please try again.');
+        }
+      }
     );
-  };
-
-  const handleAddLocation = () => {
-    // TODO: Navigate to add location screen
-    Alert.alert('Add Location', 'Location picker will be implemented');
-  };
-
-  const handleEditLocation = (location) => {
-    // TODO: Navigate to edit location screen
-    Alert.alert('Edit Location', `Edit ${location.label}`);
   };
 
   return (
@@ -114,6 +182,7 @@ const ProfileScreen = ({ navigation }) => {
           <TouchableOpacity
             style={styles.editButton}
             onPress={() => setIsEditing(true)}
+            disabled={loading}
           >
             <EditIcon />
             <Text style={styles.editButtonText}>Edit</Text>
@@ -128,13 +197,23 @@ const ProfileScreen = ({ navigation }) => {
       >
         {/* Profile Avatar */}
         <View style={styles.avatarSection}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {safeName.split(' ').map(n => n[0]).join('')}
-            </Text>
-          </View>
+          {safeProfileImage || editedData.profileImage ? (
+            <Image
+              source={{ uri: editedData.profileImage || safeProfileImage }}
+              style={styles.avatarImage}
+            />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {safeName.split(' ').map(n => n[0]).join('').toUpperCase()}
+              </Text>
+            </View>
+          )}
           {isEditing && (
-            <TouchableOpacity style={styles.changePhotoButton}>
+            <TouchableOpacity
+              style={styles.changePhotoButton}
+              onPress={handleImagePick}
+            >
               <Text style={styles.changePhotoText}>Change Photo</Text>
             </TouchableOpacity>
           )}
@@ -150,12 +229,13 @@ const ProfileScreen = ({ navigation }) => {
               {isEditing ? (
                 <TextInput
                   style={styles.infoInput}
-                  value={editedName}
-                  onChangeText={setEditedName}
+                  value={editedData.fullName}
+                  onChangeText={(value) => setEditedData({ ...editedData, fullName: value })}
                   placeholder="Enter your name"
+                  editable={!loading}
                 />
               ) : (
-                <Text style={styles.infoValue}>{userData.name}</Text>
+                <Text style={styles.infoValue}>{safeName}</Text>
               )}
             </View>
 
@@ -163,14 +243,25 @@ const ProfileScreen = ({ navigation }) => {
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Phone Number</Text>
-              <Text style={styles.infoValue}>{userData.phone}</Text>
+              {isEditing ? (
+                <TextInput
+                  style={styles.infoInput}
+                  value={editedData.phone}
+                  onChangeText={(value) => setEditedData({ ...editedData, phone: value })}
+                  placeholder="Enter your phone"
+                  keyboardType="phone-pad"
+                  editable={!loading}
+                />
+              ) : (
+                <Text style={styles.infoValue}>{safePhone}</Text>
+              )}
             </View>
 
             <View style={styles.divider} />
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoValue}>{userData.email || 'Not added'}</Text>
+              <Text style={styles.infoValue}>{safeEmail}</Text>
             </View>
 
             <View style={styles.divider} />
@@ -180,46 +271,42 @@ const ProfileScreen = ({ navigation }) => {
               {isEditing ? (
                 <TextInput
                   style={[styles.infoInput, styles.addressInput]}
-                  value={editedAddress}
-                  onChangeText={setEditedAddress}
+                  value={editedData.address}
+                  onChangeText={(value) => setEditedData({ ...editedData, address: value })}
                   placeholder="Enter your address"
                   multiline
+                  editable={!loading}
                 />
               ) : (
                 <Text style={[styles.infoValue, styles.addressValue]}>
-                  {userData.address}
+                  {safeAddress}
                 </Text>
               )}
             </View>
           </View>
         </View>
 
-        {/* Saved Locations */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Saved Locations</Text>
-            <TouchableOpacity onPress={handleAddLocation}>
-              <Text style={styles.addButton}>+ Add</Text>
-            </TouchableOpacity>
+        {/* Account Info */}
+        {!isEditing && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Account Information</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Account Type</Text>
+                <Text style={styles.infoValue}>
+                  {userData?.role === 'customer' ? 'Customer' : 'Provider'}
+                </Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Email Verified</Text>
+                <Text style={[styles.infoValue, styles.verifiedText]}>
+                  {userData?.isEmailVerified ? '✓ Verified' : '✗ Not Verified'}
+                </Text>
+              </View>
+            </View>
           </View>
-
-          {safeSavedLocations.map((location) => (
-            <TouchableOpacity
-              key={location.id}
-              style={styles.locationCard}
-              onPress={() => handleEditLocation(location)}
-            >
-              <View style={styles.locationIconContainer}>
-                <LocationIcon />
-              </View>
-              <View style={styles.locationInfo}>
-                <Text style={styles.locationLabel}>{location.label}</Text>
-                <Text style={styles.locationAddress}>{location.address}</Text>
-              </View>
-              <ChevronIcon />
-            </TouchableOpacity>
-          ))}
-        </View>
+        )}
 
         {/* Actions */}
         {!isEditing && (
@@ -229,6 +316,7 @@ const ProfileScreen = ({ navigation }) => {
             <TouchableOpacity
               style={styles.actionCard}
               onPress={handleResetPassword}
+              disabled={loading}
             >
               <View style={styles.actionIconContainer}>
                 <LockIcon />
@@ -240,12 +328,19 @@ const ProfileScreen = ({ navigation }) => {
             <TouchableOpacity
               style={[styles.actionCard, styles.logoutCard]}
               onPress={handleLogout}
+              disabled={loading}
             >
               <View style={styles.actionIconContainer}>
                 <LogoutIcon />
               </View>
-              <Text style={[styles.actionText, styles.logoutText]}>Logout</Text>
-              <ChevronIcon />
+              <Text style={[styles.actionText, styles.logoutText]}>
+                {loading ? 'Logging out...' : 'Logout'}
+              </Text>
+              {loading ? (
+                <ActivityIndicator size="small" color="#FF4444" />
+              ) : (
+                <ChevronIcon />
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -260,20 +355,40 @@ const ProfileScreen = ({ navigation }) => {
             style={styles.cancelButton}
             onPress={() => {
               setIsEditing(false);
-              setEditedName(userData.name);
-              setEditedAddress(userData.address);
+              setEditedData({
+                fullName: userData?.fullName || '',
+                address: userData?.address || '',
+                phone: userData?.phone || '',
+                profileImage: userData?.profileImage || null,
+              });
             }}
+            disabled={loading}
           >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.saveButton}
+            style={[styles.saveButton, loading && styles.saveButtonDisabled]}
             onPress={handleSaveProfile}
+            disabled={loading}
           >
-            <Text style={styles.saveButtonText}>Save Changes</Text>
+            {loading ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <Text style={styles.saveButtonText}>Save Changes</Text>
+            )}
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
     </SafeAreaView>
   );
 };
@@ -333,6 +448,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 12,
+    borderWidth: 3,
+    borderColor: COLORS.primaryGreen,
   },
   avatarText: {
     fontSize: 36,
@@ -525,10 +648,16 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  saveButtonDisabled: {
+    backgroundColor: '#A0A0A0',
+  },
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.white,
+  },
+  verifiedText: {
+    color: COLORS.primaryGreen,
   },
 
   // Bottom Spacing

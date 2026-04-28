@@ -1,35 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView, Image, ActivityIndicator } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
-import { getUserData, clearUserData } from '../../services/userStorageService';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { getUserRole, canSwitchToProvider } from '../../services/roleManagementService';
 import { getProviderProfile } from '../../services/providerRegistrationService';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const MoreScreen = ({ navigation }) => {
   const { colors } = useTheme();
-  const { currentMode, switchMode } = useAuth();
-  const [userData, setUserData] = useState(null);
+  const { user, userData, currentMode, switchMode, signOut: authSignOut } = useAuth();
+  const alert = useAlert();
+  
   const [userRole, setUserRole] = useState('customer');
   const [providerStatus, setProviderStatus] = useState(null);
   const [canSwitch, setCanSwitch] = useState(false);
   const [switchingMode, setSwitchingMode] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadUserData();
     checkProviderStatus();
   }, []);
-
-  const loadUserData = async () => {
-    const result = await getUserData();
-    if (result.success && result.data) {
-      setUserData(result.data);
-    }
-  };
 
   const checkProviderStatus = async () => {
     try {
@@ -60,49 +55,48 @@ const MoreScreen = ({ navigation }) => {
       const newMode = currentMode === 'customer' ? 'provider' : 'customer';
       const result = await switchMode(newMode);
       
+      setSwitchingMode(false);
+      
       if (result.success) {
-        Alert.alert(
+        alert.success(
           'Mode Switched',
           `You are now in ${newMode === 'provider' ? 'Provider' : 'Customer'} mode`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                if (newMode === 'provider') {
-                  navigation.navigate('ProviderDashboard');
-                } else {
-                  navigation.navigate('CustomerDashboard');
-                }
-              }
+          () => {
+            if (newMode === 'provider') {
+              navigation.navigate('ProviderDashboard');
+            } else {
+              navigation.navigate('CustomerDashboard');
             }
-          ]
+          }
         );
       } else {
-        Alert.alert('Error', result.error || 'Failed to switch mode');
+        alert.error('Error', result.error || 'Failed to switch mode');
       }
     } catch (error) {
-      console.error('Switch mode error:', error);
-      Alert.alert('Error', 'Something went wrong');
-    } finally {
       setSwitchingMode(false);
+      console.error('Switch mode error:', error);
+      alert.error('Error', 'Something went wrong');
     }
   };
 
-  const handleLogout = async () => {
-    Alert.alert(
+  const handleLogout = () => {
+    alert.confirm(
       'Logout',
       'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await clearUserData();
-            navigation.navigate('Login');
-          },
-        },
-      ]
+      async () => {
+        setLoading(true);
+        const result = await authSignOut();
+        setLoading(false);
+        
+        if (result.success) {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        } else {
+          alert.error('Error', 'Failed to logout. Please try again.');
+        }
+      }
     );
   };
 
@@ -262,7 +256,12 @@ const MoreScreen = ({ navigation }) => {
     },
   ];
 
-  const initials = userData?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+  // Get user display data with safety checks
+  const safeName = userData?.fullName || user?.displayName || 'Guest User';
+  const safeEmail = userData?.email || user?.email || '';
+  const safePhone = userData?.phone || 'Not logged in';
+  const safeProfileImage = userData?.profileImage || user?.photoURL || null;
+  const initials = safeName.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
 
   return (
     <ScreenWrapper variant="default">
@@ -280,16 +279,16 @@ const MoreScreen = ({ navigation }) => {
           style={[styles.profileSection, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
           onPress={() => navigation.navigate('Profile')}
         >
-          {userData?.profileImage ? (
-            <Image source={{ uri: userData.profileImage }} style={styles.profileImage} />
+          {safeProfileImage ? (
+            <Image source={{ uri: safeProfileImage }} style={styles.profileImage} />
           ) : (
             <View style={styles.profileAvatar}>
               <Text style={styles.profileInitials}>{initials}</Text>
             </View>
           )}
           <View style={styles.profileInfo}>
-            <Text style={[styles.profileName, { color: colors.text }]}>{userData?.fullName || 'Guest User'}</Text>
-            <Text style={[styles.profilePhone, { color: colors.textSecondary }]}>{userData?.phoneNumber || 'Not logged in'}</Text>
+            <Text style={[styles.profileName, { color: colors.text }]}>{safeName}</Text>
+            <Text style={[styles.profilePhone, { color: colors.textSecondary }]}>{safePhone}</Text>
           </View>
           <Svg width="20" height="20" viewBox="0 0 20 20">
             <Path d="M7 6 L13 10 L7 14" stroke={colors.textSecondary} strokeWidth="2" fill="none" />
@@ -342,6 +341,16 @@ const MoreScreen = ({ navigation }) => {
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
     </SafeAreaView>
     </ScreenWrapper>
   );
