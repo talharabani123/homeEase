@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Keyboard, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Keyboard, ActivityIndicator } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
@@ -7,6 +7,8 @@ import { getEmailError } from '../../utils/validation';
 import { KeyboardDismissView } from '../../components/KeyboardDismissView';
 import { signInWithEmail } from '../../services/firebaseAuthService';
 import { useAuth } from '../../context/AuthContext';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -25,6 +27,7 @@ const CustomerLoginScreen = ({ navigation }) => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
+  const alert = useAlert();
 
   const validateForm = () => {
     const newErrors = {};
@@ -61,27 +64,23 @@ const CustomerLoginScreen = ({ navigation }) => {
           });
         } else if (result.isVerified === false) {
           // Email not verified - navigate to OTP verification
-          Alert.alert(
+          alert.warning(
             'Email Not Verified',
             'Please verify your email to continue.',
-            [
-              {
-                text: 'Verify Now',
-                onPress: () => navigation.navigate('EmailOTPVerification', {
-                  email: result.email,
-                  userData: null,
-                  isReVerification: true,
-                }),
-              },
-              { text: 'Cancel', style: 'cancel' },
-            ]
+            () => {
+              navigation.navigate('EmailOTPVerification', {
+                email: result.email,
+                userData: null,
+                isReVerification: true,
+              });
+            }
           );
         } else {
-          Alert.alert('Login Failed', result.error || 'Failed to sign in');
+          alert.error('Login Failed', result.error || 'Failed to sign in');
         }
       } catch (error) {
         setLoading(false);
-        Alert.alert('Error', 'Something went wrong. Please try again.');
+        alert.error('Error', 'Something went wrong. Please try again.');
         console.error('Login error:', error);
       }
     }
@@ -187,6 +186,16 @@ const CustomerLoginScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
     </KeyboardDismissView>
   );
 };

@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { verifyEmailOTP, resendEmailOTP } from '../../services/emailOTPService';
 import { signUpWithEmail, markEmailAsVerified } from '../../services/firebaseAuthService';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -25,6 +27,7 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [currentOtpId, setCurrentOtpId] = useState(otpId);
+  const alert = useAlert();
   
   const inputRefs = useRef([]);
 
@@ -43,7 +46,7 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
   // Show dev OTP in development
   useEffect(() => {
     if (devOTP && __DEV__) {
-      Alert.alert('Development Mode', `OTP: ${devOTP}\n\nThis will be removed in production.`);
+      alert.info('Development Mode', `OTP: ${devOTP}\n\nThis will be removed in production.`);
     }
   }, [devOTP]);
 
@@ -85,7 +88,7 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
     const otpCode = otp.join('');
     
     if (otpCode.length !== 6) {
-      Alert.alert('Invalid OTP', 'Please enter all 6 digits');
+      alert.warning('Invalid OTP', 'Please enter all 6 digits');
       return;
     }
 
@@ -97,7 +100,7 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
       
       if (!verifyResult.success) {
         setLoading(false);
-        Alert.alert('Verification Failed', verifyResult.error);
+        alert.error('Verification Failed', verifyResult.error);
         return;
       }
 
@@ -107,15 +110,10 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
         // Note: We need the user's UID for this
         // For now, just navigate back to login
         setLoading(false);
-        Alert.alert(
+        alert.success(
           'Email Verified!',
           'Your email has been verified. Please sign in again.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('CustomerLogin')
-            }
-          ]
+          () => navigation.navigate('CustomerLogin')
         );
       } else {
         // Create new Firebase account
@@ -123,7 +121,7 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
         
         if (!signupResult.success) {
           setLoading(false);
-          Alert.alert('Error', signupResult.error || 'Failed to create account');
+          alert.error('Error', signupResult.error || 'Failed to create account');
           return;
         }
 
@@ -132,23 +130,18 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
         
         setLoading(false);
         
-        Alert.alert(
+        alert.success(
           'Success!',
           'Your account has been created successfully.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.reset({
-                index: 0,
-                routes: [{ name: 'CustomerLogin' }],
-              })
-            }
-          ]
+          () => navigation.reset({
+            index: 0,
+            routes: [{ name: 'CustomerLogin' }],
+          })
         );
       }
     } catch (error) {
       setLoading(false);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      alert.error('Error', 'Something went wrong. Please try again.');
       console.error('OTP Verification error:', error);
     }
   };
@@ -168,16 +161,16 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
         setOtp(['', '', '', '', '', '']);
         
         if (result.devOTP && __DEV__) {
-          Alert.alert('OTP Resent', `New OTP: ${result.devOTP}\n\nCheck your email.`);
+          alert.info('OTP Resent', `New OTP: ${result.devOTP}\n\nCheck your email.`);
         } else {
-          Alert.alert('OTP Resent', 'A new OTP has been sent to your email.');
+          alert.success('OTP Resent', 'A new OTP has been sent to your email.');
         }
       } else {
-        Alert.alert('Error', result.error || 'Failed to resend OTP');
+        alert.error('Error', result.error || 'Failed to resend OTP');
       }
     } catch (error) {
       setResending(false);
-      Alert.alert('Error', 'Failed to resend OTP. Please try again.');
+      alert.error('Error', 'Failed to resend OTP. Please try again.');
       console.error('Resend OTP error:', error);
     }
   };
@@ -251,6 +244,16 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
           <Text style={styles.backButtonText}>← Change Email</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
     </KeyboardAvoidingView>
   );
 };

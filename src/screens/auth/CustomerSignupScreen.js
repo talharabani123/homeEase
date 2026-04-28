@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Keyboard, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Keyboard, ActivityIndicator, Image } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../../constants/colors';
@@ -8,6 +8,8 @@ import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError, getPasswordError
 import RegistrationSuccessModal from '../../components/RegistrationSuccessModal';
 import { KeyboardDismissView } from '../../components/KeyboardDismissView';
 import { sendEmailOTP } from '../../services/emailOTPService';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -34,6 +36,7 @@ const CustomerSignupScreen = ({ navigation }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const alert = useAlert();
 
   const handlePhoneChange = (value) => {
     const formatted = formatPakistaniPhone(value);
@@ -48,7 +51,10 @@ const CustomerSignupScreen = ({ navigation }) => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to your photos to upload a profile picture.');
+        alert.warning(
+          'Permission Required',
+          'Please allow access to your photos to upload a profile picture.'
+        );
         return;
       }
 
@@ -63,7 +69,7 @@ const CustomerSignupScreen = ({ navigation }) => {
         setFormData({ ...formData, profileImage: result.assets[0].uri });
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to pick image');
+      alert.error('Error', 'Failed to pick image');
     }
   };
 
@@ -72,7 +78,10 @@ const CustomerSignupScreen = ({ navigation }) => {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow camera access to take a photo.');
+        alert.warning(
+          'Permission Required',
+          'Please allow camera access to take a photo.'
+        );
         return;
       }
 
@@ -86,14 +95,15 @@ const CustomerSignupScreen = ({ navigation }) => {
         setFormData({ ...formData, profileImage: result.assets[0].uri });
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to capture image');
+      alert.error('Error', 'Failed to capture image');
     }
   };
 
   const showImageOptions = () => {
-    Alert.alert(
+    alert.show(
       'Profile Picture',
       'Choose an option',
+      'info',
       [
         { text: 'Take Photo', onPress: handleCameraCapture },
         { text: 'Choose from Gallery', onPress: handleImagePick },
@@ -160,11 +170,11 @@ const CustomerSignupScreen = ({ navigation }) => {
             devOTP: otpResult.devOTP, // Only for development
           });
         } else {
-          Alert.alert('Error', otpResult.error || 'Failed to send OTP');
+          alert.error('Error', otpResult.error || 'Failed to send OTP');
         }
       } catch (error) {
         setLoading(false);
-        Alert.alert('Error', 'Something went wrong. Please try again.');
+        alert.error('Error', 'Something went wrong. Please try again.');
         console.error('Signup error:', error);
       }
     }
@@ -382,6 +392,16 @@ const CustomerSignupScreen = ({ navigation }) => {
         onClose={handleSuccessModalClose}
         userRole="customer"
         userName={formData.fullName}
+      />
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
       />
     </KeyboardDismissView>
   );
