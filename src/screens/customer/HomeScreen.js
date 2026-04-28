@@ -109,14 +109,9 @@ const HomeScreen = ({ navigation }) => {
         </TouchableOpacity>
 
         {/* Emergency — Standard + Non-Standard side by side */}
-        <View style={styles.emergencyLabel}>
-          <Text style={[styles.emergencyLabelText, { color: colors.textSecondary }]}>
-            🚨 Emergency Services
-          </Text>
-        </View>
         <View style={styles.actionRow}>
           <TouchableOpacity
-            style={[styles.actionCard, { backgroundColor: '#FF4444' }]}
+            style={styles.actionCardStandard}
             onPress={() => navigation.navigate('EmergencyLocation', {
               type: 'standard',
               service: null,
@@ -131,13 +126,13 @@ const HomeScreen = ({ navigation }) => {
             <Text style={styles.actionSub}>Fixed services, instant dispatch</Text>
             <View style={styles.actionArrow}>
               <Svg width="16" height="16" viewBox="0 0 20 20">
-                <Path d="M7 4L13 10L7 16" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <Path d="M7 4L13 10L7 16" stroke="#C0392B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
               </Svg>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionCard, { backgroundColor: '#E65100' }]}
+            style={styles.actionCardCustom}
             onPress={() => navigation.navigate('EmergencyLocation', {
               type: 'custom',
               service: null,
@@ -148,11 +143,11 @@ const HomeScreen = ({ navigation }) => {
             <View style={styles.actionIconCircle}>
               <Text style={styles.actionEmoji}>📝</Text>
             </View>
-            <Text style={styles.actionTitle}>Non-Standard</Text>
-            <Text style={styles.actionSub}>Custom issue, get offers</Text>
-            <View style={styles.actionArrow}>
+            <Text style={styles.actionTitleDark}>Non-Standard</Text>
+            <Text style={styles.actionSubDark}>Custom issue, get offers</Text>
+            <View style={styles.actionArrowDark}>
               <Svg width="16" height="16" viewBox="0 0 20 20">
-                <Path d="M7 4L13 10L7 16" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <Path d="M7 4L13 10L7 16" stroke="#922B21" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
               </Svg>
             </View>
           </TouchableOpacity>
@@ -264,24 +259,42 @@ const styles = StyleSheet.create({
   },
   searchText: { fontSize: 14 },
 
-  // Action cards
+  // Action cards — light red theme
   actionRow: {
     flexDirection: 'row',
     paddingHorizontal: H_PAD,
     gap: 12,
     marginBottom: 28,
   },
-  actionCard: {
+  actionCardStandard: {
     flex: 1,
     borderRadius: 18,
     padding: 18,
     minHeight: 150,
     justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
+    backgroundColor: '#FFEBEE',
+    borderWidth: 1.5,
+    borderColor: '#FFCDD2',
+    shadowColor: '#E53935',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  actionCardCustom: {
+    flex: 1,
+    borderRadius: 18,
+    padding: 18,
+    minHeight: 150,
+    justifyContent: 'space-between',
+    backgroundColor: '#FCE4EC',
+    borderWidth: 1.5,
+    borderColor: '#F8BBD0',
+    shadowColor: '#C62828',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   actionIconCircle: {
     width: 48,
@@ -293,14 +306,26 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   actionEmoji: { fontSize: 24 },
-  actionTitle: { fontSize: 16, fontWeight: '800', color: '#fff', marginBottom: 3 },
-  actionSub: { fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 15, flex: 1 },
+  actionTitle: { fontSize: 16, fontWeight: '800', color: '#C0392B', marginBottom: 3 },
+  actionTitleDark: { fontSize: 16, fontWeight: '800', color: '#922B21', marginBottom: 3 },
+  actionSub: { fontSize: 11, color: '#E57373', lineHeight: 15, flex: 1 },
+  actionSubDark: { fontSize: 11, color: '#C0392B', lineHeight: 15, flex: 1 },
   actionArrow: {
     alignSelf: 'flex-end',
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(192,57,43,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  actionArrowDark: {
+    alignSelf: 'flex-end',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(146,43,33,0.12)',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,

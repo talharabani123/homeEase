@@ -279,20 +279,19 @@ const MoreScreen = ({ navigation }) => {
           style={[styles.profileSection, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
           onPress={() => navigation.navigate('Profile')}
         >
-          {safeProfileImage ? (
-            <Image source={{ uri: safeProfileImage }} style={styles.profileImage} />
-          ) : (
-            <View style={styles.profileAvatar}>
-              <Text style={styles.profileInitials}>{initials}</Text>
-            </View>
-          )}
+          <View style={[styles.profileAvatarWrap, { backgroundColor: COLORS.primaryGreen }]}>
+            <Text style={styles.profileInitials}>{initials}</Text>
+          </View>
           <View style={styles.profileInfo}>
             <Text style={[styles.profileName, { color: colors.text }]}>{safeName}</Text>
+            {safeEmail ? (
+              <Text style={[styles.profileEmail, { color: colors.textSecondary }]} numberOfLines={1}>{safeEmail}</Text>
+            ) : null}
             <Text style={[styles.profilePhone, { color: colors.textSecondary }]}>{safePhone}</Text>
           </View>
-          <Svg width="20" height="20" viewBox="0 0 20 20">
-            <Path d="M7 6 L13 10 L7 14" stroke={colors.textSecondary} strokeWidth="2" fill="none" />
-          </Svg>
+          <View style={[styles.editBadge, { backgroundColor: colors.primaryLight }]}>
+            <Text style={[styles.editBadgeText, { color: COLORS.primaryGreen }]}>Edit</Text>
+          </View>
         </TouchableOpacity>
 
         {/* Menu Items */}
@@ -375,42 +374,54 @@ const styles = StyleSheet.create({
   profileSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    marginTop: 12,
-    borderRadius: 12,
+    padding: 18,
+    marginTop: 16,
+    borderRadius: 16,
     marginHorizontal: 20,
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  profileImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 16,
-  },
-  profileAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: COLORS.primaryGreen,
+  profileAvatarWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
   profileInitials: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
     color: COLORS.white,
   },
   profileInfo: {
     flex: 1,
+    gap: 2,
   },
   profileName: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  profileEmail: {
+    fontSize: 13,
+    marginBottom: 1,
   },
   profilePhone: {
-    fontSize: 14,
+    fontSize: 13,
+  },
+  editBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  editBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   menuSection: {
     marginTop: 20,
