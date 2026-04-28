@@ -1,11 +1,12 @@
- import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Keyboard, Alert, ActivityIndicator } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { getEmailError } from '../../utils/validation';
 import { KeyboardDismissView } from '../../components/KeyboardDismissView';
-// import { signInWithEmail } from '../../services/firebaseAuthService'; // COMMENTED OUT FOR EXPO GO
+import { signInWithEmail } from '../../services/firebaseAuthService';
+import { useAuth } from '../../context/AuthContext';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -23,6 +24,7 @@ const CustomerLoginScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const { signIn } = useAuth();
 
   const validateForm = () => {
     const newErrors = {};
@@ -44,26 +46,39 @@ const CustomerLoginScreen = ({ navigation }) => {
       Keyboard.dismiss();
       
       try {
-        // Mock login for Expo Go
-        // In production: Uncomment Firebase code below
-        
-        /*
         const result = await signInWithEmail(email.trim(), password);
         
         setLoading(false);
         
         if (result.success) {
-          navigation.navigate('CustomerDashboard');
+          // Update auth context
+          await signIn(result.user, result.userData);
+          
+          // Navigate to dashboard
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'CustomerDashboard' }],
+          });
+        } else if (result.isVerified === false) {
+          // Email not verified - navigate to OTP verification
+          Alert.alert(
+            'Email Not Verified',
+            'Please verify your email to continue.',
+            [
+              {
+                text: 'Verify Now',
+                onPress: () => navigation.navigate('EmailOTPVerification', {
+                  email: result.email,
+                  userData: null,
+                  isReVerification: true,
+                }),
+              },
+              { text: 'Cancel', style: 'cancel' },
+            ]
+          );
         } else {
           Alert.alert('Login Failed', result.error || 'Failed to sign in');
         }
-        */
-        
-        // Mock success for Expo Go
-        setLoading(false);
-        console.log('Mock login for:', email);
-        navigation.navigate('CustomerDashboard');
-        
       } catch (error) {
         setLoading(false);
         Alert.alert('Error', 'Something went wrong. Please try again.');

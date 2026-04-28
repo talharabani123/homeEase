@@ -1,8 +1,11 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  onAuthStateChanged,
+  getCurrentUser,
+  getUserProfile,
+  signOut as firebaseSignOut,
+} from '../services/firebaseAuthService';
 import { getCurrentMode, switchUserMode } from '../services/roleManagementService';
-
-const AUTH_KEY = '@homeease_auth';
 
 const AuthContext = createContext();
 
@@ -15,38 +18,41 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(null); // Firebase user object
+  const [userData, setUserData] = useState(null); // Firestore user profile
   const [loading, setLoading] = useState(true);
   const [currentMode, setCurrentMode] = useState('customer'); // 'customer' or 'provider'
 
   useEffect(() => {
-    loadUser();
-    loadCurrentMode();
-  }, []);
-
-  const loadUser = async () => {
-    try {
-      const stored = await AsyncStorage.getItem(AUTH_KEY);
-      if (stored !== null) {
-        setUser(JSON.parse(stored));
+    // Listen to Firebase auth state changes
+    const unsubscribe = onAuthStateChanged(async (firebaseUser) => {
+      if (firebaseUser) {
+        // User is signed in
+        setUser(firebaseUser);
+        
+        // Fetch user profile from Firestore
+        const profileResult = await getUserProfile(firebaseUser.uid);
+        if (profileResult.success) {
+          setUserData(profileResult.userData);
+          
+          // Load user mode
+          const modeResult = await getCurrentMode();
+          if (modeResult.success && modeResult.mode) {
+            setCurrentMode(modeResult.mode);
+          }
+        }
+      } else {
+        // User is signed out
+        setUser(null);
+        setUserData(null);
       }
-    } catch (error) {
-      console.error('Error loading user:', error);
-    } finally {
+      
       setLoading(false);
-    }
-  };
+    });
 
-  const loadCurrentMode = async () => {
-    try {
-      const result = await getCurrentMode();
-      if (result.success && result.mode) {
-        setCurrentMode(result.mode);
-      }
-    } catch (error) {
-      console.error('Error loading current mode:', error);
-    }
-  };
+    // Cleanup subscription
+    return () => unsubscribe();
+  }, []);
 
   const switchMode = async (newMode) => {
     try {
@@ -63,10 +69,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const signIn = async (userData) => {
+  const signIn = async (firebaseUser, firestoreUserData) => {
     try {
-      setUser(userData);
-      await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(userData));
+      setUser(firebaseUser);
+      setUserData(firestoreUserData);
       return { success: true };
     } catch (error) {
       console.error('Error signing in:', error);
@@ -76,8 +82,9 @@ export const AuthProvider = ({ children }) => {
 
   const signOut = async () => {
     try {
+      await firebaseSignOut();
       setUser(null);
-      await AsyncStorage.removeItem(AUTH_KEY);
+      setUserData(null);
       return { success: true };
     } catch (error) {
       console.error('Error signing out:', error);
@@ -87,9 +94,8 @@ export const AuthProvider = ({ children }) => {
 
   const updateUser = async (updates) => {
     try {
-      const updatedUser = { ...user, ...updates };
-      setUser(updatedUser);
-      await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(updatedUser));
+      const updatedUserData = { ...userData, ...updates };
+      setUserData(updatedUserData);
       return { success: true };
     } catch (error) {
       console.error('Error updating user:', error);
@@ -97,13 +103,32 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshUserData = async () => {
+    try {
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        const profileResult = await getUserProfile(currentUser.uid);
+        if (profileResult.success) {
+          setUserData(profileResult.userData);
+          return { success: true };
+        }
+      }
+      return { success: false, error: 'No user logged in' };
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+      return { success: false, error: 'Failed to refresh user data' };
+    }
+  };
+
   const value = {
-    user,
+    user, // Firebase user object
+    userData, // Firestore user profile
     loading,
     currentMode,
     signIn,
     signOut,
     updateUser,
+    refreshUserData,
     switchMode,
     isAuthenticated: !!user,
   };
