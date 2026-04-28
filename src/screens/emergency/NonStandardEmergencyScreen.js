@@ -1,159 +1,177 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, StatusBar, SafeAreaView, Image } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  TextInput, Alert, StatusBar, Image, ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { useTheme } from '../../context/ThemeContext';
 import { createNonStandardEmergencyRequest } from '../../services/emergencyService';
+import { getAddressFromCoords } from '../../services/locationService';
 
 const NonStandardEmergencyScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
-  const { location, address } = route.params;
-  
-  const [description, setDescription] = useState('');
-  const [mediaFiles, setMediaFiles] = useState([]);
-  const [loading, setLoading] = useState(false);
 
-  const pickImage = async () => {
-    if (mediaFiles.length >= 3) {
-      Alert.alert('Limit Reached', 'You can upload maximum 3 images');
-      return;
+  // ── Safe param extraction — never crash if params are undefined ────────────
+  const safeParams   = route?.params || {};
+  const initLocation = safeParams.location || null;
+  const initAddress  = safeParams.address  || '';
+
+  const [description, setDescription]   = useState('');
+  const [mediaFiles, setMediaFiles]     = useState([]);
+  const [loading, setLoading]           = useState(false);
+  const [locationCoords, setLocationCoords] = useState(initLocation);
+  const [locationText, setLocationText] = useState(initAddress || 'Getting location…');
+  const [locationLoading, setLocationLoading] = useState(!initLocation);
+
+  // ── Fetch GPS if no location passed ───────────────────────────────────────
+  useEffect(() => {
+    if (!initLocation) fetchLocation();
+  }, []);
+
+  const fetchLocation = async () => {
+    setLocationLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+        setLocationCoords(coords);
+        const addrResult = await getAddressFromCoords(coords.latitude, coords.longitude);
+        setLocationText(addrResult.success ? addrResult.address : `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+      } else {
+        setLocationCoords({ latitude: 24.8607, longitude: 67.0011 });
+        setLocationText('Default location — tap 📍 to pick manually');
+      }
+    } catch {
+      setLocationCoords({ latitude: 24.8607, longitude: 67.0011 });
+      setLocationText('Location unavailable — tap 📍 to pick manually');
     }
+    setLocationLoading(false);
+  };
 
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Camera roll permission is required');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
+  // ── Map picker ─────────────────────────────────────────────────────────────
+  const openMapPicker = useCallback(() => {
+    navigation.navigate('LocationPicker', {
+      initialLat: locationCoords?.latitude,
+      initialLng: locationCoords?.longitude,
+      onConfirm: (picked) => {
+        setLocationCoords({ latitude: picked.latitude, longitude: picked.longitude });
+        setLocationText(picked.address || `${picked.latitude.toFixed(4)}, ${picked.longitude.toFixed(4)}`);
+      },
     });
+  }, [locationCoords]);
 
-    if (!result.canceled) {
-      setMediaFiles([...mediaFiles, result.assets[0]]);
-    }
+  // ── Media helpers ──────────────────────────────────────────────────────────
+  const pickImage = async () => {
+    if (mediaFiles.length >= 3) { Alert.alert('Limit Reached', 'Maximum 3 images'); return; }
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') { Alert.alert('Permission Denied', 'Gallery permission required'); return; }
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.7 });
+      if (!result.canceled) setMediaFiles(prev => [...prev, result.assets[0]]);
+    } catch { Alert.alert('Error', 'Could not open gallery'); }
   };
 
   const takePhoto = async () => {
-    if (mediaFiles.length >= 3) {
-      Alert.alert('Limit Reached', 'You can upload maximum 3 images');
-      return;
-    }
-
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Camera permission is required');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 0.7,
-    });
-
-    if (!result.canceled) {
-      setMediaFiles([...mediaFiles, result.assets[0]]);
-    }
+    if (mediaFiles.length >= 3) { Alert.alert('Limit Reached', 'Maximum 3 images'); return; }
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') { Alert.alert('Permission Denied', 'Camera permission required'); return; }
+      const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.7 });
+      if (!result.canceled) setMediaFiles(prev => [...prev, result.assets[0]]);
+    } catch { Alert.alert('Error', 'Could not open camera'); }
   };
 
-  const removeMedia = (index) => {
-    const newMedia = [...mediaFiles];
-    newMedia.splice(index, 1);
-    setMediaFiles(newMedia);
-  };
+  const removeMedia = (index) => setMediaFiles(prev => prev.filter((_, i) => i !== index));
 
+  // ── Submit ─────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!description || description.trim().length < 10) {
       Alert.alert('Description Required', 'Please describe your problem (minimum 10 characters)');
       return;
     }
+    if (!locationCoords) {
+      Alert.alert('Location Required', 'Please allow location access or pick on map');
+      return;
+    }
 
     setLoading(true);
-
     try {
-      const mediaUrls = mediaFiles.map(file => file.uri);
-      
       const result = await createNonStandardEmergencyRequest(
-        { ...location, address },
-        description,
-        mediaUrls
+        { ...locationCoords, address: locationText },
+        description.trim(),
+        mediaFiles.map(f => f.uri)
       );
 
       setLoading(false);
 
       if (result.success) {
-        navigation.navigate('EmergencySearching', {
-          request: result.data,
-          category: 'non_standard'
-        });
+        navigation.navigate('EmergencySearching', { request: result.data, category: 'non_standard' });
       } else {
-        Alert.alert('Error', result.error);
+        Alert.alert('Error', result.error || 'This service is currently unavailable. Please try another option.');
       }
     } catch (error) {
       setLoading(false);
-      Alert.alert('Error', 'Failed to create emergency request');
+      console.error('NonStandard submit error:', error);
+      Alert.alert('Error', 'This service is currently unavailable. Please try another option.');
     }
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={colors.statusBar} backgroundColor="#F59E0B" />
+      <StatusBar barStyle="light-content" backgroundColor="#F59E0B" />
 
       {/* Header */}
-      <View style={styles.emergencyHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Svg width="24" height="24" viewBox="0 0 24 24">
-            <Path d="M15 18 L9 12 L15 6" stroke="#FFFFFF" strokeWidth="2" fill="none" />
+            <Path d="M15 18 L9 12 L15 6" stroke="#fff" strokeWidth="2" fill="none"/>
           </Svg>
         </TouchableOpacity>
-        <Text style={styles.emergencyTitle}>Non-Standard Emergency</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.headerTitle}>Custom Emergency Request</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Location Display */}
-        <View style={[styles.locationCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-          <Svg width="20" height="20" viewBox="0 0 20 20">
-            <Path d="M10 2C6.5 2 4 4.5 4 8C4 12 10 18 10 18C10 18 16 12 16 8C16 4.5 13.5 2 10 2ZM10 10A2 2 0 1 1 10 6A2 2 0 1 1 10 10Z" fill="#F59E0B" />
-          </Svg>
-          <Text style={[styles.locationText, { color: colors.text }]} numberOfLines={1}>
-            {address}
-          </Text>
+      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* Location row */}
+        <View style={[styles.locationCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {locationLoading
+            ? <ActivityIndicator size="small" color="#F59E0B" style={{ marginRight: 8 }} />
+            : <Svg width="18" height="18" viewBox="0 0 20 20" style={{ marginRight: 8 }}>
+                <Path d="M10 2C6.69 2 4 4.69 4 8c0 4.38 6 10 6 10s6-5.62 6-10c0-3.31-2.69-6-6-6zm0 8c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" fill="#F59E0B"/>
+              </Svg>
+          }
+          <Text style={[styles.locationText, { color: colors.text }]} numberOfLines={2}>{locationText}</Text>
+          <TouchableOpacity style={styles.mapPinBtn} onPress={openMapPicker}>
+            <Svg width="16" height="16" viewBox="0 0 24 24">
+              <Path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#fff"/>
+            </Svg>
+          </TouchableOpacity>
         </View>
 
-        {/* Info Banner */}
+        {/* Info banner */}
         <View style={styles.infoBanner}>
-          <Svg width="24" height="24" viewBox="0 0 24 24">
-            <Path d="M12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2ZM12 18C11.4 18 11 17.6 11 17C11 16.4 11.4 16 12 16C12.6 16 13 16.4 13 17C13 17.6 12.6 18 12 18ZM13 13H11V7H13V13Z" fill="#92400E" />
-          </Svg>
-          <View style={styles.infoTextContainer}>
-            <Text style={styles.infoTitle}>How it works</Text>
-            <Text style={styles.infoText}>
-              Describe your problem and upload photos. Multiple providers will send you custom offers. Choose the best one!
-            </Text>
-          </View>
+          <Text style={styles.infoTitle}>📋 How it works</Text>
+          <Text style={styles.infoText}>
+            Describe your problem and optionally add photos. Multiple providers will send you custom offers — compare and choose the best one!
+          </Text>
         </View>
 
-        {/* Description Section */}
+        {/* Description */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Describe Your Problem <Text style={styles.required}>*</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Describe Your Problem <Text style={{ color: '#DC2626' }}>*</Text>
           </Text>
-          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-            Be specific about the issue, location in house, and urgency
+          <Text style={[styles.sublabel, { color: colors.textSecondary }]}>
+            Be specific: location in house, urgency, what you've tried
           </Text>
-          
           <TextInput
-            style={[styles.descriptionInput, { 
-              backgroundColor: colors.inputBackground, 
-              borderColor: colors.inputBorder,
-              color: colors.text 
-            }]}
-            placeholder="E.g., Water coming from ceiling in bedroom, not sure if it's from AC or pipe. Need urgent help..."
+            style={[styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+            placeholder="E.g., Water coming from ceiling in bedroom, not sure if it's from AC or pipe. Need urgent help…"
             placeholderTextColor={colors.placeholder}
             value={description}
             onChangeText={setDescription}
@@ -162,56 +180,30 @@ const NonStandardEmergencyScreen = ({ route, navigation }) => {
             maxLength={500}
             textAlignVertical="top"
           />
-          <Text style={[styles.charCount, { color: colors.textSecondary }]}>
-            {description.length}/500 characters (minimum 10)
-          </Text>
+          <Text style={[styles.charCount, { color: colors.textSecondary }]}>{description.length}/500 (min 10)</Text>
         </View>
 
-        {/* Media Upload Section */}
+        {/* Media */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Add Photos (Optional)
-          </Text>
-          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-            Photos help providers understand the problem better (max 3)
-          </Text>
-
-          {/* Upload Buttons */}
-          <View style={styles.uploadButtons}>
-            <TouchableOpacity 
-              style={[styles.uploadButton, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-              onPress={takePhoto}
-            >
-              <Svg width="24" height="24" viewBox="0 0 24 24">
-                <Path d="M12 15.2C13.77 15.2 15.2 13.77 15.2 12C15.2 10.23 13.77 8.8 12 8.8C10.23 8.8 8.8 10.23 8.8 12C8.8 13.77 10.23 15.2 12 15.2ZM9 2L7.17 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4H16.83L15 2H9Z" fill={colors.primary} />
-              </Svg>
-              <Text style={[styles.uploadButtonText, { color: colors.text }]}>Take Photo</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Add Photos (Optional)</Text>
+          <Text style={[styles.sublabel, { color: colors.textSecondary }]}>Photos help providers understand the problem (max 3)</Text>
+          <View style={styles.uploadRow}>
+            <TouchableOpacity style={[styles.uploadBtn, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={takePhoto}>
+              <Text style={{ fontSize: 20 }}>📷</Text>
+              <Text style={[styles.uploadBtnText, { color: colors.text }]}>Camera</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.uploadButton, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-              onPress={pickImage}
-            >
-              <Svg width="24" height="24" viewBox="0 0 24 24">
-                <Path d="M21 19V5C21 3.9 20.1 3 19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19ZM8.5 13.5L11 16.51L14.5 12L19 18H5L8.5 13.5Z" fill={colors.primary} />
-              </Svg>
-              <Text style={[styles.uploadButtonText, { color: colors.text }]}>Choose from Gallery</Text>
+            <TouchableOpacity style={[styles.uploadBtn, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={pickImage}>
+              <Text style={{ fontSize: 20 }}>🖼️</Text>
+              <Text style={[styles.uploadBtnText, { color: colors.text }]}>Gallery</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Media Preview */}
           {mediaFiles.length > 0 && (
-            <View style={styles.mediaPreview}>
-              {mediaFiles.map((file, index) => (
-                <View key={index} style={styles.mediaItem}>
-                  <Image source={{ uri: file.uri }} style={styles.mediaImage} />
-                  <TouchableOpacity 
-                    style={styles.removeButton}
-                    onPress={() => removeMedia(index)}
-                  >
-                    <Svg width="20" height="20" viewBox="0 0 20 20">
-                      <Path d="M10 0C4.5 0 0 4.5 0 10C0 15.5 4.5 20 10 20C15.5 20 20 15.5 20 10C20 4.5 15.5 0 10 0ZM13 12L12 13L10 11L8 13L7 12L9 10L7 8L8 7L10 9L12 7L13 8L11 10L13 12Z" fill="#DC2626" />
-                    </Svg>
+            <View style={styles.mediaRow}>
+              {mediaFiles.map((file, i) => (
+                <View key={i} style={styles.mediaItem}>
+                  <Image source={{ uri: file.uri }} style={styles.mediaImg} />
+                  <TouchableOpacity style={styles.removeBtn} onPress={() => removeMedia(i)}>
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>✕</Text>
                   </TouchableOpacity>
                 </View>
               ))}
@@ -219,41 +211,33 @@ const NonStandardEmergencyScreen = ({ route, navigation }) => {
           )}
         </View>
 
-        {/* Pricing Info */}
-        <View style={[styles.pricingCard, { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }]}>
+        {/* Pricing info */}
+        <View style={styles.pricingCard}>
           <Text style={styles.pricingTitle}>💰 How Pricing Works</Text>
-          <View style={styles.pricingItem}>
-            <Text style={styles.pricingDot}>•</Text>
-            <Text style={styles.pricingText}>Multiple providers will send you custom offers</Text>
-          </View>
-          <View style={styles.pricingItem}>
-            <Text style={styles.pricingDot}>•</Text>
-            <Text style={styles.pricingText}>Compare prices, ratings, and ETAs</Text>
-          </View>
-          <View style={styles.pricingItem}>
-            <Text style={styles.pricingDot}>•</Text>
-            <Text style={styles.pricingText}>Choose the best offer that fits your budget</Text>
-          </View>
-          <View style={styles.pricingItem}>
-            <Text style={styles.pricingDot}>•</Text>
-            <Text style={styles.pricingText}>No obligation until you accept an offer</Text>
-          </View>
+          {[
+            'Multiple providers send you custom offers',
+            'Compare prices, ratings, and ETAs',
+            'Choose the best offer for your budget',
+            'No obligation until you accept an offer',
+          ].map((t, i) => (
+            <Text key={i} style={styles.pricingItem}>• {t}</Text>
+          ))}
         </View>
+
+        <View style={{ height: 20 }} />
       </ScrollView>
 
-      {/* Submit Button */}
+      {/* Footer */}
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+          style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
           onPress={handleSubmit}
           disabled={loading}
         >
-          <Text style={styles.submitButtonText}>
-            {loading ? 'Broadcasting...' : 'Broadcast to Providers'}
-          </Text>
-          <Svg width="20" height="20" viewBox="0 0 20 20">
-            <Path d="M10 0C4.5 0 0 4.5 0 10C0 15.5 4.5 20 10 20C15.5 20 20 15.5 20 10C20 4.5 15.5 0 10 0ZM8 15V5L14 10L8 15Z" fill="#FFFFFF" />
-          </Svg>
+          {loading
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.submitBtnText}>📡 Broadcast to Providers</Text>
+          }
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -261,183 +245,67 @@ const NonStandardEmergencyScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#F59E0B', paddingHorizontal: 20, paddingVertical: 14,
   },
-  emergencyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F59E0B',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emergencyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  scrollView: {
-    flex: 1,
-  },
+  backBtn: { width: 40, height: 40, justifyContent: 'center' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#fff' },
+  scroll: { flex: 1 },
+
   locationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    margin: 20,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center',
+    margin: 20, padding: 12, borderRadius: 10, borderWidth: 1, gap: 4,
   },
-  locationText: {
-    fontSize: 13,
-    marginLeft: 8,
-    flex: 1,
+  locationText: { flex: 1, fontSize: 13, fontWeight: '500' },
+  mapPinBtn: {
+    width: 32, height: 32, borderRadius: 8,
+    backgroundColor: '#F59E0B', justifyContent: 'center', alignItems: 'center',
   },
+
   infoBanner: {
-    flexDirection: 'row',
-    backgroundColor: '#FEF3C7',
-    marginHorizontal: 20,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
+    backgroundColor: '#FEF3C7', marginHorizontal: 20,
+    padding: 16, borderRadius: 12, marginBottom: 20,
   },
-  infoTextContainer: {
-    flex: 1,
-    marginLeft: 12,
+  infoTitle: { fontSize: 14, fontWeight: '700', color: '#92400E', marginBottom: 6 },
+  infoText:  { fontSize: 13, color: '#92400E', lineHeight: 18 },
+
+  section: { paddingHorizontal: 20, marginBottom: 24 },
+  label:    { fontSize: 15, fontWeight: '700', marginBottom: 4 },
+  sublabel: { fontSize: 13, marginBottom: 10 },
+  textArea: { borderRadius: 12, padding: 12, fontSize: 14, borderWidth: 1, minHeight: 120 },
+  charCount: { fontSize: 12, textAlign: 'right', marginTop: 4 },
+
+  uploadRow: { flexDirection: 'row', gap: 12 },
+  uploadBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    padding: 14, borderRadius: 12, borderWidth: 1, gap: 8,
   },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#92400E',
-    marginBottom: 4,
+  uploadBtnText: { fontSize: 14, fontWeight: '600' },
+  mediaRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 14, gap: 10 },
+  mediaItem: { width: 90, height: 90, borderRadius: 10, position: 'relative' },
+  mediaImg:  { width: '100%', height: '100%', borderRadius: 10 },
+  removeBtn: {
+    position: 'absolute', top: -6, right: -6,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: '#DC2626', justifyContent: 'center', alignItems: 'center',
   },
-  infoText: {
-    fontSize: 13,
-    color: '#92400E',
-    lineHeight: 18,
-  },
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    marginBottom: 12,
-  },
-  required: {
-    color: '#DC2626',
-  },
-  descriptionInput: {
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    borderWidth: 1,
-    minHeight: 120,
-  },
-  charCount: {
-    fontSize: 12,
-    textAlign: 'right',
-    marginTop: 4,
-  },
-  uploadButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  uploadButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  uploadButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  mediaPreview: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 16,
-    gap: 12,
-  },
-  mediaItem: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    position: 'relative',
-  },
-  mediaImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-  },
-  removeButton: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-  },
+
   pricingCard: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
+    marginHorizontal: 20, backgroundColor: '#FEF3C7',
+    borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#FCD34D',
   },
-  pricingTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#92400E',
-    marginBottom: 12,
+  pricingTitle: { fontSize: 15, fontWeight: '700', color: '#92400E', marginBottom: 10 },
+  pricingItem:  { fontSize: 13, color: '#92400E', marginBottom: 6, lineHeight: 18 },
+
+  footer: { padding: 20, borderTopWidth: 1 },
+  submitBtn: {
+    backgroundColor: '#F59E0B', paddingVertical: 16,
+    borderRadius: 12, alignItems: 'center', justifyContent: 'center',
   },
-  pricingItem: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  pricingDot: {
-    fontSize: 16,
-    color: '#92400E',
-    marginRight: 8,
-  },
-  pricingText: {
-    fontSize: 13,
-    color: '#92400E',
-    flex: 1,
-  },
-  footer: {
-    padding: 20,
-    borderTopWidth: 1,
-  },
-  submitButton: {
-    backgroundColor: '#F59E0B',
-    paddingVertical: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#9CA3AF',
-  },
-  submitButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginRight: 8,
-  },
+  submitBtnDisabled: { backgroundColor: '#9CA3AF' },
+  submitBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });
 
 export default NonStandardEmergencyScreen;

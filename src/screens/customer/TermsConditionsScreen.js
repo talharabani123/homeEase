@@ -22,90 +22,86 @@ const TermsConditionsScreen = ({ navigation }) => {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-          <Text style={styles.lastUpdated}>Last Updated: February 17, 2026</Text>
+          <Text style={styles.lastUpdated}>Last Updated: April 2026</Text>
 
           <Text style={styles.sectionTitle}>1. Acceptance of Terms</Text>
           <Text style={styles.paragraph}>
-            By accessing and using HomeEase, you accept and agree to be bound by these Terms and Conditions. If you do not agree to these terms, please do not use our services.
+            By accessing and using HomeEase, you accept and agree to be bound by these Terms and Conditions. If you do not agree, please do not use our services.
           </Text>
 
           <Text style={styles.sectionTitle}>2. Service Description</Text>
           <Text style={styles.paragraph}>
-            HomeEase is a platform that connects customers with professional service providers for home maintenance and repair services. We act as an intermediary and do not directly provide the services.
+            HomeEase connects customers with professional home service providers. We act as an intermediary and do not directly provide services. Pricing is distance-based (Rs. 50 per km travel cost) plus negotiated service charges.
           </Text>
 
-          <Text style={styles.sectionTitle}>3. User Accounts</Text>
-          <Text style={styles.paragraph}>
-            You must create an account to use our services. You are responsible for:
-          </Text>
-          <Text style={styles.bulletPoint}>• Maintaining the confidentiality of your account</Text>
-          <Text style={styles.bulletPoint}>• All activities that occur under your account</Text>
-          <Text style={styles.bulletPoint}>• Providing accurate and complete information</Text>
-          <Text style={styles.bulletPoint}>• Updating your information as needed</Text>
+          <Text style={styles.sectionTitle}>3. Customer Responsibilities</Text>
+          <Text style={styles.paragraph}>As a customer, you agree to:</Text>
+          <Text style={styles.bulletPoint}>• Provide an accurate and precise location when requesting a service</Text>
+          <Text style={styles.bulletPoint}>• Treat service providers with respect and professionalism</Text>
+          <Text style={styles.bulletPoint}>• Rate and review providers honestly and fairly</Text>
+          <Text style={styles.bulletPoint}>• Not submit false, misleading, or malicious complaints</Text>
+          <Text style={styles.bulletPoint}>• Not misuse the platform to harass or harm providers</Text>
+          <Text style={styles.bulletPoint}>• Pay the agreed amount (travel cost + negotiated service fee) upon completion</Text>
+          <Text style={styles.bulletPoint}>• Not attempt to bypass the platform's payment system</Text>
 
-          <Text style={styles.sectionTitle}>4. Service Bookings</Text>
-          <Text style={styles.paragraph}>
-            When you book a service through our platform:
-          </Text>
-          <Text style={styles.bulletPoint}>• You enter into a direct contract with the service provider</Text>
-          <Text style={styles.bulletPoint}>• Prices are set by service providers and may vary</Text>
-          <Text style={styles.bulletPoint}>• Cancellation policies apply as stated at booking</Text>
-          <Text style={styles.bulletPoint}>• Payment is processed through our secure platform</Text>
+          <Text style={styles.sectionTitle}>4. Service Provider Responsibilities</Text>
+          <Text style={styles.paragraph}>As a service provider, you agree to:</Text>
+          <Text style={styles.bulletPoint}>• Behave professionally, politely, and respectfully toward all customers</Text>
+          <Text style={styles.bulletPoint}>• Never use abusive, threatening, or disrespectful language or behavior</Text>
+          <Text style={styles.bulletPoint}>• Provide honest, quality service as described</Text>
+          <Text style={styles.bulletPoint}>• Honor the pricing agreed upon after negotiation</Text>
+          <Text style={styles.bulletPoint}>• Arrive on time and communicate delays promptly</Text>
+          <Text style={styles.bulletPoint}>• Accept that your ratings directly affect your visibility and job assignments</Text>
+          <Text style={styles.bulletPoint}>• Understand that consistently negative reviews may result in account suspension or permanent ban</Text>
 
-          <Text style={styles.sectionTitle}>5. Payment Terms</Text>
+          <Text style={styles.sectionTitle}>5. Pricing & Distance-Based Charges</Text>
           <Text style={styles.paragraph}>
-            All payments must be made through the HomeEase platform. We accept various payment methods including credit cards, debit cards, and digital wallets. Service fees and charges will be clearly displayed before booking.
-          </Text>
-
-          <Text style={styles.sectionTitle}>6. Cancellation and Refunds</Text>
-          <Text style={styles.paragraph}>
-            Cancellation policies vary by service provider. Refunds are subject to the provider's cancellation policy and will be processed within 7-10 business days.
+            Travel cost is calculated at Rs. 50 per kilometer from the provider's location to the customer's location. This is shown to the customer before confirming a booking. Service charges are negotiated directly between customer and provider through the in-app chat before work begins.
           </Text>
 
-          <Text style={styles.sectionTitle}>7. User Conduct</Text>
+          <Text style={styles.sectionTitle}>6. Rating & Review System</Text>
           <Text style={styles.paragraph}>
-            You agree not to:
+            Ratings and reviews directly affect provider visibility on the platform:
           </Text>
-          <Text style={styles.bulletPoint}>• Use the service for any illegal purpose</Text>
-          <Text style={styles.bulletPoint}>• Harass or harm service providers or other users</Text>
-          <Text style={styles.bulletPoint}>• Provide false or misleading information</Text>
-          <Text style={styles.bulletPoint}>• Attempt to bypass our payment system</Text>
-          <Text style={styles.bulletPoint}>• Share your account credentials with others</Text>
+          <Text style={styles.bulletPoint}>• Providers with higher ratings receive more service requests</Text>
+          <Text style={styles.bulletPoint}>• Providers with poor ratings receive fewer requests</Text>
+          <Text style={styles.bulletPoint}>• Providers with consistently negative reviews may be automatically suspended</Text>
+          <Text style={styles.bulletPoint}>• Customers must leave honest reviews — false reviews violate these terms</Text>
 
-          <Text style={styles.sectionTitle}>8. Service Provider Responsibilities</Text>
+          <Text style={styles.sectionTitle}>7. Provider Conduct & Account Suspension</Text>
           <Text style={styles.paragraph}>
-            Service providers are independent contractors. HomeEase is not responsible for the quality, safety, or legality of services provided. However, we verify providers and monitor service quality.
+            Any provider found to be abusive, dishonest, or unprofessional will face:
+          </Text>
+          <Text style={styles.bulletPoint}>• Warning and reduced visibility after first verified complaint</Text>
+          <Text style={styles.bulletPoint}>• Temporary suspension after repeated complaints</Text>
+          <Text style={styles.bulletPoint}>• Permanent account ban for severe or repeated misconduct</Text>
+
+          <Text style={styles.sectionTitle}>8. User Accounts</Text>
+          <Text style={styles.paragraph}>
+            You are responsible for maintaining the confidentiality of your account and all activities that occur under it. Provide accurate information and update it as needed.
           </Text>
 
-          <Text style={styles.sectionTitle}>9. Liability Limitations</Text>
+          <Text style={styles.sectionTitle}>9. Cancellation and Refunds</Text>
           <Text style={styles.paragraph}>
-            HomeEase is not liable for any damages arising from the use of our platform or services provided by third-party providers. Our total liability is limited to the amount paid for the specific service.
+            Cancellation policies vary by service provider. Refunds are processed within 7-10 business days subject to the provider's cancellation policy.
           </Text>
 
-          <Text style={styles.sectionTitle}>10. Intellectual Property</Text>
+          <Text style={styles.sectionTitle}>10. Liability Limitations</Text>
           <Text style={styles.paragraph}>
-            All content on the HomeEase platform, including logos, text, graphics, and software, is owned by HomeEase and protected by intellectual property laws.
+            HomeEase is not liable for damages arising from services provided by third-party providers. Our total liability is limited to the amount paid for the specific service.
           </Text>
 
           <Text style={styles.sectionTitle}>11. Dispute Resolution</Text>
           <Text style={styles.paragraph}>
-            Any disputes arising from these terms will be resolved through arbitration in accordance with the laws of Pakistan. You agree to resolve disputes individually and not as part of a class action.
+            Disputes will be resolved through arbitration in accordance with the laws of Pakistan. Both parties agree to resolve disputes individually.
           </Text>
 
           <Text style={styles.sectionTitle}>12. Changes to Terms</Text>
           <Text style={styles.paragraph}>
-            We reserve the right to modify these terms at any time. Continued use of the service after changes constitutes acceptance of the new terms.
+            We may modify these terms at any time. Continued use of the service after changes constitutes acceptance of the updated terms.
           </Text>
 
-          <Text style={styles.sectionTitle}>13. Termination</Text>
-          <Text style={styles.paragraph}>
-            We may terminate or suspend your account at any time for violation of these terms or for any other reason at our discretion.
-          </Text>
-
-          <Text style={styles.sectionTitle}>14. Contact Information</Text>
-          <Text style={styles.paragraph}>
-            For questions about these terms, contact us at:
-          </Text>
+          <Text style={styles.sectionTitle}>13. Contact Information</Text>
           <Text style={styles.contactInfo}>Email: legal@homeease.com</Text>
           <Text style={styles.contactInfo}>Phone: +92 300 1234567</Text>
           <Text style={styles.contactInfo}>Address: Islamabad, Pakistan</Text>

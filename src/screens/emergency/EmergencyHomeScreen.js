@@ -1,414 +1,277 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView } from 'react-native';
-import Svg, { Path, Circle, Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity,
+  ScrollView, StatusBar, ActivityIndicator, Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path, Circle } from 'react-native-svg';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { useTheme } from '../../context/ThemeContext';
+import * as Location from 'expo-location';
+import { getAddressFromCoords } from '../../services/locationService';
 
 const EmergencyHomeScreen = ({ navigation }) => {
   const { colors } = useTheme();
-  
-  const [currentLocation, setCurrentLocation] = useState('Getting location...');
 
-  useEffect(() => {
-    getCurrentLocation();
-  }, []);
+  const [locationText, setLocationText]   = useState('Getting location…');
+  const [locationCoords, setLocationCoords] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(true);
 
-  const getCurrentLocation = async () => {
-    // Mock location for Expo Go
-    setTimeout(() => {
-      setCurrentLocation('Gulberg III, Lahore');
-    }, 1000);
+  // ── Fetch GPS on mount ─────────────────────────────────────────────────────
+  useEffect(() => { fetchLocation(); }, []);
+
+  const fetchLocation = async () => {
+    setLocationLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationText('Location permission denied — tap 📍 to pick manually');
+        setLocationLoading(false);
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      setLocationCoords(coords);
+
+      const addrResult = await getAddressFromCoords(coords.latitude, coords.longitude);
+      setLocationText(addrResult.success ? addrResult.address : `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+    } catch (e) {
+      setLocationText('Could not get location — tap 📍 to pick manually');
+    }
+    setLocationLoading(false);
+  };
+
+  // ── Open map picker ────────────────────────────────────────────────────────
+  const openMapPicker = useCallback(() => {
+    navigation.navigate('LocationPicker', {
+      initialLat: locationCoords?.latitude,
+      initialLng: locationCoords?.longitude,
+      onConfirm: (picked) => {
+        setLocationCoords({ latitude: picked.latitude, longitude: picked.longitude });
+        setLocationText(picked.address || `${picked.latitude.toFixed(4)}, ${picked.longitude.toFixed(4)}`);
+      },
+    });
+  }, [locationCoords]);
+
+  // ── Navigate to sub-screens with safe params ───────────────────────────────
+  const goToStandard = () => {
+    navigation.navigate('StandardEmergency', {
+      location: locationCoords || { latitude: 24.8607, longitude: 67.0011 },
+      address:  locationText,
+    });
+  };
+
+  const goToNonStandard = () => {
+    navigation.navigate('NonStandardEmergency', {
+      location: locationCoords || { latitude: 24.8607, longitude: 67.0011 },
+      address:  locationText,
+    });
   };
 
   return (
     <ScreenWrapper variant="default">
-      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
-        <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" />
-      
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <Path d="M15 18L9 12L15 6" stroke={colors.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </Svg>
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Emergency Services</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" translucent />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Emergency Banner */}
-        <View style={[styles.emergencyBanner, { backgroundColor: '#FEE2E2' }]}>
-          <View style={styles.emergencyIconContainer}>
-            <Svg width="32" height="32" viewBox="0 0 32 32">
-              <Circle cx="16" cy="16" r="14" fill="#DC2626" />
-              <Path d="M16 10v8M16 22v.01" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round"/>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <Path d="M15 18L9 12L15 6" stroke={colors.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </Svg>
-          </View>
-          <View style={styles.emergencyTextContainer}>
-            <Text style={styles.emergencyTitle}>24/7 Emergency Support</Text>
-            <Text style={styles.emergencySubtitle}>Fast response • Verified providers • Real-time tracking</Text>
-          </View>
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Emergency Services</Text>
+          <View style={{ width: 40 }} />
         </View>
 
-        {/* Location */}
-        <View style={[styles.locationCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Svg width="20" height="20" viewBox="0 0 20 20">
-            <Path d="M10 2C6.69 2 4 4.69 4 8c0 4.38 6 10 6 10s6-5.62 6-10c0-3.31-2.69-6-6-6zm0 8c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" fill={colors.primary}/>
-          </Svg>
-          <Text style={[styles.locationText, { color: colors.text }]}>{currentLocation}</Text>
-        </View>
+        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Main Title */}
-        <Text style={[styles.mainTitle, { color: colors.text }]}>Choose Emergency Type</Text>
-        <Text style={[styles.mainSubtitle, { color: colors.textSecondary }]}>
-          Select the type of emergency service you need
-        </Text>
-
-        {/* Standard Emergency Card */}
-        <TouchableOpacity 
-          style={[styles.serviceCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => navigation.navigate('StandardEmergency')}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.cardIconContainer, { backgroundColor: '#DBEAFE' }]}>
-            <Svg width="48" height="48" viewBox="0 0 48 48">
-              <Circle cx="24" cy="24" r="22" fill="#3B82F6" opacity="0.2"/>
-              <Path d="M24 14v10l6 6M24 8c-8.84 0-16 7.16-16 16s7.16 16 16 16 16-7.16 16-16S32.84 8 24 8z" stroke="#3B82F6" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-            </Svg>
-          </View>
-          
-          <View style={styles.cardContent}>
-            <View style={styles.cardHeader}>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>Standard Emergency</Text>
-              <View style={[styles.badge, { backgroundColor: '#DBEAFE' }]}>
-                <Text style={[styles.badgeText, { color: '#1E40AF' }]}>Fast</Text>
-              </View>
-            </View>
-            
-            <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
-              Pre-defined emergency services with instant provider matching
-            </Text>
-            
-            <View style={styles.featuresContainer}>
-              <View style={styles.featureItem}>
-                <Svg width="16" height="16" viewBox="0 0 16 16">
-                  <Circle cx="8" cy="8" r="7" fill="#10B981"/>
-                  <Path d="M5 8l2 2 4-4" stroke="#FFFFFF" strokeWidth="1.5" fill="none"/>
-                </Svg>
-                <Text style={[styles.featureText, { color: colors.textSecondary }]}>Fixed pricing</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <Svg width="16" height="16" viewBox="0 0 16 16">
-                  <Circle cx="8" cy="8" r="7" fill="#10B981"/>
-                  <Path d="M5 8l2 2 4-4" stroke="#FFFFFF" strokeWidth="1.5" fill="none"/>
-                </Svg>
-                <Text style={[styles.featureText, { color: colors.textSecondary }]}>Immediate dispatch</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <Svg width="16" height="16" viewBox="0 0 16 16">
-                  <Circle cx="8" cy="8" r="7" fill="#10B981"/>
-                  <Path d="M5 8l2 2 4-4" stroke="#FFFFFF" strokeWidth="1.5" fill="none"/>
-                </Svg>
-                <Text style={[styles.featureText, { color: colors.textSecondary }]}>Surge pricing applies</Text>
-              </View>
-            </View>
-
-            <View style={styles.servicesPreview}>
-              <Text style={[styles.servicesLabel, { color: colors.textSecondary }]}>Includes:</Text>
-              <View style={styles.serviceIcons}>
-                <Text style={styles.serviceEmoji}>🔧</Text>
-                <Text style={styles.serviceEmoji}>⚡</Text>
-                <Text style={styles.serviceEmoji}>❄️</Text>
-                <Text style={styles.serviceEmoji}>🔥</Text>
-                <Text style={styles.serviceEmoji}>🔑</Text>
-                <Text style={[styles.moreText, { color: colors.textSecondary }]}>+1</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.arrowContainer}>
-            <Svg width="24" height="24" viewBox="0 0 24 24">
-              <Path d="M9 6l6 6-6 6" stroke={colors.textSecondary} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-            </Svg>
-          </View>
-        </TouchableOpacity>
-
-        {/* Non-Standard Emergency Card */}
-        <TouchableOpacity 
-          style={[styles.serviceCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => navigation.navigate('NonStandardEmergency')}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.cardIconContainer, { backgroundColor: '#FCE7F3' }]}>
-            <Svg width="48" height="48" viewBox="0 0 48 48">
-              <Circle cx="24" cy="24" r="22" fill="#EC4899" opacity="0.2"/>
-              <Path d="M24 14v20M14 24h20" stroke="#EC4899" strokeWidth="2.5" strokeLinecap="round"/>
-              <Circle cx="24" cy="24" r="16" stroke="#EC4899" strokeWidth="2.5" fill="none"/>
-            </Svg>
-          </View>
-          
-          <View style={styles.cardContent}>
-            <View style={styles.cardHeader}>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>Non-Standard Emergency</Text>
-              <View style={[styles.badge, { backgroundColor: '#FCE7F3' }]}>
-                <Text style={[styles.badgeText, { color: '#BE185D' }]}>Custom</Text>
-              </View>
-            </View>
-            
-            <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
-              Describe your unique emergency and receive multiple provider offers
-            </Text>
-            
-            <View style={styles.featuresContainer}>
-              <View style={styles.featureItem}>
-                <Svg width="16" height="16" viewBox="0 0 16 16">
-                  <Circle cx="8" cy="8" r="7" fill="#10B981"/>
-                  <Path d="M5 8l2 2 4-4" stroke="#FFFFFF" strokeWidth="1.5" fill="none"/>
-                </Svg>
-                <Text style={[styles.featureText, { color: colors.textSecondary }]}>Competitive pricing</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <Svg width="16" height="16" viewBox="0 0 16 16">
-                  <Circle cx="8" cy="8" r="7" fill="#10B981"/>
-                  <Path d="M5 8l2 2 4-4" stroke="#FFFFFF" strokeWidth="1.5" fill="none"/>
-                </Svg>
-                <Text style={[styles.featureText, { color: colors.textSecondary }]}>Multiple offers</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <Svg width="16" height="16" viewBox="0 0 16 16">
-                  <Circle cx="8" cy="8" r="7" fill="#10B981"/>
-                  <Path d="M5 8l2 2 4-4" stroke="#FFFFFF" strokeWidth="1.5" fill="none"/>
-                </Svg>
-                <Text style={[styles.featureText, { color: colors.textSecondary }]}>Choose best provider</Text>
-              </View>
-            </View>
-
-            <View style={styles.customNote}>
-              <Svg width="20" height="20" viewBox="0 0 20 20">
-                <Circle cx="10" cy="10" r="9" fill="#EC4899"/>
-                <Path d="M10 6v4M10 14v.01" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round"/>
+          {/* Emergency banner */}
+          <View style={styles.banner}>
+            <View style={styles.bannerIcon}>
+              <Svg width="32" height="32" viewBox="0 0 32 32">
+                <Circle cx="16" cy="16" r="14" fill="#DC2626"/>
+                <Path d="M16 10v8M16 22v.01" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/>
               </Svg>
-              <Text style={[styles.customNoteText, { color: colors.textSecondary }]}>
-                Perfect for unique or complex emergencies
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.bannerTitle}>24/7 Emergency Support</Text>
+              <Text style={styles.bannerSub}>Fast response • Verified providers • Real-time tracking</Text>
+            </View>
+          </View>
+
+          {/* Location row */}
+          <View style={[styles.locationCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {locationLoading
+              ? <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 8 }} />
+              : (
+                <Svg width="18" height="18" viewBox="0 0 20 20" style={{ marginRight: 8 }}>
+                  <Path d="M10 2C6.69 2 4 4.69 4 8c0 4.38 6 10 6 10s6-5.62 6-10c0-3.31-2.69-6-6-6zm0 8c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" fill={colors.primary}/>
+                </Svg>
+              )
+            }
+            <Text style={[styles.locationText, { color: colors.text }]} numberOfLines={2}>
+              {locationText}
+            </Text>
+            {/* Map pin button */}
+            <TouchableOpacity style={[styles.mapPinBtn, { backgroundColor: colors.primary }]} onPress={openMapPicker}>
+              <Svg width="16" height="16" viewBox="0 0 24 24">
+                <Path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#fff"/>
+              </Svg>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={fetchLocation} style={styles.refreshBtn}>
+              <Text style={{ fontSize: 18, color: colors.primary }}>↻</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Choose Emergency Type</Text>
+          <Text style={[styles.sectionSub, { color: colors.textSecondary }]}>
+            Select the type of emergency service you need
+          </Text>
+
+          {/* Standard card */}
+          <TouchableOpacity
+            style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={goToStandard}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.cardIcon, { backgroundColor: '#DBEAFE' }]}>
+              <Text style={{ fontSize: 32 }}>🚨</Text>
+            </View>
+            <View style={styles.cardBody}>
+              <View style={styles.cardTitleRow}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>Standard Emergency</Text>
+                <View style={styles.fastBadge}><Text style={styles.fastBadgeText}>Fast</Text></View>
+              </View>
+              <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
+                Pre-defined services with instant provider matching and fixed pricing
+              </Text>
+              <View style={styles.chips}>
+                {['🔧 Plumber','⚡ Electrician','❄️ AC','🔥 Gas','🔑 Locksmith'].map(s => (
+                  <View key={s} style={[styles.chip, { backgroundColor: colors.primaryLight }]}>
+                    <Text style={[styles.chipText, { color: colors.primary }]}>{s}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <Svg width="20" height="20" viewBox="0 0 24 24">
+              <Path d="M9 6l6 6-6 6" stroke={colors.textSecondary} strokeWidth="2" fill="none" strokeLinecap="round"/>
+            </Svg>
+          </TouchableOpacity>
+
+          {/* Non-standard card */}
+          <TouchableOpacity
+            style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={goToNonStandard}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.cardIcon, { backgroundColor: '#FCE7F3' }]}>
+              <Text style={{ fontSize: 32 }}>📝</Text>
+            </View>
+            <View style={styles.cardBody}>
+              <View style={styles.cardTitleRow}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>Custom / Non-Standard</Text>
+                <View style={[styles.fastBadge, { backgroundColor: '#FCE7F3' }]}>
+                  <Text style={[styles.fastBadgeText, { color: '#BE185D' }]}>Custom</Text>
+                </View>
+              </View>
+              <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
+                Describe your unique problem. Multiple providers send competitive offers.
+              </Text>
+              <View style={styles.chips}>
+                {['💬 Describe issue','📸 Add photos','💰 Compare offers'].map(s => (
+                  <View key={s} style={[styles.chip, { backgroundColor: '#FCE7F3' }]}>
+                    <Text style={[styles.chipText, { color: '#BE185D' }]}>{s}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <Svg width="20" height="20" viewBox="0 0 24 24">
+              <Path d="M9 6l6 6-6 6" stroke={colors.textSecondary} strokeWidth="2" fill="none" strokeLinecap="round"/>
+            </Svg>
+          </TouchableOpacity>
+
+          {/* How it works */}
+          <View style={[styles.infoCard, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
+            <Svg width="22" height="22" viewBox="0 0 24 24">
+              <Circle cx="12" cy="12" r="10" fill={colors.primary}/>
+              <Path d="M12 8v4M12 16v.01" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+            </Svg>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={[styles.infoTitle, { color: colors.text }]}>How it works</Text>
+              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                1. Select emergency type{'\n'}
+                2. Provider gets dispatched{'\n'}
+                3. Track in real-time{'\n'}
+                4. Pay after service completion
               </Text>
             </View>
           </View>
 
-          <View style={styles.arrowContainer}>
-            <Svg width="24" height="24" viewBox="0 0 24 24">
-              <Path d="M9 6l6 6-6 6" stroke={colors.textSecondary} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-            </Svg>
-          </View>
-        </TouchableOpacity>
-
-        {/* Info Card */}
-        <View style={[styles.infoCard, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-          <Svg width="24" height="24" viewBox="0 0 24 24">
-            <Circle cx="12" cy="12" r="10" fill={colors.primary}/>
-            <Path d="M12 8v4M12 16v.01" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round"/>
-          </Svg>
-          <View style={styles.infoTextContainer}>
-            <Text style={[styles.infoTitle, { color: colors.text }]}>How it works</Text>
-            <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-              1. Select emergency type{'\n'}
-              2. Provider gets dispatched{'\n'}
-              3. Track in real-time{'\n'}
-              4. Pay after service completion
-            </Text>
-          </View>
-        </View>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </SafeAreaView>
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </SafeAreaView>
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1,
   },
-  backButton: {
-    padding: 4,
+  backBtn: { width: 40, height: 40, justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700' },
+  scroll: { flex: 1, paddingHorizontal: 20 },
+
+  banner: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FEE2E2', borderRadius: 12,
+    padding: 16, marginTop: 20, marginBottom: 16, gap: 12,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  emergencyBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 20,
-    marginBottom: 16,
-  },
-  emergencyIconContainer: {
-    marginRight: 12,
-  },
-  emergencyTextContainer: {
-    flex: 1,
-  },
-  emergencyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#991B1B',
-    marginBottom: 4,
-  },
-  emergencySubtitle: {
-    fontSize: 12,
-    color: '#7F1D1D',
-  },
+  bannerIcon: { marginRight: 4 },
+  bannerTitle: { fontSize: 15, fontWeight: '700', color: '#991B1B', marginBottom: 3 },
+  bannerSub:   { fontSize: 12, color: '#7F1D1D' },
+
   locationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 24,
+    flexDirection: 'row', alignItems: 'center',
+    padding: 12, borderRadius: 10, borderWidth: 1, marginBottom: 24, gap: 4,
   },
-  locationText: {
-    fontSize: 14,
-    marginLeft: 8,
-    fontWeight: '500',
+  locationText: { flex: 1, fontSize: 13, fontWeight: '500' },
+  mapPinBtn: {
+    width: 32, height: 32, borderRadius: 8,
+    justifyContent: 'center', alignItems: 'center', marginLeft: 4,
   },
-  mainTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 8,
+  refreshBtn: { padding: 4, marginLeft: 2 },
+
+  sectionTitle: { fontSize: 22, fontWeight: '700', marginBottom: 6 },
+  sectionSub:   { fontSize: 13, marginBottom: 20, lineHeight: 18 },
+
+  card: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    padding: 18, borderRadius: 16, borderWidth: 1,
+    marginBottom: 16, gap: 14,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
   },
-  mainSubtitle: {
-    fontSize: 14,
-    marginBottom: 24,
-    lineHeight: 20,
-  },
-  serviceCard: {
-    flexDirection: 'row',
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  cardContent: {
-    flex: 1,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  cardDescription: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  featuresContainer: {
-    marginBottom: 12,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  featureText: {
-    fontSize: 12,
-    marginLeft: 8,
-  },
-  servicesPreview: {
-    marginTop: 8,
-  },
-  servicesLabel: {
-    fontSize: 11,
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  serviceIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  serviceEmoji: {
-    fontSize: 20,
-    marginRight: 6,
-  },
-  moreText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  customNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  customNoteText: {
-    fontSize: 12,
-    marginLeft: 8,
-    fontStyle: 'italic',
-  },
-  arrowContainer: {
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
+  cardIcon: { width: 60, height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  cardBody: { flex: 1 },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  cardTitle: { fontSize: 16, fontWeight: '700', flex: 1, marginRight: 8 },
+  fastBadge: { backgroundColor: '#DBEAFE', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
+  fastBadgeText: { fontSize: 11, fontWeight: '700', color: '#1E40AF' },
+  cardDesc: { fontSize: 13, lineHeight: 18, marginBottom: 10 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  chipText: { fontSize: 11, fontWeight: '600' },
+
   infoCard: {
-    flexDirection: 'row',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginTop: 8,
+    flexDirection: 'row', padding: 16,
+    borderRadius: 12, borderWidth: 1, marginTop: 4,
   },
-  infoTextContainer: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  infoText: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
+  infoTitle: { fontSize: 14, fontWeight: '700', marginBottom: 6 },
+  infoText:  { fontSize: 12, lineHeight: 18 },
 });
 
 export default EmergencyHomeScreen;

@@ -61,27 +61,15 @@ const SettingsScreen = ({ navigation }) => {
   const handleNotificationsToggle = (value) => {
     setNotifications(value);
     saveSettings('notifications', value);
-    Alert.alert(
-      'Push Notifications',
-      value ? 'Notifications enabled' : 'Notifications disabled'
-    );
   };
 
   const handleLocationToggle = (value) => {
     setLocationServices(value);
     saveSettings('locationServices', value);
-    Alert.alert(
-      'Location Services',
-      value ? 'Location services enabled' : 'Location services disabled'
-    );
   };
 
   const handleDarkModeToggle = () => {
     toggleTheme();
-    Alert.alert(
-      'Dark Mode',
-      isDarkMode ? 'Switched to Light Mode' : 'Switched to Dark Mode'
-    );
   };
 
   const handleClearCache = async () => {
@@ -94,7 +82,6 @@ const SettingsScreen = ({ navigation }) => {
           text: 'Clear',
           style: 'destructive',
           onPress: async () => {
-            // Clear cache but keep user data
             Alert.alert('Success', 'Cache cleared successfully!');
           },
         },

@@ -1,52 +1,58 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, StatusBar, SafeAreaView } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../context/ThemeContext';
 import { STANDARD_EMERGENCY_TYPES, calculateEmergencyPrice, getPriceBreakdown, createStandardEmergencyRequest } from '../../services/emergencyService';
 
 const StandardEmergencyScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
-  const { location, address } = route.params || {};
+
+  // ── Safe param extraction ──────────────────────────────────────────────────
+  const safeParams = route?.params || {};
+  const initLocation = safeParams.location || null;
+  const initAddress  = safeParams.address  || '';
   
   const [selectedService, setSelectedService] = useState(null);
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState(location || null);
-  const [currentAddress, setCurrentAddress] = useState(address || 'Fetching location...');
+  const [currentLocation, setCurrentLocation] = useState(initLocation);
+  const [currentAddress, setCurrentAddress] = useState(initAddress || 'Fetching location…');
 
   // Get location if not provided
   React.useEffect(() => {
-    if (!location) {
-      fetchLocation();
-    }
+    if (!initLocation) fetchLocation();
   }, []);
 
   const fetchLocation = async () => {
     try {
       const { getCurrentLocation, getAddressFromCoords } = require('../../services/locationService');
       const result = await getCurrentLocation();
-      
       if (result.success) {
         setCurrentLocation(result.location);
-        
-        const addressResult = await getAddressFromCoords(
-          result.location.latitude,
-          result.location.longitude
-        );
-        
-        if (addressResult.success) {
-          setCurrentAddress(addressResult.address);
-        } else {
-          setCurrentAddress('Current Location');
-        }
+        const addrResult = await getAddressFromCoords(result.location.latitude, result.location.longitude);
+        setCurrentAddress(addrResult.success ? addrResult.address : 'Current Location');
       } else {
-        setCurrentAddress('Location unavailable');
+        setCurrentLocation({ latitude: 24.8607, longitude: 67.0011 });
+        setCurrentAddress('Default location — tap 📍 to pick manually');
       }
-    } catch (error) {
-      console.error('Location error:', error);
+    } catch {
+      setCurrentLocation({ latitude: 24.8607, longitude: 67.0011 });
       setCurrentAddress('Location unavailable');
     }
   };
+
+  // ── Map picker ─────────────────────────────────────────────────────────────
+  const openMapPicker = useCallback(() => {
+    navigation.navigate('LocationPicker', {
+      initialLat: currentLocation?.latitude,
+      initialLng: currentLocation?.longitude,
+      onConfirm: (picked) => {
+        setCurrentLocation({ latitude: picked.latitude, longitude: picked.longitude });
+        setCurrentAddress(picked.address || `${picked.latitude.toFixed(4)}, ${picked.longitude.toFixed(4)}`);
+      },
+    });
+  }, [currentLocation]);
 
   const handleServiceSelect = (service) => {
     setSelectedService(service);
@@ -120,6 +126,14 @@ const StandardEmergencyScreen = ({ route, navigation }) => {
           <Text style={[styles.locationText, { color: colors.text }]} numberOfLines={1}>
             {currentAddress}
           </Text>
+          <TouchableOpacity
+            style={[styles.mapPinBtn, { backgroundColor: '#DC2626' }]}
+            onPress={openMapPicker}
+          >
+            <Svg width="14" height="14" viewBox="0 0 24 24">
+              <Path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#fff"/>
+            </Svg>
+          </TouchableOpacity>
         </View>
 
         {/* Service Types Grid */}
@@ -306,11 +320,16 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
+    gap: 8,
   },
   locationText: {
     fontSize: 13,
-    marginLeft: 8,
+    marginLeft: 4,
     flex: 1,
+  },
+  mapPinBtn: {
+    width: 30, height: 30, borderRadius: 8,
+    justifyContent: 'center', alignItems: 'center',
   },
   servicesSection: {
     paddingHorizontal: 20,

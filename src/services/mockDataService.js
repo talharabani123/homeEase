@@ -7,62 +7,16 @@
 
 // Service Categories
 export const SERVICE_CATEGORIES = [
-  { 
-    id: 'plumber', 
-    name: 'Plumber', 
-    icon: '🔧', 
-    priceRange: 'Rs. 500', 
-    description: 'Pipe repairs, leak fixing, bathroom & kitchen plumbing' 
-  },
-  { 
-    id: 'electrician', 
-    name: 'Electrician', 
-    icon: '💡', 
-    priceRange: 'Rs. 600', 
-    description: 'Wiring, switch repairs, appliance installation' 
-  },
-  { 
-    id: 'carpenter', 
-    name: 'Carpenter', 
-    icon: '🪚', 
-    priceRange: 'Rs. 800', 
-    description: 'Furniture repair, door & window fixing, custom woodwork' 
-  },
-  { 
-    id: 'cleaner', 
-    name: 'Cleaner', 
-    icon: '🧹', 
-    priceRange: 'Rs. 1,000', 
-    description: 'Deep cleaning, regular cleaning, move-in/out cleaning' 
-  },
-  { 
-    id: 'painter', 
-    name: 'Painter', 
-    icon: '🎨', 
-    priceRange: 'Rs. 1,500', 
-    description: 'Interior & exterior painting, wall texture' 
-  },
-  { 
-    id: 'ac-repair', 
-    name: 'AC Repair', 
-    icon: '❄️', 
-    priceRange: 'Rs. 700', 
-    description: 'AC installation, repair, maintenance, gas refilling' 
-  },
-  { 
-    id: 'mechanic', 
-    name: 'Mechanic', 
-    icon: '🔩', 
-    priceRange: 'Rs. 1,200', 
-    description: 'Car & bike repair, maintenance, oil change' 
-  },
-  { 
-    id: 'gardener', 
-    name: 'Gardener', 
-    icon: '🌱', 
-    priceRange: 'Rs. 900', 
-    description: 'Lawn care, plant maintenance, landscaping' 
-  },
+  { id: 'plumber',      name: 'Plumber',       icon: '🔧', description: 'Pipe repairs, leak fixing, bathroom & kitchen plumbing' },
+  { id: 'electrician',  name: 'Electrician',   icon: '💡', description: 'Wiring, switch repairs, appliance installation' },
+  { id: 'carpenter',    name: 'Carpenter',     icon: '🪚', description: 'Furniture repair, door & window fixing, custom woodwork' },
+  { id: 'cleaner',      name: 'Cleaner',       icon: '🧹', description: 'Deep cleaning, regular cleaning, move-in/out cleaning' },
+  { id: 'painter',      name: 'Painter',       icon: '🎨', description: 'Interior & exterior painting, wall texture' },
+  { id: 'ac-repair',    name: 'AC Repair',     icon: '❄️', description: 'AC installation, repair, maintenance, gas refilling' },
+  { id: 'mechanic',     name: 'Mechanic',      icon: '🔩', description: 'Car & bike repair, maintenance, oil change' },
+  { id: 'gardener',     name: 'Gardener',      icon: '🌱', description: 'Lawn care, plant maintenance, landscaping' },
+  { id: 'locksmith',    name: 'Locksmith',     icon: '🔑', description: 'Lock repair, key duplication, door lock installation' },
+  { id: 'welder',       name: 'Welder',        icon: '⚙️', description: 'Metal fabrication, gate & grill repair, welding work' },
 ];
 
 // Mock Providers

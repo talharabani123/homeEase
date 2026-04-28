@@ -44,6 +44,7 @@ import PaymentScreen from './src/screens/customer/PaymentScreen';
 import RatingScreen from './src/screens/customer/RatingScreen';
 import WalletScreen from './src/screens/customer/WalletScreen';
 import NearbyProvidersScreen from './src/screens/customer/NearbyProvidersScreen';
+import LocationPickerScreen from './src/screens/customer/LocationPickerScreen';
 // Service Request Screens
 import ServicesListScreen from './src/screens/customer/ServicesListScreen';
 import ServiceDetailScreen from './src/screens/customer/ServiceDetailScreen';
@@ -55,12 +56,14 @@ import ProfileScreen from './src/screens/customer/ProfileScreen';
 import SearchScreen from './src/screens/customer/SearchScreen';
 import EmergencyServiceScreen from './src/screens/customer/EmergencyServiceScreen';
 // Emergency Screens
+import EmergencySelectScreen from './src/screens/emergency/EmergencySelectScreen';
+import EmergencyLocationScreen from './src/screens/emergency/EmergencyLocationScreen';
 import EmergencyHomeScreen from './src/screens/emergency/EmergencyHomeScreen';
 import StandardEmergencyScreen from './src/screens/emergency/StandardEmergencyScreen';
 import NonStandardEmergencyScreen from './src/screens/emergency/NonStandardEmergencyScreen';
 import EmergencySearchingScreen from './src/screens/emergency/EmergencySearchingScreen';
 import EmergencyOffersScreen from './src/screens/emergency/EmergencyOffersScreen';
-import EmergencyTrackingScreen from './src/screens/emergency/EmergencyTrackingScreen';
+// EmergencyTrackingScreen loaded inline below to avoid cache issues
 // Provider Registration Screens
 import ProviderRegistrationIntroScreen from './src/screens/provider/ProviderRegistrationIntroScreen';
 import ServiceSelectionScreen from './src/screens/provider/ServiceSelectionScreen';
@@ -124,6 +127,7 @@ export default function App() {
             <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
             <Stack.Screen name="TermsConditions" component={TermsConditionsScreen} />
             <Stack.Screen name="NearbyProviders" component={NearbyProvidersScreen} />
+            <Stack.Screen name="LocationPicker" component={LocationPickerScreen} />
             <Stack.Screen name="ServicesList" component={ServicesListScreen} />
             <Stack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
             <Stack.Screen name="RequestServiceForm" component={RequestServiceFormScreen} />
@@ -140,12 +144,14 @@ export default function App() {
             <Stack.Screen name="Payment" component={PaymentScreen} />
             <Stack.Screen name="Rating" component={RatingScreen} />
             <Stack.Screen name="Wallet" component={WalletScreen} />
+            <Stack.Screen name="EmergencySelect" component={EmergencySelectScreen} />
+            <Stack.Screen name="EmergencyLocation" component={EmergencyLocationScreen} />
             <Stack.Screen name="EmergencyHome" component={EmergencyHomeScreen} />
             <Stack.Screen name="StandardEmergency" component={StandardEmergencyScreen} />
             <Stack.Screen name="NonStandardEmergency" component={NonStandardEmergencyScreen} />
             <Stack.Screen name="EmergencySearching" component={EmergencySearchingScreen} />
             <Stack.Screen name="EmergencyOffers" component={EmergencyOffersScreen} />
-            <Stack.Screen name="EmergencyTracking" component={EmergencyTrackingScreen} />
+            {/* <Stack.Screen name="EmergencyTracking" component={EmergencyTrackingScreen} /> */}
             <Stack.Screen name="ProviderRegistrationIntro" component={ProviderRegistrationIntroScreen} />
             <Stack.Screen name="ServiceSelection" component={ServiceSelectionScreen} />
             <Stack.Screen name="PersonalInfo" component={PersonalInfoScreen} />
