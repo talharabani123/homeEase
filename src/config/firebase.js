@@ -5,34 +5,56 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { 
+  getAuth, 
+  initializeAuth,
+  getReactNativePersistence 
+} from 'firebase/auth';
+import { getFirestore, initializeFirestore } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Firebase configuration
+// IMPORTANT: This must match the project in google-services.json
 const firebaseConfig = {
-  apiKey: "AIzaSyCGL7g2oyW24Dj-Rd-VwyCiXpYuOUavGAo",
-  authDomain: "homeease-97b9d.firebaseapp.com",
-  databaseURL: "https://homeease-97b9d-default-rtdb.firebaseio.com",
-  projectId: "homeease-97b9d",
-  storageBucket: "homeease-97b9d.firebasestorage.app",
-  messagingSenderId: "274324828136",
-  appId: "1:274324828136:web:7d38bee17d59ab95ae3e5d",
-  measurementId: "G-FVCK0GK4FQ"
+  apiKey: "AIzaSyABd3Q8DPEuiIKuLUasgdNV2fOMoTZ_Mmc",
+  authDomain: "homeease-176cf.firebaseapp.com",
+  projectId: "homeease-176cf",
+  storageBucket: "homeease-176cf.firebasestorage.app",
+  messagingSenderId: "554013141182",
+  appId: "1:554013141182:web:7c88dc00f3d73e4cec16ef",
+  measurementId: "G-55JE2LWSSN"
 };
 
 // Initialize Firebase if not already initialized
 let app;
+let auth;
+let firestore;
+let database;
+
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
-  console.log('Firebase initialized successfully');
+  
+  // Initialize Auth with AsyncStorage persistence
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage)
+  });
+  
+  // Initialize Firestore with settings
+  firestore = initializeFirestore(app, {
+    cacheSizeBytes: -1, // Unlimited cache
+  });
+  
+  // Initialize Realtime Database
+  database = getDatabase(app);
+  
+  console.log('✅ Firebase initialized successfully');
 } else {
   app = getApp();
-  console.log('Firebase already initialized');
+  auth = getAuth(app);
+  firestore = getFirestore(app);
+  database = getDatabase(app);
+  console.log('✅ Firebase already initialized');
 }
 
-// Initialize services
-export const database = getDatabase(app);
-export const auth = getAuth(app);
-export const firestore = getFirestore(app);
-
+export { app, auth, firestore, database };
 export default app;

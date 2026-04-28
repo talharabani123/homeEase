@@ -1,0 +1,88 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+    
+    function isVerified() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isEmailVerified == true;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Anyone can create their own user document during signup
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Users can read and update their own profile
+      allow read, update: if isOwner(userId);
+      
+      // Only admins can delete users (implement admin check if needed)
+      allow delete: if false;
+    }
+    
+    // Email OTPs collection
+    match /email_otps/{otpId} {
+      // Allow creation for anyone (needed for signup before auth)
+      allow create: if true;
+      
+      // Allow read and update for the email owner
+      allow read, update: if request.auth.token.email == resource.data.email;
+      
+      // Allow delete for cleanup (can be restricted to Cloud Functions)
+      allow delete: if true;
+    }
+    
+    // Service requests collection (example)
+    match /service_requests/{requestId} {
+      // Only verified users can create service requests
+      allow create: if isVerified();
+      
+      // Users can read their own requests
+      allow read: if isVerified() && 
+                     (resource.data.customerId == request.auth.uid || 
+                      resource.data.providerId == request.auth.uid);
+      
+      // Users can update their own requests
+      allow update: if isVerified() && 
+                       (resource.data.customerId == request.auth.uid || 
+                        resource.data.providerId == request.auth.uid);
+      
+      // No deletion allowed
+      allow delete: if false;
+    }
+    
+    // Bookings collection (example)
+    match /bookings/{bookingId} {
+      allow create: if isVerified();
+      allow read: if isVerified() && 
+                     (resource.data.customerId == request.auth.uid || 
+                      resource.data.providerId == request.auth.uid);
+      allow update: if isVerified() && 
+                       (resource.data.customerId == request.auth.uid || 
+                        resource.data.providerId == request.auth.uid);
+      allow delete: if false;
+    }
+    
+    // Reviews collection (example)
+    match /reviews/{reviewId} {
+      allow create: if isVerified();
+      allow read: if true; // Reviews are public
+      allow update: if isOwner(resource.data.userId);
+      allow delete: if isOwner(resource.data.userId);
+    }
+    
+    // Default: deny all access to other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -4,7 +4,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { verifyEmailOTP, resendEmailOTP } from '../../services/emailOTPService';
-// import { signUpWithEmail } from '../../services/firebaseAuthService'; // COMMENTED OUT FOR EXPO GO
+import { signUpWithEmail, markEmailAsVerified } from '../../services/firebaseAuthService';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -17,7 +17,7 @@ const Logo = () => (
 );
 
 const EmailOTPVerificationScreen = ({ route, navigation }) => {
-  const { email, userData, otpId, devOTP } = route.params;
+  const { email, userData, otpId, devOTP, isReVerification = false } = route.params;
   
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
@@ -101,19 +101,15 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
         return;
       }
 
-      // OTP verified, now create Firebase account
-      // For Expo Go: Skip Firebase signup and go directly to login
-      // In production: Uncomment the Firebase code below
-      
-      /*
-      const signupResult = await signUpWithEmail(userData);
-      
-      setLoading(false);
-
-      if (signupResult.success) {
+      // OTP verified successfully
+      if (isReVerification) {
+        // Just mark email as verified for existing user
+        // Note: We need the user's UID for this
+        // For now, just navigate back to login
+        setLoading(false);
         Alert.alert(
-          'Success!',
-          'Your account has been created successfully.',
+          'Email Verified!',
+          'Your email has been verified. Please sign in again.',
           [
             {
               text: 'OK',
@@ -122,22 +118,34 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
           ]
         );
       } else {
-        Alert.alert('Error', signupResult.error || 'Failed to create account');
+        // Create new Firebase account
+        const signupResult = await signUpWithEmail(userData);
+        
+        if (!signupResult.success) {
+          setLoading(false);
+          Alert.alert('Error', signupResult.error || 'Failed to create account');
+          return;
+        }
+
+        // Mark email as verified in Firestore
+        await markEmailAsVerified(signupResult.uid);
+        
+        setLoading(false);
+        
+        Alert.alert(
+          'Success!',
+          'Your account has been created successfully.',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.reset({
+                index: 0,
+                routes: [{ name: 'CustomerLogin' }],
+              })
+            }
+          ]
+        );
       }
-      */
-      
-      // Mock success for Expo Go
-      setLoading(false);
-      Alert.alert(
-        'Success!',
-        'Your account has been created successfully. (Mock mode for Expo Go)',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.navigate('CustomerLogin')
-          }
-        ]
-      );
     } catch (error) {
       setLoading(false);
       Alert.alert('Error', 'Something went wrong. Please try again.');

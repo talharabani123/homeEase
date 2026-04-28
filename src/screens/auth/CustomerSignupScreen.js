@@ -135,31 +135,32 @@ const CustomerSignupScreen = ({ navigation }) => {
       Keyboard.dismiss();
       
       try {
-        // Prepare user data for later account creation
-        const userData = {
-          email: formData.email.trim(),
-          password: formData.password,
-          fullName: formData.fullName.trim(),
-          phone: cleanPhoneNumber(formData.phoneNumber),
-          address: formData.address.trim(),
-          role: 'customer',
-        };
-
-        // Send OTP to email
-        const result = await sendEmailOTP(formData.email.trim(), 'signup');
+        // Send OTP to email first
+        const otpResult = await sendEmailOTP(formData.email.trim(), 'signup');
         
         setLoading(false);
         
-        if (result.success) {
+        if (otpResult.success) {
+          // Prepare user data for account creation after OTP verification
+          const userData = {
+            email: formData.email.trim(),
+            password: formData.password,
+            fullName: formData.fullName.trim(),
+            phone: cleanPhoneNumber(formData.phoneNumber),
+            address: formData.address.trim(),
+            role: 'customer',
+            profileImage: formData.profileImage,
+          };
+
           // Navigate to OTP verification screen
           navigation.navigate('EmailOTPVerification', {
             email: formData.email.trim(),
             userData: userData,
-            otpId: result.otpId,
-            devOTP: result.devOTP, // Only for development
+            otpId: otpResult.otpId,
+            devOTP: otpResult.devOTP, // Only for development
           });
         } else {
-          Alert.alert('Error', result.error || 'Failed to send OTP');
+          Alert.alert('Error', otpResult.error || 'Failed to send OTP');
         }
       } catch (error) {
         setLoading(false);

@@ -1,25 +1,36 @@
 /**
  * Firebase Authentication Service
- * Email/Password and Phone OTP authentication
+ * Complete authentication system with Email/Password and Google Sign-In
  * 
- * COMMENTED OUT FOR EXPO GO - Firebase doesn't work in Expo Go
- * Uncomment when building with EAS for production
+ * Features:
+ * - Email/Password Sign Up with OTP verification
+ * - Email/Password Sign In with verification check
+ * - Google Sign-In
+ * - Password Reset
+ * - Session Management
+ * - User Profile Management
  */
 
-/*
-import { getAuth } from '@react-native-firebase/auth';
-import { getFirestore, FieldValue } from '@react-native-firebase/firestore';
-
-const auth = getAuth();
-const firestore = getFirestore();
-*/
-
-// Mock exports for Expo Go
-export const signInWithEmail = async () => ({ success: false, error: 'Firebase not available in Expo Go' });
-export const signUpWithEmail = async () => ({ success: false, error: 'Firebase not available in Expo Go' });
-export const sendPasswordResetEmail = async () => ({ success: false, error: 'Firebase not available in Expo Go' });
-export const onAuthStateChanged = (callback) => { callback(null); return () => {}; };
-export const getUserProfile = async () => ({ success: false, error: 'Firebase not available in Expo Go' });
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  sendPasswordResetEmail as firebaseSendPasswordResetEmail,
+  updateProfile,
+  onAuthStateChanged as firebaseOnAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithCredential,
+  deleteUser,
+} from 'firebase/auth';
+import {
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  serverTimestamp,
+  deleteDoc,
+} from 'firebase/firestore';
+import { auth, firestore } from '../config/firebase';
 
 // ============================================
 // EMAIL/PASSWORD AUTHENTICATION
@@ -27,69 +38,72 @@ export const getUserProfile = async () => ({ success: false, error: 'Firebase no
 
 /**
  * Sign up with email and password
- * @param {object} userData - { email, password, fullName, phone, address, role }
- * @returns {Promise<object>} - { success, user, error }
+ * Creates Firebase Auth account and Firestore profile
+ * User must verify email via OTP before they can sign in
+ * 
+ * @param {object} userData - { email, password, fullName, phone, address, role, profileImage }
+ * @returns {Promise<object>} - { success, user, uid, error }
  */
 export const signUpWithEmail = async (userData) => {
   try {
-    const { email, password, fullName, phone, address, role = 'customer' } = userData;
+    const { email, password, fullName, phone, address, role = 'customer', profileImage } = userData;
     
     // Create Firebase auth account
-    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
     // Update display name
-    await user.updateProfile({
+    await updateProfile(user, {
       displayName: fullName,
+      photoURL: profileImage || null,
     });
     
     // Create user profile in Firestore
     const userProfile = {
       uid: user.uid,
-      email: email,
-      fullName: fullName,
+      email: email.toLowerCase().trim(),
+      fullName: fullName.trim(),
       phone: phone || '',
       address: address || '',
       role: role,
-      isEmailVerified: false,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+      profileImage: profileImage || null,
+      isEmailVerified: false, // Will be set to true after OTP verification
+      isActive: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     };
     
-    await firestore
-      .collection('users')
-      .doc(user.uid)
-      .set(userProfile);
+    await setDoc(doc(firestore, 'users', user.uid), userProfile);
     
-    // Send email verification
-    await user.sendEmailVerification();
-    
-    console.log('User signed up successfully');
+    console.log('✅ User account created successfully');
     
     return {
       success: true,
       user: user,
-      message: 'Account created successfully. Please verify your email.',
+      uid: user.uid,
+      message: 'Account created successfully',
     };
   } catch (error) {
-    console.error('Sign Up Error:', error);
+    console.error('❌ Sign Up Error:', error);
     
     let errorMessage = 'Failed to create account';
     
-    if (error.code === 'auth/email-already-in-use') {
-      errorMessage = 'This email is already registered. Please sign in instead.';
-    } else if (error.code === 'auth/invalid-email') {
-      errorMessage = 'Invalid email address format';
-    } else if (error.code === 'auth/weak-password') {
-      errorMessage = 'Password is too weak. Use at least 6 characters.';
-    } else if (error.code === 'auth/operation-not-allowed') {
-      errorMessage = 'Email/password accounts are not enabled. Please contact support.';
-    } else if (error.code === 'auth/network-request-failed') {
-      errorMessage = 'Network error. Check your connection and try again.';
-    } else if (error.code === 'firestore/permission-denied') {
-      errorMessage = 'Database permission denied. Please contact support.';
-    } else if (error.code === 'firestore/unavailable') {
-      errorMessage = 'Database is temporarily unavailable. Please try again.';
+    switch (error.code) {
+      case 'auth/email-already-in-use':
+        errorMessage = 'This email is already registered. Please sign in instead.';
+        break;
+      case 'auth/invalid-email':
+        errorMessage = 'Invalid email address format';
+        break;
+      case 'auth/weak-password':
+        errorMessage = 'Password is too weak. Use at least 6 characters.';
+        break;
+      case 'auth/operation-not-allowed':
+        errorMessage = 'Email/password accounts are not enabled. Please contact support.';
+        break;
+      case 'auth/network-request-failed':
+        errorMessage = 'Network error. Check your connection and try again.';
+        break;
     }
     
     return {
@@ -102,75 +116,159 @@ export const signUpWithEmail = async (userData) => {
 
 /**
  * Sign in with email and password
+ * Checks if user's email is verified before allowing access
+ * 
  * @param {string} email - User email
  * @param {string} password - User password
- * @returns {Promise<object>} - { success, user, error }
+ * @returns {Promise<object>} - { success, user, userData, isVerified, error }
  */
 export const signInWithEmail = async (email, password) => {
   try {
-    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+    // Sign in with Firebase Auth
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email.toLowerCase().trim(),
+      password
+    );
     const user = userCredential.user;
     
-    console.log('User signed in successfully');
+    // Get user profile from Firestore
+    const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+    
+    if (!userDoc.exists()) {
+      // User profile not found - this shouldn't happen
+      await firebaseSignOut(auth);
+      return {
+        success: false,
+        error: 'User profile not found. Please contact support.',
+      };
+    }
+    
+    const userData = userDoc.data();
+    
+    // Check if email is verified
+    if (!userData.isEmailVerified) {
+      await firebaseSignOut(auth);
+      return {
+        success: false,
+        error: 'Email not verified. Please verify your email first.',
+        isVerified: false,
+        email: email,
+      };
+    }
+    
+    // Check if account is active
+    if (!userData.isActive) {
+      await firebaseSignOut(auth);
+      return {
+        success: false,
+        error: 'Your account has been deactivated. Please contact support.',
+      };
+    }
+    
+    console.log('✅ User signed in successfully');
     
     return {
       success: true,
       user: user,
+      userData: userData,
+      isVerified: true,
       message: 'Signed in successfully',
     };
   } catch (error) {
-    console.error('Sign In Error:', error);
+    console.error('❌ Sign In Error:', error);
     
     let errorMessage = 'Failed to sign in';
     
-    if (error.code === 'auth/invalid-credential') {
-      errorMessage = 'Invalid email or password. Please check your credentials and try again.';
-    } else if (error.code === 'auth/user-not-found') {
-      errorMessage = 'No account found with this email';
-    } else if (error.code === 'auth/wrong-password') {
-      errorMessage = 'Incorrect password';
-    } else if (error.code === 'auth/invalid-email') {
-      errorMessage = 'Invalid email address';
-    } else if (error.code === 'auth/user-disabled') {
-      errorMessage = 'This account has been disabled';
-    } else if (error.code === 'auth/too-many-requests') {
-      errorMessage = 'Too many failed login attempts. Please try again later or reset your password.';
-    } else if (error.code === 'auth/network-request-failed') {
-      errorMessage = 'Network error. Check your connection';
+    switch (error.code) {
+      case 'auth/invalid-credential':
+      case 'auth/wrong-password':
+      case 'auth/user-not-found':
+        errorMessage = 'Invalid email or password. Please check your credentials.';
+        break;
+      case 'auth/invalid-email':
+        errorMessage = 'Invalid email address';
+        break;
+      case 'auth/user-disabled':
+        errorMessage = 'This account has been disabled';
+        break;
+      case 'auth/too-many-requests':
+        errorMessage = 'Too many failed attempts. Please try again later or reset your password.';
+        break;
+      case 'auth/network-request-failed':
+        errorMessage = 'Network error. Check your connection';
+        break;
     }
     
     return {
       success: false,
       error: errorMessage,
       errorCode: error.code,
+    };
+  }
+};
+
+/**
+ * Mark user's email as verified in Firestore
+ * Called after successful OTP verification
+ * 
+ * @param {string} uid - User ID
+ * @returns {Promise<object>} - { success, error }
+ */
+export const markEmailAsVerified = async (uid) => {
+  try {
+    await updateDoc(doc(firestore, 'users', uid), {
+      isEmailVerified: true,
+      updatedAt: serverTimestamp(),
+    });
+    
+    console.log('✅ Email marked as verified');
+    
+    return {
+      success: true,
+      message: 'Email verified successfully',
+    };
+  } catch (error) {
+    console.error('❌ Mark Email Verified Error:', error);
+    
+    return {
+      success: false,
+      error: 'Failed to update verification status',
     };
   }
 };
 
 /**
  * Send password reset email
+ * 
  * @param {string} email - User email
  * @returns {Promise<object>} - { success, error }
  */
 export const sendPasswordResetEmail = async (email) => {
   try {
-    await auth.sendPasswordResetEmail(email);
+    await firebaseSendPasswordResetEmail(auth, email.toLowerCase().trim());
     
-    console.log('Password reset email sent');
+    console.log('✅ Password reset email sent');
     
     return {
       success: true,
       message: 'Password reset email sent. Check your inbox.',
     };
   } catch (error) {
-    console.error('Password Reset Error:', error);
+    console.error('❌ Password Reset Error:', error);
     
     let errorMessage = 'Failed to send reset email';
     
-    if (error.code === 'auth/user-not-found') {
-      errorMessage = 'No account found with this email';
-    } else if (error.code === 'auth/invalid-email') {
-      errorMessage = 'Invalid email address';
+    switch (error.code) {
+      case 'auth/user-not-found':
+        errorMessage = 'No account found with this email';
+        break;
+      case 'auth/invalid-email':
+        errorMessage = 'Invalid email address';
+        break;
+      case 'auth/too-many-requests':
+        errorMessage = 'Too many requests. Please try again later.';
+        break;
     }
     
     return {
@@ -182,268 +280,219 @@ export const sendPasswordResetEmail = async (email) => {
 };
 
 // ============================================
-// PHONE OTP AUTHENTICATION
+// GOOGLE SIGN-IN
 // ============================================
 
 /**
- * Format phone number to E.164 format
- * @param {string} phone - Phone number
- * @returns {string} - Formatted phone number (+923001234567)
+ * Sign in with Google
+ * Creates user profile if new user, otherwise just signs in
+ * 
+ * @param {string} idToken - Google ID token from Google Sign-In
+ * @returns {Promise<object>} - { success, user, userData, isNewUser, error }
  */
-export const formatPhoneForFirebase = (phone) => {
-  if (!phone) return '';
-  
-  // Remove all spaces, dashes, and parentheses
-  let cleaned = phone.replace(/[\s\-()]/g, '');
-  
-  // If starts with 0, replace with +92
-  if (cleaned.startsWith('0')) {
-    cleaned = '+92' + cleaned.substring(1);
-  }
-  
-  // If starts with 92, add +
-  if (cleaned.startsWith('92') && !cleaned.startsWith('+')) {
-    cleaned = '+' + cleaned;
-  }
-  
-  // If doesn't start with +, add +92
-  if (!cleaned.startsWith('+')) {
-    cleaned = '+92' + cleaned;
-  }
-  
-  return cleaned;
-};
-
-/**
- * Send OTP to phone number
- * @param {string} phoneNumber - Phone number
- * @returns {Promise<object>} - { success, confirmation, error }
- */
-export const sendOTP = async (phoneNumber) => {
+export const signInWithGoogle = async (idToken) => {
   try {
-    const formattedPhone = formatPhoneForFirebase(phoneNumber);
+    // Create Google credential
+    const credential = GoogleAuthProvider.credential(idToken);
     
-    console.log('Sending OTP to:', formattedPhone);
+    // Sign in with credential
+    const userCredential = await signInWithCredential(auth, credential);
+    const user = userCredential.user;
+    const isNewUser = userCredential.additionalUserInfo?.isNewUser || false;
     
-    // Send OTP via Firebase
-    const confirmation = await auth.signInWithPhoneNumber(formattedPhone);
+    // Check if user profile exists
+    const userDoc = await getDoc(doc(firestore, 'users', user.uid));
     
-    console.log('OTP sent successfully');
-    
-    return {
-      success: true,
-      confirmation,
-      message: 'OTP sent successfully'
-    };
+    if (!userDoc.exists() || isNewUser) {
+      // Create new user profile
+      const userProfile = {
+        uid: user.uid,
+        email: user.email,
+        fullName: user.displayName || '',
+        phone: user.phoneNumber || '',
+        address: '',
+        role: 'customer',
+        profileImage: user.photoURL || null,
+        isEmailVerified: true, // Google accounts are pre-verified
+        isActive: true,
+        authProvider: 'google',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+      
+      await setDoc(doc(firestore, 'users', user.uid), userProfile);
+      
+      console.log('✅ New Google user created');
+      
+      return {
+        success: true,
+        user: user,
+        userData: userProfile,
+        isNewUser: true,
+        message: 'Account created successfully with Google',
+      };
+    } else {
+      // Existing user
+      const userData = userDoc.data();
+      
+      // Check if account is active
+      if (!userData.isActive) {
+        await firebaseSignOut(auth);
+        return {
+          success: false,
+          error: 'Your account has been deactivated. Please contact support.',
+        };
+      }
+      
+      console.log('✅ Existing Google user signed in');
+      
+      return {
+        success: true,
+        user: user,
+        userData: userData,
+        isNewUser: false,
+        message: 'Signed in successfully with Google',
+      };
+    }
   } catch (error) {
-    console.error('Send OTP Error:', error);
+    console.error('❌ Google Sign-In Error:', error);
     
-    let errorMessage = 'Failed to send OTP';
+    let errorMessage = 'Failed to sign in with Google';
     
-    if (error.code === 'auth/invalid-phone-number') {
-      errorMessage = 'Invalid phone number format';
-    } else if (error.code === 'auth/too-many-requests') {
-      errorMessage = 'Too many requests. Please try again later';
-    } else if (error.code === 'auth/network-request-failed') {
-      errorMessage = 'Network error. Check your connection';
-    } else if (error.code === 'auth/quota-exceeded') {
-      errorMessage = 'SMS quota exceeded. Try again later';
+    switch (error.code) {
+      case 'auth/account-exists-with-different-credential':
+        errorMessage = 'An account already exists with this email using a different sign-in method.';
+        break;
+      case 'auth/invalid-credential':
+        errorMessage = 'Invalid Google credentials. Please try again.';
+        break;
+      case 'auth/operation-not-allowed':
+        errorMessage = 'Google sign-in is not enabled. Please contact support.';
+        break;
+      case 'auth/user-disabled':
+        errorMessage = 'This account has been disabled.';
+        break;
+      case 'auth/network-request-failed':
+        errorMessage = 'Network error. Check your connection.';
+        break;
     }
     
     return {
       success: false,
       error: errorMessage,
-      errorCode: error.code
+      errorCode: error.code,
     };
   }
 };
 
-/**
- * Verify OTP code
- * @param {object} confirmation - Confirmation object from sendOTP
- * @param {string} otpCode - 6-digit OTP code
- * @returns {Promise<object>} - { success, user, error }
- */
-export const verifyOTP = async (confirmation, otpCode) => {
-  try {
-    if (!confirmation) {
-      return {
-        success: false,
-        error: 'No confirmation object. Please resend OTP'
-      };
-    }
-    
-    if (!otpCode || otpCode.length !== 6) {
-      return {
-        success: false,
-        error: 'Please enter a valid 6-digit OTP'
-      };
-    }
-    
-    console.log('Verifying OTP...');
-    
-    // Verify OTP
-    const userCredential = await confirmation.confirm(otpCode);
-    
-    console.log('OTP verified successfully');
-    
-    return {
-      success: true,
-      user: userCredential.user,
-      message: 'OTP verified successfully'
-    };
-  } catch (error) {
-    console.error('Verify OTP Error:', error);
-    
-    let errorMessage = 'Invalid OTP code';
-    
-    if (error.code === 'auth/invalid-verification-code') {
-      errorMessage = 'Invalid OTP code. Please try again';
-    } else if (error.code === 'auth/code-expired') {
-      errorMessage = 'OTP code expired. Please request a new one';
-    } else if (error.code === 'auth/session-expired') {
-      errorMessage = 'Session expired. Please resend OTP';
-    }
-    
-    return {
-      success: false,
-      error: errorMessage,
-      errorCode: error.code
-    };
-  }
-};
-
-/**
- * Create user profile in Firestore after OTP verification
- * @param {object} userData - User data (name, email, phone, etc.)
- * @param {string} uid - Firebase user UID
- * @returns {Promise<object>} - { success, error }
- */
-export const createUserProfile = async (userData, uid) => {
-  try {
-    const userProfile = {
-      uid,
-      name: userData.name || '',
-      email: userData.email || '',
-      phone: userData.phone || '',
-      role: userData.role || 'customer',
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-      isPhoneVerified: true,
-      isActive: true,
-    };
-    
-    // Save to Firestore
-    await firestore
-      .collection('users')
-      .doc(uid)
-      .set(userProfile);
-    
-    console.log('User profile created successfully');
-    
-    return {
-      success: true,
-      message: 'Profile created successfully'
-    };
-  } catch (error) {
-    console.error('Create Profile Error:', error);
-    
-    return {
-      success: false,
-      error: 'Failed to create user profile'
-    };
-  }
-};
+// ============================================
+// USER PROFILE MANAGEMENT
+// ============================================
 
 /**
  * Get user profile from Firestore
- * @param {string} uid - Firebase user UID
+ * 
+ * @param {string} uid - User ID
  * @returns {Promise<object>} - { success, userData, error }
  */
 export const getUserProfile = async (uid) => {
   try {
-    const userDoc = await firestore
-      .collection('users')
-      .doc(uid)
-      .get();
+    const userDoc = await getDoc(doc(firestore, 'users', uid));
     
-    if (userDoc.exists) {
+    if (userDoc.exists()) {
       return {
         success: true,
-        userData: userDoc.data()
+        userData: userDoc.data(),
       };
     } else {
       return {
         success: false,
-        error: 'User profile not found'
+        error: 'User profile not found',
       };
     }
   } catch (error) {
-    console.error('Get Profile Error:', error);
+    console.error('❌ Get Profile Error:', error);
     
     return {
       success: false,
-      error: 'Failed to fetch user profile'
+      error: 'Failed to fetch user profile',
     };
   }
 };
 
 /**
  * Update user profile
- * @param {string} uid - Firebase user UID
+ * 
+ * @param {string} uid - User ID
  * @param {object} updates - Fields to update
  * @returns {Promise<object>} - { success, error }
  */
 export const updateUserProfile = async (uid, updates) => {
   try {
-    await firestore
-      .collection('users')
-      .doc(uid)
-      .update({
-        ...updates,
-        updatedAt: FieldValue.serverTimestamp()
-      });
+    await updateDoc(doc(firestore, 'users', uid), {
+      ...updates,
+      updatedAt: serverTimestamp(),
+    });
+    
+    // Also update Firebase Auth profile if name or photo changed
+    if (updates.fullName || updates.profileImage) {
+      const user = auth.currentUser;
+      if (user) {
+        await updateProfile(user, {
+          displayName: updates.fullName || user.displayName,
+          photoURL: updates.profileImage || user.photoURL,
+        });
+      }
+    }
+    
+    console.log('✅ Profile updated successfully');
     
     return {
       success: true,
-      message: 'Profile updated successfully'
+      message: 'Profile updated successfully',
     };
   } catch (error) {
-    console.error('Update Profile Error:', error);
+    console.error('❌ Update Profile Error:', error);
     
     return {
       success: false,
-      error: 'Failed to update profile'
+      error: 'Failed to update profile',
     };
   }
 };
 
+// ============================================
+// SESSION MANAGEMENT
+// ============================================
+
 /**
  * Sign out user
+ * 
  * @returns {Promise<object>} - { success, error }
  */
 export const signOut = async () => {
   try {
-    await auth.signOut();
+    await firebaseSignOut(auth);
     
-    console.log('User signed out successfully');
+    console.log('✅ User signed out successfully');
     
     return {
       success: true,
-      message: 'Signed out successfully'
+      message: 'Signed out successfully',
     };
   } catch (error) {
-    console.error('Sign Out Error:', error);
+    console.error('❌ Sign Out Error:', error);
     
     return {
       success: false,
-      error: 'Failed to sign out'
+      error: 'Failed to sign out',
     };
   }
 };
 
 /**
  * Get current user
+ * 
  * @returns {object|null} - Current Firebase user or null
  */
 export const getCurrentUser = () => {
@@ -452,6 +501,7 @@ export const getCurrentUser = () => {
 
 /**
  * Check if user is authenticated
+ * 
  * @returns {boolean} - True if user is authenticated
  */
 export const isAuthenticated = () => {
@@ -460,15 +510,18 @@ export const isAuthenticated = () => {
 
 /**
  * Listen to auth state changes
+ * 
  * @param {function} callback - Callback function (user) => {}
  * @returns {function} - Unsubscribe function
  */
 export const onAuthStateChanged = (callback) => {
-  return auth.onAuthStateChanged(callback);
+  return firebaseOnAuthStateChanged(auth, callback);
 };
 
 /**
  * Delete user account
+ * Deletes both Firebase Auth account and Firestore profile
+ * 
  * @returns {Promise<object>} - { success, error }
  */
 export const deleteAccount = async () => {
@@ -478,40 +531,45 @@ export const deleteAccount = async () => {
     if (!user) {
       return {
         success: false,
-        error: 'No user logged in'
+        error: 'No user logged in',
       };
     }
     
     // Delete Firestore profile
-    await firestore
-      .collection('users')
-      .doc(user.uid)
-      .delete();
+    await deleteDoc(doc(firestore, 'users', user.uid));
     
     // Delete Firebase auth account
-    await user.delete();
+    await deleteUser(user);
     
-    console.log('Account deleted successfully');
+    console.log('✅ Account deleted successfully');
     
     return {
       success: true,
-      message: 'Account deleted successfully'
+      message: 'Account deleted successfully',
     };
   } catch (error) {
-    console.error('Delete Account Error:', error);
+    console.error('❌ Delete Account Error:', error);
+    
+    let errorMessage = 'Failed to delete account';
+    
+    if (error.code === 'auth/requires-recent-login') {
+      errorMessage = 'Please sign in again before deleting your account.';
+    }
     
     return {
       success: false,
-      error: 'Failed to delete account'
+      error: errorMessage,
+      errorCode: error.code,
     };
   }
 };
 
 export default {
-  formatPhoneForFirebase,
-  sendOTP,
-  verifyOTP,
-  createUserProfile,
+  signUpWithEmail,
+  signInWithEmail,
+  markEmailAsVerified,
+  sendPasswordResetEmail,
+  signInWithGoogle,
   getUserProfile,
   updateUserProfile,
   signOut,
