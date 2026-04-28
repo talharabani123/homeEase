@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, StatusBar } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
@@ -48,7 +48,22 @@ const RequestServiceFormScreen = ({ navigation, route }) => {
     setLoadingLocation(false);
   };
 
-  const validateForm = () => {
+  // ── Open full-screen map picker ────────────────────────────────────────────
+  const openLocationPicker = useCallback(() => {
+    navigation.navigate('LocationPicker', {
+      initialLat: formData.latitude  || undefined,
+      initialLng: formData.longitude || undefined,
+      onConfirm: (picked) => {
+        setFormData(prev => ({
+          ...prev,
+          address:   picked.address,
+          latitude:  picked.latitude,
+          longitude: picked.longitude,
+        }));
+        if (errors.address) setErrors(prev => ({ ...prev, address: null }));
+      },
+    });
+  }, [formData.latitude, formData.longitude, errors.address]);  const validateForm = () => {
     const newErrors = {};
     
     if (!formData.address.trim()) {
@@ -156,21 +171,39 @@ const RequestServiceFormScreen = ({ navigation, route }) => {
           {/* Address */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Your Location / Address *</Text>
-            <TextInput
-              style={[styles.input, errors.address && styles.inputError]}
-              placeholder="Enter your address or landmark"
-              placeholderTextColor={COLORS.textGrey}
-              value={formData.address}
-              onChangeText={(value) => {
-                setFormData({ ...formData, address: value });
-                if (errors.address) setErrors({ ...errors, address: null });
-              }}
-              multiline
-              numberOfLines={2}
-              textAlignVertical="top"
-            />
+            <View style={styles.addressRow}>
+              <TextInput
+                style={[styles.input, styles.addressInput, errors.address && styles.inputError]}
+                placeholder="Enter your address or landmark"
+                placeholderTextColor={COLORS.textGrey}
+                value={formData.address}
+                onChangeText={(value) => {
+                  setFormData({ ...formData, address: value });
+                  if (errors.address) setErrors({ ...errors, address: null });
+                }}
+                multiline
+                numberOfLines={2}
+                textAlignVertical="top"
+              />
+              {/* Map pin button */}
+              <TouchableOpacity
+                style={styles.mapPinBtn}
+                onPress={openLocationPicker}
+                activeOpacity={0.75}
+              >
+                <Svg width="22" height="22" viewBox="0 0 24 24">
+                  <Path
+                    d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+                    fill="#fff"
+                  />
+                </Svg>
+                <Text style={styles.mapPinLabel}>Map</Text>
+              </TouchableOpacity>
+            </View>
             {errors.address && <Text style={styles.errorText}>{errors.address}</Text>}
-            <Text style={styles.helperText}>Provider will come to this location</Text>
+            <Text style={styles.helperText}>
+              Tap <Text style={{ color: COLORS.primaryGreen, fontWeight: '700' }}>Map</Text> to drop a pin for an exact address
+            </Text>
           </View>
 
           {/* Description */}
@@ -322,7 +355,34 @@ const styles = StyleSheet.create({
     color: COLORS.textBlack,
     backgroundColor: '#F9F9F9',
   },
-  textArea: {
+  // Address row: text input + map pin button side by side
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 10,
+  },
+  addressInput: {
+    flex: 1,
+  },
+  mapPinBtn: {
+    width: 58,
+    borderRadius: 12,
+    backgroundColor: COLORS.primaryGreen,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    shadowColor: COLORS.primaryGreen,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  mapPinLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+  },  textArea: {
     minHeight: 120,
     paddingTop: 12,
   },

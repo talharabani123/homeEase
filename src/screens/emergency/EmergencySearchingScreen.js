@@ -111,9 +111,9 @@ const EmergencySearchingScreen = ({ route, navigation }) => {
         <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" />
 
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: category === 'standard' ? '#DC2626' : '#F59E0B' }]}>
+      <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <Text style={styles.headerTitle}>
-          {status === 'searching' ? '🔍 Searching...' : 
+          {status === 'searching' ? '🔍 Searching...' :
            status === 'provider_found' ? '✅ Provider Found!' :
            status === 'offers_received' ? '📬 Offers Received!' :
            '❌ No Provider'}
@@ -124,28 +124,28 @@ const EmergencySearchingScreen = ({ route, navigation }) => {
         {/* Animated Icon */}
         <View style={styles.animationContainer}>
           <Animated.View style={[styles.pulseCircle, { transform: [{ scale: pulseAnim }] }]}>
-            <View style={[styles.pulseInner, { backgroundColor: category === 'standard' ? '#FEE2E2' : '#FEF3C7' }]} />
+            <View style={[styles.pulseInner, { backgroundColor: colors.primaryLight }]} />
           </Animated.View>
           
           <Animated.View style={{ transform: [{ rotate: spin }] }}>
             {status === 'searching' ? (
               <Svg width="80" height="80" viewBox="0 0 80 80">
-                <Circle cx="40" cy="40" r="35" stroke={category === 'standard' ? '#DC2626' : '#F59E0B'} strokeWidth="4" fill="none" strokeDasharray="10 5" />
-                <Path d="M40 10 L40 20 M70 40 L60 40 M40 70 L40 60 M10 40 L20 40" stroke={category === 'standard' ? '#DC2626' : '#F59E0B'} strokeWidth="3" />
+                <Circle cx="40" cy="40" r="35" stroke={colors.primary} strokeWidth="4" fill="none" strokeDasharray="10 5" />
+                <Path d="M40 10 L40 20 M70 40 L60 40 M40 70 L40 60 M10 40 L20 40" stroke={colors.primary} strokeWidth="3" />
               </Svg>
             ) : status === 'provider_found' ? (
               <Svg width="80" height="80" viewBox="0 0 80 80">
-                <Circle cx="40" cy="40" r="35" fill="#10B981" />
+                <Circle cx="40" cy="40" r="35" fill={colors.success} />
                 <Path d="M25 40 L35 50 L55 30" stroke="#FFFFFF" strokeWidth="5" fill="none" />
               </Svg>
             ) : status === 'offers_received' ? (
               <Svg width="80" height="80" viewBox="0 0 80 80">
-                <Circle cx="40" cy="40" r="35" fill="#F59E0B" />
+                <Circle cx="40" cy="40" r="35" fill={colors.primary} />
                 <Path d="M20 30 L40 20 L60 30 L60 50 L40 60 L20 50 Z" stroke="#FFFFFF" strokeWidth="3" fill="none" />
               </Svg>
             ) : (
               <Svg width="80" height="80" viewBox="0 0 80 80">
-                <Circle cx="40" cy="40" r="35" fill="#EF4444" />
+                <Circle cx="40" cy="40" r="35" fill={colors.error} />
                 <Path d="M30 30 L50 50 M50 30 L30 50" stroke="#FFFFFF" strokeWidth="5" />
               </Svg>
             )}
@@ -242,7 +242,7 @@ const EmergencySearchingScreen = ({ route, navigation }) => {
               
               <View style={styles.detailRow}>
                 <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Estimated Price</Text>
-                <Text style={[styles.detailValue, { color: '#DC2626', fontWeight: '700' }]}>
+                <Text style={[styles.detailValue, { color: colors.primary, fontWeight: '700' }]}>
                   Rs. {request.estimatedPrice}
                 </Text>
               </View>
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   timerText: {
     fontSize: 48,
     fontWeight: '700',
-    color: '#DC2626',
+    color: '#88C791',
   },
   timerLabel: {
     fontSize: 14,
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#10B981',
+    backgroundColor: '#88C791',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   cancelButton: {
-    backgroundColor: '#EF4444',
+    backgroundColor: '#FF4444',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

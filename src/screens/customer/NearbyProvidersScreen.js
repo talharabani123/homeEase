@@ -54,9 +54,12 @@ const ProviderCard = ({ provider, onBook, colors, booking }) => (
         </View>
       </View>
 
-      {/* Price */}
+      {/* Price — distance-based */}
       <View style={styles.priceBlock}>
-        <Text style={[styles.price, { color: COLORS.primaryGreen }]}>{provider.priceLabel}</Text>
+        <Text style={[styles.price, { color: COLORS.primaryGreen }]}>
+          Rs. {Math.round(provider.distance * 50)}
+        </Text>
+        <Text style={[styles.jobs, { color: colors.textSecondary }]}>travel cost</Text>
         <Text style={[styles.jobs, { color: colors.textSecondary }]}>{provider.completedJobs} jobs</Text>
       </View>
     </View>

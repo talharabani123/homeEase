@@ -67,7 +67,7 @@ const EmergencyOffersScreen = ({ route, navigation }) => {
         <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Svg width="24" height="24" viewBox="0 0 24 24">
             <Path d="M15 18 L9 12 L15 6" stroke="#FFFFFF" strokeWidth="2" fill="none" />
@@ -79,12 +79,13 @@ const EmergencyOffersScreen = ({ route, navigation }) => {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Info Banner */}
-        <View style={styles.infoBanner}>
+        <View style={[styles.infoBanner, { backgroundColor: colors.primaryLight }]}>
           <Svg width="24" height="24" viewBox="0 0 24 24">
-            <Path d="M12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2ZM12 18C11.4 18 11 17.6 11 17C11 16.4 11.4 16 12 16C12.6 16 13 16.4 13 17C13 17.6 12.6 18 12 18ZM13 13H11V7H13V13Z" fill="#92400E" />
+            <Circle cx="12" cy="12" r="10" fill={colors.primary}/>
+            <Path d="M12 8v4M12 16v.01" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
           </Svg>
           <View style={styles.infoTextContainer}>
-            <Text style={styles.infoText}>
+            <Text style={[styles.infoText, { color: colors.text }]}>
               {offers.length} provider{offers.length > 1 ? 's' : ''} sent you custom offers. Compare and choose the best one!
             </Text>
           </View>
@@ -194,19 +195,19 @@ const EmergencyOffersScreen = ({ route, navigation }) => {
         </View>
 
         {/* Tips */}
-        <View style={[styles.tipsCard, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
-          <Text style={styles.tipsTitle}>💡 Tips for Choosing</Text>
+        <View style={[styles.tipsCard, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
+          <Text style={[styles.tipsTitle, { color: colors.text }]}>💡 Tips for Choosing</Text>
           <View style={styles.tipItem}>
-            <Text style={styles.tipDot}>•</Text>
-            <Text style={styles.tipText}>Check provider rating and total jobs completed</Text>
+            <Text style={[styles.tipDot, { color: colors.primary }]}>•</Text>
+            <Text style={[styles.tipText, { color: colors.textSecondary }]}>Check provider rating and total jobs completed</Text>
           </View>
           <View style={styles.tipItem}>
-            <Text style={styles.tipDot}>•</Text>
-            <Text style={styles.tipText}>Consider ETA if you need urgent help</Text>
+            <Text style={[styles.tipDot, { color: colors.primary }]}>•</Text>
+            <Text style={[styles.tipText, { color: colors.textSecondary }]}>Consider ETA if you need urgent help</Text>
           </View>
           <View style={styles.tipItem}>
-            <Text style={styles.tipDot}>•</Text>
-            <Text style={styles.tipText}>Emergency badge means verified for urgent work</Text>
+            <Text style={[styles.tipDot, { color: colors.primary }]}>•</Text>
+            <Text style={[styles.tipText, { color: colors.textSecondary }]}>Emergency badge means verified for urgent work</Text>
           </View>
         </View>
       </ScrollView>
@@ -245,7 +246,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F59E0B',
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
@@ -265,7 +265,6 @@ const styles = StyleSheet.create({
   },
   infoBanner: {
     flexDirection: 'row',
-    backgroundColor: '#FEF3C7',
     marginHorizontal: 20,
     marginTop: 20,
     padding: 16,
@@ -277,7 +276,6 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 13,
-    color: '#92400E',
     lineHeight: 18,
   },
   requestCard: {
@@ -344,7 +342,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#F59E0B',
+    backgroundColor: '#88C791',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -406,7 +404,7 @@ const styles = StyleSheet.create({
   priceValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#F59E0B',
+    color: '#88C791',
   },
   messageBox: {
     padding: 12,
@@ -437,7 +435,6 @@ const styles = StyleSheet.create({
   tipsTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1E40AF',
     marginBottom: 12,
   },
   tipItem: {
@@ -446,12 +443,10 @@ const styles = StyleSheet.create({
   },
   tipDot: {
     fontSize: 14,
-    color: '#1E40AF',
     marginRight: 8,
   },
   tipText: {
     fontSize: 13,
-    color: '#1E40AF',
     flex: 1,
   },
   footer: {
@@ -473,10 +468,10 @@ const styles = StyleSheet.create({
   footerPrice: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#F59E0B',
+    color: '#88C791',
   },
   acceptButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#88C791',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
