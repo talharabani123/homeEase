@@ -209,15 +209,6 @@ export const signInWithEmail = async (email, password) => {
     };
   }
 };
-    }
-    
-    return {
-      success: false,
-      error: errorMessage,
-      errorCode: error.code,
-    };
-  }
-};
 
 /**
  * Mark user's email as verified in Firestore
