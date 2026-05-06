@@ -9,7 +9,7 @@ import { COLORS } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import ScreenWrapper from '../../components/ScreenWrapper';
-import { getConversations, deleteConversation } from '../../services/userDataService';
+import { listenToConversations, deleteConversation } from '../../services/chatService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const DELETE_THRESHOLD = -80; // how far left to reveal delete
@@ -90,45 +90,63 @@ const MessagesScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { loadConversations(); }, [user]);
-
-  const loadConversations = async () => {
-    setLoading(true);
-    if (user?.uid) {
-      const data = await getConversations(user.uid);
-      setConversations(data);
-    } else {
-      setConversations([]);
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
-  };
+
+    console.log('👂 Setting up conversations listener for user:', user.uid);
+
+    // Real-time listener for conversations
+    const unsubscribe = listenToConversations(user.uid, (convos) => {
+      console.log('📬 Received conversations:', convos.length);
+      setConversations(convos);
+      setLoading(false);
+      setRefreshing(false);
+    });
+
+    return () => {
+      console.log('🔌 Unsubscribing from conversations');
+      unsubscribe();
+    };
+  }, [user]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadConversations();
-    setRefreshing(false);
+    // The real-time listener will automatically update the data
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
   };
 
   const handleConversationPress = (conv) => {
     navigation.navigate('Chat', {
-      requestId: conv.requestId,
-      providerId: conv.providerId,
-      providerName: conv.providerName,
-      customerName: 'You',
+      conversationId: conv.id,
+      otherUserId: conv.otherUser.id,
+      otherUserName: conv.otherUser.name,
+      serviceType: conv.serviceType,
+      serviceIcon: conv.serviceIcon
     });
   };
 
-  const handleDelete = (conv) => {
+  const handleDelete = async (conv) => {
     Alert.alert(
       'Delete Conversation',
-      `Delete conversation with ${conv.providerName}?`,
+      `Delete conversation with ${conv.otherUser.name}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete', style: 'destructive',
+          text: 'Delete', 
+          style: 'destructive',
           onPress: async () => {
-            if (user?.uid) await deleteConversation(user.uid, conv.id);
-            setConversations(prev => prev.filter(c => c.id !== conv.id));
+            const result = await deleteConversation(conv.id);
+            if (result.success) {
+              // Conversation will be removed by real-time listener
+              console.log('✅ Conversation deleted');
+            } else {
+              Alert.alert('Error', 'Failed to delete conversation');
+            }
           },
         },
       ]
@@ -148,7 +166,7 @@ const MessagesScreen = ({ navigation }) => {
   };
 
   const renderItem = ({ item }) => {
-    const initials = item.providerName.split(' ').map(n => n[0]).join('').toUpperCase();
+    const initials = item.otherUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
     return (
       <SwipeableRow onDelete={() => handleDelete(item)}>
         <TouchableOpacity
@@ -162,13 +180,13 @@ const MessagesScreen = ({ navigation }) => {
             <View style={[styles.avatar, { backgroundColor: COLORS.primaryGreen }]}>
               <Text style={styles.avatarText}>{initials}</Text>
             </View>
-            {item.isOnline && <View style={styles.onlineDot} />}
+            {item.otherUser.isOnline && <View style={styles.onlineDot} />}
           </View>
 
           {/* Content */}
           <View style={styles.content}>
             <View style={styles.topRow}>
-              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{item.providerName}</Text>
+              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{item.otherUser.name}</Text>
               <Text style={[styles.time, { color: colors.textSecondary }]}>{formatTime(item.lastMessageTime)}</Text>
             </View>
             <View style={styles.bottomRow}>
@@ -180,7 +198,7 @@ const MessagesScreen = ({ navigation }) => {
                 ]}
                 numberOfLines={1}
               >
-                {item.lastMessageSender === 'you' ? 'You: ' : ''}{item.lastMessage}
+                {item.lastMessageSender === user?.uid ? 'You: ' : ''}{item.lastMessage || 'No messages yet'}
               </Text>
               {item.unreadCount > 0 && (
                 <View style={styles.badge}>
@@ -188,9 +206,11 @@ const MessagesScreen = ({ navigation }) => {
                 </View>
               )}
             </View>
-            <View style={[styles.tag, { backgroundColor: colors.primaryLight }]}>
-              <Text style={styles.tagText}>{item.serviceIcon} {item.serviceType}</Text>
-            </View>
+            {item.serviceType && (
+              <View style={[styles.tag, { backgroundColor: colors.primaryLight }]}>
+                <Text style={styles.tagText}>{item.serviceIcon} {item.serviceType}</Text>
+              </View>
+            )}
           </View>
         </TouchableOpacity>
       </SwipeableRow>
@@ -250,7 +270,7 @@ const MessagesScreen = ({ navigation }) => {
   );
 };
 
-// No more hardcoded mock data — conversations are loaded from user-specific storage
+// Remove mock data - now using Firebase real-time data
 
 const styles = StyleSheet.create({
   header: {

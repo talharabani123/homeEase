@@ -1,22 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  ScrollView, 
-  TextInput, 
-  StatusBar, 
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Modal,
-  FlatList
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, SafeAreaView, ActivityIndicator } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { useTheme } from '../../context/ThemeContext';
 import { saveDraft, loadDraft } from '../../services/providerRegistrationService';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 // Years of Experience Options
 const EXPERIENCE_OPTIONS = [
@@ -46,22 +35,24 @@ const EXPERIENCE_OPTIONS = [
 
 const ProfessionalInfoScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
+  const alert = useAlert();
   const { registrationData } = route.params;
   
-  const [formData, setFormData] = useState({
-    yearsOfExperience: '',
-    skillsDescription: '',
-  });
+  const [yearsOfExperience, setYearsOfExperience] = useState('');
+  const [skillsDescription, setSkillsDescription] = useState('');
+  const [serviceRadius, setServiceRadius] = useState('10');
+  const [basePrice, setBasePrice] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showExperienceModal, setShowExperienceModal] = useState(false);
-  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     loadSavedDraft();
   }, []);
 
   const loadSavedDraft = async () => {
+    setLoading(true);
     const result = await loadDraft();
+    setLoading(false);
+    
     if (result.success && result.data) {
       setFormData({
         yearsOfExperience: result.data.yearsOfExperience?.toString() || '',
@@ -70,28 +61,25 @@ const ProfessionalInfoScreen = ({ route, navigation }) => {
     }
   };
 
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.yearsOfExperience) {
-      newErrors.yearsOfExperience = 'Please select your years of experience';
+  const validate = () => {
+    if (!yearsOfExperience || parseInt(yearsOfExperience) < 0 || parseInt(yearsOfExperience) > 50) {
+      alert.error('Invalid Experience', 'Please enter experience between 0-50 years');
+      return false;
     }
 
-    if (!formData.skillsDescription.trim()) {
-      newErrors.skillsDescription = 'Please describe your skills and expertise';
-    } else if (formData.skillsDescription.trim().length < 50) {
-      newErrors.skillsDescription = 'Description must be at least 50 characters';
+    if (!skillsDescription || skillsDescription.trim().length < 50) {
+      alert.error('Skills Description Required', 'Please describe your skills (minimum 50 characters)');
+      return false;
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+    if (!serviceRadius || parseInt(serviceRadius) < 5 || parseInt(serviceRadius) > 50) {
+      alert.error('Invalid Service Radius', 'Please select radius between 5-50 km');
+      return false;
+    }
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
+    if (basePrice && (parseInt(basePrice) < 100 || parseInt(basePrice) > 10000)) {
+      alert.error('Invalid Base Price', 'Base price should be between Rs. 100-10,000');
+      return false;
     }
   };
 
@@ -101,30 +89,27 @@ const ProfessionalInfoScreen = ({ route, navigation }) => {
   };
 
   const handleContinue = async () => {
-    if (!validateForm()) {
-      return;
-    }
+    if (!validate()) return;
 
     setLoading(true);
 
-    try {
-      const data = {
-        ...registrationData,
-        yearsOfExperience: formData.yearsOfExperience,
-        skillsDescription: formData.skillsDescription.trim(),
-        currentStep: 3
-      };
+    const data = {
+      ...registrationData,
+      yearsOfExperience: parseInt(yearsOfExperience),
+      skillsDescription: skillsDescription.trim(),
+      serviceRadius: parseInt(serviceRadius),
+      basePrice: basePrice ? parseInt(basePrice) : 0,
+      currentStep: 3
+    };
 
-      await saveDraft(data);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    const saveResult = await saveDraft(data);
+    
+    setLoading(false);
 
+    if (saveResult.success) {
       navigation.navigate('CNICVerification', { registrationData: data });
-    } catch (error) {
-      console.error('Continue error:', error);
-    } finally {
-      setLoading(false);
+    } else {
+      alert.error('Error', 'Failed to save progress. Please try again.');
     }
   };
 
@@ -196,23 +181,69 @@ const ProfessionalInfoScreen = ({ route, navigation }) => {
             </Text>
           </View>
 
-          <ScrollView 
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Subtitle */}
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Tell us about your professional background and expertise
-            </Text>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Experience */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Years of Experience <Text style={styles.required}>*</Text>
+          </Text>
+          <TextInput
+            style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+            placeholder="e.g., 5"
+            placeholderTextColor={colors.placeholder}
+            value={yearsOfExperience}
+            onChangeText={setYearsOfExperience}
+            keyboardType="numeric"
+            maxLength={2}
+            editable={!loading}
+          />
+          <Text style={[styles.hint, { color: colors.textSecondary }]}>Enter 0 if you're just starting</Text>
+        </View>
 
-            {/* Form */}
-            <View style={styles.formSection}>
-              {/* Years of Experience Dropdown */}
-              <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>
-                  Years of Experience *
+        {/* Skills Description */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Description of Skills <Text style={styles.required}>*</Text>
+          </Text>
+          <TextInput
+            style={[styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+            placeholder="Describe your skills, expertise, and what makes you a great service provider..."
+            placeholderTextColor={colors.placeholder}
+            value={skillsDescription}
+            onChangeText={setSkillsDescription}
+            multiline
+            numberOfLines={6}
+            maxLength={500}
+            textAlignVertical="top"
+            editable={!loading}
+          />
+          <Text style={[styles.charCount, { color: colors.textSecondary }]}>
+            {skillsDescription.length}/500 (minimum 50)
+          </Text>
+        </View>
+
+        {/* Service Radius */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Service Area Radius <Text style={styles.required}>*</Text>
+          </Text>
+          <Text style={[styles.hint, { color: colors.textSecondary, marginBottom: 12 }]}>
+            How far are you willing to travel for jobs?
+          </Text>
+          <View style={styles.radiusOptions}>
+            {radiusOptions.map((radius) => (
+              <TouchableOpacity
+                key={radius}
+                style={[
+                  styles.radiusOption,
+                  { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                  serviceRadius === radius.toString() && { borderColor: colors.primary, backgroundColor: colors.primaryLight }
+                ]}
+                onPress={() => setServiceRadius(radius.toString())}
+                disabled={loading}
+              >
+                <Text style={[styles.radiusText, { color: serviceRadius === radius.toString() ? colors.primary : colors.text }]}>
+                  {radius} km
                 </Text>
                 <TouchableOpacity
                   style={[
@@ -337,34 +368,57 @@ const ProfessionalInfoScreen = ({ route, navigation }) => {
               )}
             </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+        </View>
 
-        {/* Experience Selection Modal */}
-        <Modal
-          visible={showExperienceModal}
-          animationType="slide"
-          presentationStyle="pageSheet"
-        >
-          <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <TouchableOpacity onPress={() => setShowExperienceModal(false)}>
-                <Text style={[styles.modalCancel, { color: colors.primary }]}>Cancel</Text>
-              </TouchableOpacity>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Years of Experience</Text>
-              <View style={{ width: 60 }} />
-            </View>
-
-            <FlatList
-              data={EXPERIENCE_OPTIONS}
-              renderItem={renderExperienceItem}
-              keyExtractor={(item) => item.value}
-              style={styles.experienceList}
-              showsVerticalScrollIndicator={false}
+        {/* Base Price */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Expected Base Price (Optional)
+          </Text>
+          <Text style={[styles.hint, { color: colors.textSecondary, marginBottom: 12 }]}>
+            Your starting price for services (you can adjust per job)
+          </Text>
+          <View style={styles.priceInput}>
+            <Text style={[styles.currency, { color: colors.text }]}>Rs.</Text>
+            <TextInput
+              style={[styles.input, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+              placeholder="e.g., 500"
+              placeholderTextColor={colors.placeholder}
+              value={basePrice}
+              onChangeText={setBasePrice}
+              keyboardType="numeric"
+              maxLength={5}
+              editable={!loading}
             />
           </View>
-        </Modal>
+        </View>
+      </ScrollView>
+
+      {/* Continue Button */}
+      <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+        <TouchableOpacity
+          style={[styles.continueButton, { backgroundColor: colors.primary }, loading && { opacity: 0.6 }]}
+          onPress={handleContinue}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.continueButtonText}>Continue</Text>
+          )}
+        </TouchableOpacity>
       </View>
-    </ScreenWrapper>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
+    </SafeAreaView>
   );
 };
 

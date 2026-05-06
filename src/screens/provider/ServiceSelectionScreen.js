@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useTheme } from '../../context/ThemeContext';
 import { SERVICE_CATEGORIES, saveDraft, loadDraft } from '../../services/providerRegistrationService';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const ServiceSelectionScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
+  const alert = useAlert();
   const { resumeDraft } = route.params || {};
   const [selectedServices, setSelectedServices] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (resumeDraft) {
@@ -16,7 +20,10 @@ const ServiceSelectionScreen = ({ route, navigation }) => {
   }, []);
 
   const loadSavedDraft = async () => {
+    setLoading(true);
     const result = await loadDraft();
+    setLoading(false);
+    
     if (result.success && result.data.selectedServices) {
       setSelectedServices(result.data.selectedServices);
     }
@@ -37,17 +44,25 @@ const ServiceSelectionScreen = ({ route, navigation }) => {
 
   const handleContinue = async () => {
     if (selectedServices.length === 0) {
-      Alert.alert('Select Services', 'Please select at least one service to continue');
+      alert.error('Select Services', 'Please select at least one service to continue');
       return;
     }
 
-    // Save draft
-    await saveDraft({
+    setLoading(true);
+    
+    // Save draft to Firestore
+    const saveResult = await saveDraft({
       currentStep: 1,
       selectedServices
     });
 
-    navigation.navigate('PersonalInfo', { selectedServices });
+    setLoading(false);
+
+    if (saveResult.success) {
+      navigation.navigate('PersonalInfo', { selectedServices });
+    } else {
+      alert.error('Error', 'Failed to save progress. Please try again.');
+    }
   };
 
   return (
@@ -153,13 +168,23 @@ const ServiceSelectionScreen = ({ route, navigation }) => {
             { backgroundColor: selectedServices.length > 0 ? colors.primary : colors.disabled }
           ]}
           onPress={handleContinue}
-          disabled={selectedServices.length === 0}
+          disabled={selectedServices.length === 0 || loading}
         >
           <Text style={styles.continueButtonText}>
-            Continue ({selectedServices.length} selected)
+            {loading ? 'Saving...' : `Continue (${selectedServices.length} selected)`}
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
     </SafeAreaView>
   );
 };

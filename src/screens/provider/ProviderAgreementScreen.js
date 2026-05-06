@@ -1,29 +1,34 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useTheme } from '../../context/ThemeContext';
 import { submitProviderRegistration, COMMISSION_RATES } from '../../services/providerRegistrationService';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const ProviderAgreementScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
+  const alert = useAlert();
   const { registrationData } = route.params;
   
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [backgroundCheckAccepted, setBackgroundCheckAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
 
   const handleSubmit = async () => {
     if (!termsAccepted) {
-      Alert.alert('Terms Required', 'Please accept the terms and conditions');
+      alert.error('Terms Required', 'Please accept the terms and conditions');
       return;
     }
 
     if (!backgroundCheckAccepted) {
-      Alert.alert('Background Check Required', 'Please accept the background check consent');
+      alert.error('Background Check Required', 'Please accept the background check consent');
       return;
     }
 
     setSubmitting(true);
+    setUploadProgress('Preparing submission...');
 
     const finalData = {
       ...registrationData,
@@ -31,14 +36,33 @@ const ProviderAgreementScreen = ({ route, navigation }) => {
       backgroundCheckAccepted
     };
 
+    // Show upload progress
+    setUploadProgress('Uploading CNIC images...');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    setUploadProgress('Uploading selfie...');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    setUploadProgress('Uploading proof documents...');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    setUploadProgress('Creating provider profile...');
+
     const result = await submitProviderRegistration(finalData);
     
     setSubmitting(false);
+    setUploadProgress('');
 
     if (result.success) {
-      navigation.replace('SubmissionStatus', { profile: result.data });
+      alert.success(
+        'Application Submitted!',
+        'Your application has been submitted successfully. We will review it within 24-48 hours.',
+        () => {
+          navigation.replace('SubmissionStatus', { profile: result.data });
+        }
+      );
     } else {
-      Alert.alert('Submission Failed', result.error);
+      alert.error('Submission Failed', result.error || 'Something went wrong. Please try again.');
     }
   };
 
@@ -158,16 +182,34 @@ const ProviderAgreementScreen = ({ route, navigation }) => {
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+        {submitting && uploadProgress && (
+          <View style={styles.progressContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={[styles.progressText, { color: colors.textSecondary }]}>{uploadProgress}</Text>
+          </View>
+        )}
         <TouchableOpacity 
-          style={[styles.submitButton, { backgroundColor: (termsAccepted && backgroundCheckAccepted) ? colors.primary : colors.disabled }]} 
+          style={[styles.submitButton, { backgroundColor: (termsAccepted && backgroundCheckAccepted) ? colors.primary : colors.disabled }, submitting && { opacity: 0.6 }]} 
           onPress={handleSubmit}
           disabled={!termsAccepted || !backgroundCheckAccepted || submitting}
         >
-          <Text style={styles.submitButtonText}>
-            {submitting ? 'Submitting...' : 'Submit Application'}
-          </Text>
+          {submitting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.submitButtonText}>Submit Application</Text>
+          )}
         </TouchableOpacity>
       </View>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
     </SafeAreaView>
   );
 };
@@ -199,6 +241,8 @@ const styles = StyleSheet.create({
   checkboxLabel: { flex: 1, fontSize: 14, lineHeight: 20 },
   link: { color: '#3B82F6', fontWeight: '600' },
   footer: { padding: 20, borderTopWidth: 1 },
+  progressContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 12, gap: 8 },
+  progressText: { fontSize: 14 },
   submitButton: { paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
   submitButtonText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
 });

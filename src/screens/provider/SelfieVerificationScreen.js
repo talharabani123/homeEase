@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView, Image, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
 import { useUserRegistration } from '../../context/UserRegistrationContext';
 import { saveDraft, loadDraft } from '../../services/providerRegistrationService';
-import DocumentGuidelineScreen from '../../components/DocumentGuidelineScreen';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const SelfieVerificationScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
-  const { registrationData: contextData, setSelfieImage: setContextSelfie } = useUserRegistration();
+  const alert = useAlert();
   const { registrationData } = route.params;
   
   const [selfieImage, setSelfieImage] = useState(null);
-  const [showGuideline, setShowGuideline] = useState(false);
-  const [skipGuidelines, setSkipGuidelines] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadSavedDraft();
@@ -69,7 +69,7 @@ const SelfieVerificationScreen = ({ route, navigation }) => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     
     if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Camera permission is required for selfie verification');
+      alert.error('Permission Denied', 'Camera permission is required for selfie verification');
       return;
     }
 
@@ -106,12 +106,11 @@ const SelfieVerificationScreen = ({ route, navigation }) => {
 
   const handleContinue = async () => {
     if (!selfieImage) {
-      Alert.alert('Selfie Required', 'Please take a clear selfie to continue');
+      alert.error('Selfie Required', 'Please take a clear selfie to continue');
       return;
     }
 
-    // Save to context
-    await setContextSelfie(selfieImage);
+    setLoading(true);
 
     const data = {
       ...registrationData,
@@ -120,9 +119,15 @@ const SelfieVerificationScreen = ({ route, navigation }) => {
       currentStep: 5
     };
 
-    await saveDraft(data);
-    // Navigate to modern application screen instead of ProofOfService
-    navigation.navigate('ModernApplication', { registrationData: data });
+    const saveResult = await saveDraft(data);
+    
+    setLoading(false);
+
+    if (saveResult.success) {
+      navigation.navigate('ProofOfService', { registrationData: data });
+    } else {
+      alert.error('Error', 'Failed to save progress. Please try again.');
+    }
   };
 
   return (
@@ -236,13 +241,27 @@ const SelfieVerificationScreen = ({ route, navigation }) => {
 
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
         <TouchableOpacity 
-          style={[styles.continueButton, { backgroundColor: selfieImage ? colors.primary : colors.disabled }]} 
+          style={[styles.continueButton, { backgroundColor: selfieImage ? colors.primary : colors.disabled }, loading && { opacity: 0.6 }]} 
           onPress={handleContinue}
-          disabled={!selfieImage}
+          disabled={!selfieImage || loading}
         >
-          <Text style={styles.continueButtonText}>Continue</Text>
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.continueButtonText}>Continue</Text>
+          )}
         </TouchableOpacity>
       </View>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
     </SafeAreaView>
       )}
     </>

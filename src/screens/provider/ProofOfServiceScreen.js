@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView, Image, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
 import { saveDraft, loadDraft } from '../../services/providerRegistrationService';
-import DocumentGuidelineScreen from '../../components/DocumentGuidelineScreen';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const ProofOfServiceScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
+  const alert = useAlert();
   const { registrationData } = route.params;
   
   const [currentServiceIndex, setCurrentServiceIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [servicesWithProof, setServicesWithProof] = useState(() => {
     // Initialize with proofDocuments array for each service
     return (registrationData.selectedServices || []).map(service => ({
@@ -92,13 +95,13 @@ const ProofOfServiceScreen = ({ route, navigation }) => {
   const pickImage = async () => {
     // Check limit
     if (proofDocuments.length >= 3) {
-      Alert.alert('Limit Reached', 'Maximum 3 images per service');
+      alert.warning('Limit Reached', 'Maximum 3 images per service');
       return;
     }
 
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Gallery permission required');
+      alert.error('Permission Denied', 'Gallery permission required');
       return;
     }
 
@@ -125,7 +128,7 @@ const ProofOfServiceScreen = ({ route, navigation }) => {
       });
       
       if (result.assets.length > remainingSlots) {
-        Alert.alert('Limit Reached', `Only ${remainingSlots} image(s) added. Maximum 3 images per service.`);
+        alert.warning('Limit Reached', `Only ${remainingSlots} image(s) added. Maximum 3 images per service.`);
       }
     }
   };
@@ -133,13 +136,13 @@ const ProofOfServiceScreen = ({ route, navigation }) => {
   const takePhoto = async () => {
     // Check limit
     if (proofDocuments.length >= 3) {
-      Alert.alert('Limit Reached', 'Maximum 3 images per service');
+      alert.warning('Limit Reached', 'Maximum 3 images per service');
       return;
     }
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Camera permission required');
+      alert.error('Permission Denied', 'Camera permission required');
       return;
     }
 
@@ -182,7 +185,7 @@ const ProofOfServiceScreen = ({ route, navigation }) => {
 
   const handleNext = () => {
     if (proofDocuments.length < 2) {
-      Alert.alert('Minimum 2 Images Required', 'Please upload at least 2 proof images for this service');
+      alert.error('Minimum 2 Images Required', 'Please upload at least 2 proof images for this service');
       return;
     }
 
@@ -194,14 +197,23 @@ const ProofOfServiceScreen = ({ route, navigation }) => {
   };
 
   const handleContinue = async () => {
+    setLoading(true);
+
     const data = {
       ...registrationData,
       selectedServices: servicesWithProof,
       currentStep: 6
     };
 
-    await saveDraft(data);
-    navigation.navigate('ProviderAgreement', { registrationData: data });
+    const saveResult = await saveDraft(data);
+    
+    setLoading(false);
+
+    if (saveResult.success) {
+      navigation.navigate('ProviderAgreement', { registrationData: data });
+    } else {
+      alert.error('Error', 'Failed to save progress. Please try again.');
+    }
   };
 
   return (
@@ -299,15 +311,29 @@ const ProofOfServiceScreen = ({ route, navigation }) => {
 
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
         <TouchableOpacity 
-          style={[styles.continueButton, { backgroundColor: proofDocuments.length >= 2 ? colors.primary : colors.disabled }]} 
+          style={[styles.continueButton, { backgroundColor: proofDocuments.length >= 2 ? colors.primary : colors.disabled }, loading && { opacity: 0.6 }]} 
           onPress={handleNext}
-          disabled={proofDocuments.length < 2}
+          disabled={proofDocuments.length < 2 || loading}
         >
-          <Text style={styles.continueButtonText}>
-            {currentServiceIndex < servicesWithProof.length - 1 ? 'Next Service' : 'Continue'}
-          </Text>
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.continueButtonText}>
+              {currentServiceIndex < servicesWithProof.length - 1 ? 'Next Service' : 'Continue'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
     </SafeAreaView>
       )}
     </>

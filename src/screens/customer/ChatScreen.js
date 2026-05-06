@@ -1,79 +1,117 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StatusBar, ActivityIndicator } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
+import { useAuth } from '../../context/AuthContext';
 import ScreenWrapper from '../../components/ScreenWrapper';
-// import { sendMessage, listenToMessages, markMessagesAsRead } from '../../services/chatService';
+import { listenToMessages, sendMessage, markMessagesAsRead, setTypingStatus, listenToTypingStatus } from '../../services/chatService';
 
 const ChatScreen = ({ navigation, route }) => {
-  const { requestId, providerName, providerAvatar } = route.params;
+  const { conversationId, otherUserId, otherUserName, serviceType, serviceIcon } = route.params;
+  const { user } = useAuth();
   
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
+  const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
   const scrollViewRef = useRef();
+  const typingTimeoutRef = useRef(null);
 
   useEffect(() => {
-    // Mock messages for Expo Go
-    // In production: const unsubscribe = listenToMessages(requestId, setMessages);
-    
-    // Simulate initial messages
-    setMessages(MOCK_MESSAGES);
+    if (!conversationId || !user) return;
+
+    console.log('👂 Setting up message listener for conversation:', conversationId);
+
+    // Listen to messages in real-time
+    const unsubscribeMessages = listenToMessages(conversationId, (msgs) => {
+      console.log('📬 Received messages:', msgs.length);
+      setMessages(msgs);
+    });
 
     // Mark messages as read
-    // markMessagesAsRead(requestId, 'customer');
+    markMessagesAsRead(conversationId, user.uid);
+
+    // Listen to typing status
+    const unsubscribeTyping = listenToTypingStatus(conversationId, otherUserId, (isTyping) => {
+      setIsOtherUserTyping(isTyping);
+    });
 
     return () => {
-      // unsubscribe();
+      console.log('🔌 Unsubscribing from messages and typing');
+      unsubscribeMessages();
+      unsubscribeTyping();
+      
+      // Clear typing status on unmount
+      setTypingStatus(conversationId, user.uid, false);
     };
-  }, [requestId]);
+  }, [conversationId, user, otherUserId]);
 
   useEffect(() => {
     // Auto-scroll to bottom when new messages arrive
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollToEnd({ animated: true });
+    if (scrollViewRef.current && messages.length > 0) {
+      setTimeout(() => {
+        scrollViewRef.current.scrollToEnd({ animated: true });
+      }, 100);
     }
   }, [messages]);
 
+  const handleTextChange = (text) => {
+    setInputText(text);
+
+    // Clear previous timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set typing status
+    if (text.length > 0) {
+      setTypingStatus(conversationId, user.uid, true);
+
+      // Clear typing status after 2 seconds of no typing
+      typingTimeoutRef.current = setTimeout(() => {
+        setTypingStatus(conversationId, user.uid, false);
+      }, 2000);
+    } else {
+      setTypingStatus(conversationId, user.uid, false);
+    }
+  };
+
   const handleSend = async () => {
-    if (!inputText.trim() || sending) return;
+    if (!inputText.trim() || sending || !user) return;
 
     const messageText = inputText.trim();
     setInputText('');
     setSending(true);
 
-    try {
-      // Mock implementation for Expo Go
-      // In production: await sendMessage(requestId, messageText, 'customer');
-      
-      const newMessage = {
-        messageId: `msg_${Date.now()}`,
-        senderId: 'customer123',
-        senderType: 'customer',
-        message: messageText,
-        timestamp: Date.now(),
-        read: false,
-      };
+    // Clear typing status
+    setTypingStatus(conversationId, user.uid, false);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
 
-      setMessages(prev => [...prev, newMessage]);
+    try {
+      console.log('📤 Sending message...');
       
-      // Simulate provider response after 2 seconds
-      setTimeout(() => {
-        const providerResponse = {
-          messageId: `msg_${Date.now()}`,
-          senderId: 'provider456',
-          senderType: 'provider',
-          message: 'Got it! I\'ll be there soon.',
-          timestamp: Date.now(),
-          read: false,
-        };
-        setMessages(prev => [...prev, providerResponse]);
-      }, 2000);
+      const result = await sendMessage(
+        conversationId,
+        user.uid,
+        user.role || 'customer',
+        messageText
+      );
+
+      if (result.success) {
+        console.log('✅ Message sent successfully');
+        // Message will appear via real-time listener
+      } else {
+        console.error('❌ Failed to send message:', result.error);
+        setInputText(messageText); // Restore message on error
+      }
 
       setSending(false);
     } catch (error) {
       setSending(false);
-      console.error('Send message error:', error);
+      console.error('❌ Send message error:', error);
+      setInputText(messageText); // Restore message on error
     }
   };
 
@@ -102,11 +140,13 @@ const ChatScreen = ({ navigation, route }) => {
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <View style={styles.providerAvatar}>
-            <Text style={styles.providerInitial}>{providerName[0]}</Text>
+            <Text style={styles.providerInitial}>{otherUserName?.[0] || '?'}</Text>
           </View>
           <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>{providerName}</Text>
-            <Text style={styles.headerSubtitle}>Service Provider</Text>
+            <Text style={styles.headerTitle}>{otherUserName || 'User'}</Text>
+            <Text style={styles.headerSubtitle}>
+              {isOtherUserTyping ? 'Typing...' : (serviceType || 'Service Provider')}
+            </Text>
           </View>
         </View>
         <View style={{ width: 24 }} />
@@ -121,13 +161,13 @@ const ChatScreen = ({ navigation, route }) => {
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
       >
         {messages.map((message, index) => {
-          const isCustomer = message.senderType === 'customer';
+          const isCustomer = message.senderType === 'customer' || message.senderId === user?.uid;
           const showTime = index === 0 || 
             (messages[index - 1] && 
              new Date(message.timestamp).getMinutes() !== new Date(messages[index - 1].timestamp).getMinutes());
 
           return (
-            <View key={message.messageId || index}>
+            <View key={message.messageId || message.id || index}>
               {showTime && (
                 <View style={styles.timeContainer}>
                   <Text style={styles.timeText}>{formatTime(message.timestamp)}</Text>
@@ -156,7 +196,7 @@ const ChatScreen = ({ navigation, route }) => {
           placeholder="Type a message..."
           placeholderTextColor={COLORS.textGrey}
           value={inputText}
-          onChangeText={setInputText}
+          onChangeText={handleTextChange}
           multiline
           maxLength={500}
         />
@@ -165,9 +205,13 @@ const ChatScreen = ({ navigation, route }) => {
           onPress={handleSend}
           disabled={!inputText.trim() || sending}
         >
-          <Svg width="24" height="24" viewBox="0 0 24 24">
-            <Path d="M22 2 L11 13 M22 2 L15 22 L11 13 M22 2 L2 9 L11 13" stroke={COLORS.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          </Svg>
+          {sending ? (
+            <ActivityIndicator color={COLORS.white} size="small" />
+          ) : (
+            <Svg width="24" height="24" viewBox="0 0 24 24">
+              <Path d="M22 2 L11 13 M22 2 L15 22 L11 13 M22 2 L2 9 L11 13" stroke={COLORS.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </Svg>
+          )}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -175,41 +219,7 @@ const ChatScreen = ({ navigation, route }) => {
   );
 };
 
-// Mock messages for Expo Go testing
-const MOCK_MESSAGES = [
-  {
-    messageId: 'msg1',
-    senderId: 'provider456',
-    senderType: 'provider',
-    message: 'Hi! I\'m on my way to your location.',
-    timestamp: Date.now() - 300000, // 5 minutes ago
-    read: true,
-  },
-  {
-    messageId: 'msg2',
-    senderId: 'customer123',
-    senderType: 'customer',
-    message: 'Great! How long will it take?',
-    timestamp: Date.now() - 240000, // 4 minutes ago
-    read: true,
-  },
-  {
-    messageId: 'msg3',
-    senderId: 'provider456',
-    senderType: 'provider',
-    message: 'About 10 minutes. I\'m bringing all necessary tools.',
-    timestamp: Date.now() - 180000, // 3 minutes ago
-    read: true,
-  },
-  {
-    messageId: 'msg4',
-    senderId: 'customer123',
-    senderType: 'customer',
-    message: 'Perfect! See you soon.',
-    timestamp: Date.now() - 120000, // 2 minutes ago
-    read: true,
-  },
-];
+// Mock messages removed - now using Firebase real-time data
 
 const styles = StyleSheet.create({
   container: {
