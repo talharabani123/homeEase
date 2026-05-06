@@ -21,7 +21,7 @@ export const RADIUS = {
   pill: 999,
 };
 
-export const TYPOGRAPHY = {
+export const DESIGN_TYPOGRAPHY = {
   // Headings
   h1: {
     fontSize: 32,

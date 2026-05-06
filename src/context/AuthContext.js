@@ -6,6 +6,7 @@ import {
   signOut as firebaseSignOut,
 } from '../services/firebaseAuthService';
 import { getCurrentMode, switchUserMode } from '../services/roleManagementService';
+import { clearAllUserData } from '../services/userDataService';
 
 const AuthContext = createContext();
 
@@ -73,6 +74,14 @@ export const AuthProvider = ({ children }) => {
     try {
       setUser(firebaseUser);
       setUserData(firestoreUserData);
+      
+      // Set current mode based on user role
+      if (firestoreUserData?.role === 'provider') {
+        setCurrentMode('provider');
+      } else {
+        setCurrentMode('customer');
+      }
+      
       return { success: true };
     } catch (error) {
       console.error('Error signing in:', error);
@@ -82,9 +91,15 @@ export const AuthProvider = ({ children }) => {
 
   const signOut = async () => {
     try {
+      const currentUser = getCurrentUser();
+      const uid = currentUser?.uid;
       await firebaseSignOut();
+      // Clear in-memory state immediately
       setUser(null);
       setUserData(null);
+      setCurrentMode('customer');
+      // Clear all user-specific AsyncStorage data
+      if (uid) await clearAllUserData(uid);
       return { success: true };
     } catch (error) {
       console.error('Error signing out:', error);

@@ -107,8 +107,11 @@ const SafetyScreen = ({ navigation }) => {
 
         {/* Emergency Button */}
         <View style={styles.emergencySection}>
-          <TouchableOpacity style={styles.emergencyButton} onPress={handleEmergencyCall}>
-            <View style={styles.emergencyIcon}>
+          <TouchableOpacity 
+            style={[styles.emergencyButton, { backgroundColor: colors.error || '#FF4444' }]} 
+            onPress={handleEmergencyCall}
+          >
+            <View style={[styles.emergencyIcon, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
               <Svg width="32" height="32" viewBox="0 0 32 32">
                 <Path
                   d="M26 20c-1.66 0-3.26-.27-4.76-.76-.47-.15-.99-.04-1.36.32l-2.93 2.93c-3.77-1.92-6.86-5-8.78-8.78l2.93-2.93c.36-.37.47-.89.32-1.36C10.93 8.26 10.66 6.66 10.66 5c0-.73-.6-1.33-1.33-1.33H5.33C4.6 3.67 4 4.27 4 5c0 12.52 10.15 22.67 22.67 22.67.73 0 1.33-.6 1.33-1.33v-4c0-.73-.6-1.34-1.33-1.34z"
@@ -202,7 +205,6 @@ const styles = StyleSheet.create({
   emergencyButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FF4444',
     padding: 20,
     borderRadius: 16,
     shadowColor: '#FF4444',
@@ -215,7 +217,6 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,

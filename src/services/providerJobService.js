@@ -1,10 +1,11 @@
 /**
  * Provider Job Service
- * Manages job requests, acceptance, and completion for providers
- * Mock implementation for Expo Go - Replace with Firebase in production
+ * All job data is user-scoped via userDataService.
+ * No hardcoded mock data — providers see only their own jobs.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getActiveJobs as getUserJobs, saveActiveJobs } from './userDataService';
 
 const STORAGE_KEY = '@homeease_provider_jobs';
 
@@ -176,84 +177,35 @@ const mockJobs = {
  * Get all jobs for provider (filtered by their services)
  * @returns {Promise<object>} - { success, jobs: { pending, active, completed } }
  */
-export const getProviderJobs = async () => {
+export const getProviderJobs = async (providerId) => {
   try {
-    // Get provider profile to check their services
-    const { getProviderProfile } = require('./providerRegistrationService');
-    const profileResult = await getProviderProfile();
-    
-    if (!profileResult.success || !profileResult.data) {
-      return {
-        success: false,
-        error: 'Provider profile not found',
-        jobs: { pending: [], active: [], completed: [] },
-      };
+    if (!providerId) {
+      return { success: true, jobs: { pending: [], active: [], completed: [], cancelled: [] } };
     }
-    
-    const providerServices = profileResult.data.services || [];
-    const providerServiceNames = providerServices
-      .map(s => s?.name?.toLowerCase())
-      .filter(name => name); // Remove undefined/null values
-    
-    // Filter jobs based on provider's registered services
-    const filterJobsByService = (jobs) => {
-      return jobs.filter(job => {
-        const jobServiceName = job.serviceName?.toLowerCase() || '';
-        if (!jobServiceName) return false;
-        
-        // Check if job service matches any of provider's services
-        return providerServiceNames.some(serviceName => {
-          if (!serviceName) return false;
-          return jobServiceName.includes(serviceName) || serviceName.includes(jobServiceName.split(' ')[0]);
-        });
-      });
-    };
-    
-    // In production, fetch from Firebase and filter by provider services
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-    
-    const filteredJobs = {
-      pending: filterJobsByService(mockJobs.pending),
-      active: filterJobsByService(mockJobs.active),
-      completed: filterJobsByService(mockJobs.completed),
-    };
-    
-    console.log('Provider services:', providerServiceNames);
-    console.log('Filtered jobs:', {
-      pending: filteredJobs.pending.length,
-      active: filteredJobs.active.length,
-      completed: filteredJobs.completed.length,
-    });
-    
-    return {
-      success: true,
-      jobs: filteredJobs,
-    };
+
+    // Load jobs from user-scoped storage
+    const allJobs = await getUserJobs(providerId);
+
+    const pending   = allJobs.filter(j => j.status === 'pending');
+    const active    = allJobs.filter(j => ['accepted', 'in_progress'].includes(j.status));
+    const completed = allJobs.filter(j => j.status === 'completed');
+    const cancelled = allJobs.filter(j => j.status === 'cancelled');
+
+    return { success: true, jobs: { pending, active, completed, cancelled } };
   } catch (error) {
-    console.error('Get provider jobs error:', error);
-    return {
-      success: false,
-      error: 'Failed to load jobs',
-      jobs: { pending: [], active: [], completed: [] },
-    };
+    console.error('getProviderJobs error:', error);
+    return { success: false, error: 'Failed to load jobs', jobs: { pending: [], active: [], completed: [], cancelled: [] } };
   }
 };
 
 /**
  * Get job details by ID
- * @param {string} jobId
- * @returns {Promise<object>} - { success, job, error }
  */
-export const getJobDetails = async (jobId) => {
+export const getJobDetails = async (jobId, providerId) => {
   try {
-    // Search in all job categories
-    const allJobs = [...mockJobs.pending, ...mockJobs.active, ...mockJobs.completed];
+    const allJobs = await getUserJobs(providerId);
     const job = allJobs.find(j => j.id === jobId);
-    
-    if (!job) {
-      return { success: false, error: 'Job not found' };
-    }
-    
+    if (!job) return { success: false, error: 'Job not found' };
     return { success: true, job };
   } catch (error) {
     console.error('Get job details error:', error);
@@ -263,24 +215,16 @@ export const getJobDetails = async (jobId) => {
 
 /**
  * Accept a job request
- * @param {string} jobId
- * @returns {Promise<object>} - { success, error }
  */
-export const acceptJob = async (jobId) => {
+export const acceptJob = async (jobId, providerId) => {
   try {
-    // In production, update Firebase
-    // Move job from pending to active
-    const jobIndex = mockJobs.pending.findIndex(j => j.id === jobId);
-    if (jobIndex !== -1) {
-      const job = mockJobs.pending[jobIndex];
-      job.status = 'Active';
-      job.acceptedAt = new Date().toISOString();
-      mockJobs.active.push(job);
-      mockJobs.pending.splice(jobIndex, 1);
+    const jobs = await getUserJobs(providerId);
+    const idx = jobs.findIndex(j => j.id === jobId);
+    if (idx !== -1) {
+      jobs[idx].status = 'accepted';
+      jobs[idx].acceptedAt = new Date().toISOString();
+      await saveActiveJobs(providerId, jobs);
     }
-    
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
     return { success: true };
   } catch (error) {
     console.error('Accept job error:', error);

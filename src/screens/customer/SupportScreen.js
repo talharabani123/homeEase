@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, Alert, Modal } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenWrapper from '../../components/ScreenWrapper';
+import { openSupportEmail, getSupportEmail } from '../../services/emailSupportService';
 
 const SupportScreen = ({ navigation }) => {
   const { colors } = useTheme();
   const [issueType, setIssueType] = useState('');
   const [message, setMessage] = useState('');
+  const [showThankYouModal, setShowThankYouModal] = useState(false);
 
   const issueTypes = [
     'Payment Issue',
@@ -19,7 +21,7 @@ const SupportScreen = ({ navigation }) => {
     'Other',
   ];
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!issueType) {
       Alert.alert('Error', 'Please select an issue type');
       return;
@@ -34,6 +36,15 @@ const SupportScreen = ({ navigation }) => {
       'Our team will contact you within 24 hours',
       [{ text: 'OK', onPress: () => navigation.goBack() }]
     );
+  };
+
+  const handleEmailSupport = async () => {
+    try {
+      await openSupportEmail('Support Request', 'Hello, I need help with...');
+      setShowThankYouModal(true);
+    } catch (error) {
+      Alert.alert('Error', 'Could not open email app. Please try again.');
+    }
   };
 
   return (
@@ -54,7 +65,10 @@ const SupportScreen = ({ navigation }) => {
 
         {/* Contact Cards */}
         <View style={styles.contactSection}>
-          <TouchableOpacity style={[styles.contactCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <TouchableOpacity 
+            style={[styles.contactCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
+            onPress={handleEmailSupport}
+          >
             <View style={[styles.contactIcon, { backgroundColor: colors.primaryLight }]}>
               <Svg width="24" height="24" viewBox="0 0 24 24">
                 <Path
@@ -65,24 +79,45 @@ const SupportScreen = ({ navigation }) => {
             </View>
             <View style={styles.contactInfo}>
               <Text style={[styles.contactLabel, { color: colors.textSecondary }]}>Email Support</Text>
-              <Text style={[styles.contactValue, { color: colors.text }]}>support@homeease.com</Text>
+              <Text style={[styles.contactValue, { color: colors.text }]}>{getSupportEmail()}</Text>
+              <Text style={[styles.contactNote, { color: colors.textSecondary }]}>Tap to open email app</Text>
             </View>
+            <Svg width="20" height="20" viewBox="0 0 20 20">
+              <Path d="M7 6 L13 10 L7 14" stroke={colors.textSecondary} strokeWidth="2" fill="none" />
+            </Svg>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.contactCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <View style={[styles.contactIcon, { backgroundColor: colors.primaryLight }]}>
-              <Svg width="24" height="24" viewBox="0 0 24 24">
-                <Path
-                  d="M20 15.5c-1.25 0-2.45-.2-3.57-.57-.35-.11-.74-.03-1.02.24l-2.2 2.2c-2.83-1.44-5.15-3.75-6.59-6.59l2.2-2.21c.28-.26.36-.65.25-1C8.7 6.45 8.5 5.25 8.5 4c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.5c0-.55-.45-1-1-1z"
-                  fill={colors.primary}
-                />
-              </Svg>
-            </View>
-            <View style={styles.contactInfo}>
-              <Text style={[styles.contactLabel, { color: colors.textSecondary }]}>Phone Support</Text>
-              <Text style={[styles.contactValue, { color: colors.text }]}>+92 300 1234567</Text>
-            </View>
+          {/* Quick Contact Button */}
+          <TouchableOpacity 
+            style={[styles.quickContactButton, { backgroundColor: colors.primary }]}
+            onPress={handleEmailSupport}
+          >
+            <Svg width="20" height="20" viewBox="0 0 24 24">
+              <Path
+                d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"
+                fill={COLORS.white}
+              />
+            </Svg>
+            <Text style={styles.quickContactText}>Contact Support</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Support Info */}
+        <View style={styles.supportInfoSection}>
+          <View style={[styles.supportInfoCard, { backgroundColor: colors.primaryLight }]}>
+            <Svg width="24" height="24" viewBox="0 0 24 24">
+              <Path
+                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                fill={colors.primary}
+              />
+            </Svg>
+            <View style={styles.supportInfoText}>
+              <Text style={[styles.supportInfoTitle, { color: colors.text }]}>Professional Support</Text>
+              <Text style={[styles.supportInfoDesc, { color: colors.textSecondary }]}>
+                For any issues or queries, feel free to contact us at supporthomeease@gmail.com. We're here to help!
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Support Form */}
@@ -134,35 +169,49 @@ const SupportScreen = ({ navigation }) => {
 
           {/* Submit Button */}
           <TouchableOpacity style={[styles.submitButton, { backgroundColor: colors.primary }]} onPress={handleSubmit}>
-            <Text style={styles.submitButtonText}>Submit Request</Text>
+            <Svg width="20" height="20" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+              <Path
+                d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"
+                fill={COLORS.white}
+              />
+            </Svg>
+            <Text style={styles.submitButtonText}>Send Email to Support</Text>
           </TouchableOpacity>
         </View>
 
-        {/* FAQ Section */}
-        <View style={styles.faqSection}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Help</Text>
-          
-          <TouchableOpacity style={[styles.faqCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <Text style={[styles.faqQuestion, { color: colors.text }]}>How do I cancel a booking?</Text>
-            <Svg width="20" height="20" viewBox="0 0 20 20">
-              <Path d="M7 6 L13 10 L7 14" stroke={colors.textSecondary} strokeWidth="2" fill="none" />
-            </Svg>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.faqCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <Text style={[styles.faqQuestion, { color: colors.text }]}>How do I change payment method?</Text>
-            <Svg width="20" height="20" viewBox="0 0 20 20">
-              <Path d="M7 6 L13 10 L7 14" stroke={colors.textSecondary} strokeWidth="2" fill="none" />
-            </Svg>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.faqCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <Text style={[styles.faqQuestion, { color: colors.text }]}>How do I rate a service provider?</Text>
-            <Svg width="20" height="20" viewBox="0 0 20 20">
-              <Path d="M7 6 L13 10 L7 14" stroke={colors.textSecondary} strokeWidth="2" fill="none" />
-            </Svg>
-          </TouchableOpacity>
-        </View>
+        {/* Thank You Modal */}
+        <Modal
+          visible={showThankYouModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowThankYouModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.thankYouModal, { backgroundColor: colors.card }]}>
+              <View style={[styles.thankYouIcon, { backgroundColor: colors.primaryLight }]}>
+                <Svg width="32" height="32" viewBox="0 0 24 24">
+                  <Path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                    fill={colors.primary}
+                  />
+                </Svg>
+              </View>
+              <Text style={[styles.thankYouTitle, { color: colors.text }]}>Thank You!</Text>
+              <Text style={[styles.thankYouMessage, { color: colors.textSecondary }]}>
+                Your email has been opened. Our support team will contact you within 24 hours.
+              </Text>
+              <Text style={[styles.thankYouGreeting, { color: colors.textSecondary }]}>
+                We appreciate your patience and look forward to helping you!
+              </Text>
+              <TouchableOpacity
+                style={[styles.thankYouButton, { backgroundColor: colors.primary }]}
+                onPress={() => setShowThankYouModal(false)}
+              >
+                <Text style={styles.thankYouButtonText}>Got it</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </ScreenWrapper>
   );
@@ -223,6 +272,49 @@ const styles = StyleSheet.create({
   contactValue: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 2,
+  },
+  contactNote: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  quickContactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  quickContactText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginLeft: 8,
+  },
+  supportInfoSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  supportInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 16,
+    borderRadius: 12,
+  },
+  supportInfoText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  supportInfoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  supportInfoDesc: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   formSection: {
     padding: 20,
@@ -266,9 +358,11 @@ const styles = StyleSheet.create({
     minHeight: 120,
   },
   submitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 16,
     borderRadius: 12,
-    alignItems: 'center',
     marginTop: 8,
   },
   submitButtonText: {
@@ -276,22 +370,55 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.white,
   },
-  faqSection: {
-    padding: 20,
-  },
-  faqCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-  },
-  faqQuestion: {
+  modalOverlay: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '500',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  thankYouModal: {
+    width: '100%',
+    maxWidth: 320,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+  },
+  thankYouIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  thankYouTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  thankYouMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  thankYouGreeting: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
+    fontStyle: 'italic',
+  },
+  thankYouButton: {
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  thankYouButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
   },
 });
 

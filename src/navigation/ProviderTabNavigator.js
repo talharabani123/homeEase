@@ -2,7 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import ProviderDashboardScreen from '../screens/provider/ProviderDashboardScreen';
+import ProviderDashboardScreenEnhanced from '../screens/provider/ProviderDashboardScreenEnhanced';
 import ProviderJobsScreen from '../screens/provider/ProviderJobsScreen';
 import MessagesScreen from '../screens/customer/MessagesScreen';
 import MoreScreen from '../screens/customer/MoreScreen';
@@ -49,7 +49,7 @@ const ProviderTabNavigator = () => {
     >
       <Tab.Screen 
         name="Dashboard" 
-        component={ProviderDashboardScreen}
+        component={ProviderDashboardScreenEnhanced}
         options={{ tabBarLabel: 'Dashboard' }}
       />
       <Tab.Screen 

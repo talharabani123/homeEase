@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, StatusBar, ActivityIndicator, Alert,
+  ScrollView, StatusBar, ActivityIndicator, Alert, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -131,64 +131,40 @@ const EmergencyHomeScreen = ({ navigation }) => {
 
           {/* Standard card */}
           <TouchableOpacity
-            style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={styles.emergencyButtonContainer}
             onPress={goToStandard}
             activeOpacity={0.75}
           >
-            <View style={[styles.cardIcon, { backgroundColor: '#DBEAFE' }]}>
-              <Text style={{ fontSize: 32 }}>🚨</Text>
-            </View>
-            <View style={styles.cardBody}>
-              <View style={styles.cardTitleRow}>
-                <Text style={[styles.cardTitle, { color: colors.text }]}>Standard Emergency</Text>
-                <View style={styles.fastBadge}><Text style={styles.fastBadgeText}>Fast</Text></View>
-              </View>
-              <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
+            <Image 
+              source={require('../../../assets/icon.png')} 
+              style={styles.emergencyButtonImage}
+              resizeMode="cover"
+            />
+            <View style={styles.emergencyButtonOverlay}>
+              <Text style={[styles.emergencyButtonTitle, { color: colors.text }]}>Standard Emergency</Text>
+              <Text style={[styles.emergencyButtonSubtitle, { color: colors.textSecondary }]}>
                 Pre-defined services with instant provider matching and fixed pricing
               </Text>
-              <View style={styles.chips}>
-                {['🔧 Plumber','⚡ Electrician','❄️ AC','🔥 Gas','🔑 Locksmith'].map(s => (
-                  <View key={s} style={[styles.chip, { backgroundColor: colors.primaryLight }]}>
-                    <Text style={[styles.chipText, { color: colors.primary }]}>{s}</Text>
-                  </View>
-                ))}
-              </View>
             </View>
-            <Svg width="20" height="20" viewBox="0 0 24 24">
-              <Path d="M9 6l6 6-6 6" stroke={colors.textSecondary} strokeWidth="2" fill="none" strokeLinecap="round"/>
-            </Svg>
           </TouchableOpacity>
 
           {/* Non-standard card */}
           <TouchableOpacity
-            style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={styles.emergencyButtonContainer}
             onPress={goToNonStandard}
             activeOpacity={0.75}
           >
-            <View style={[styles.cardIcon, { backgroundColor: '#FCE7F3' }]}>
-              <Text style={{ fontSize: 32 }}>📝</Text>
-            </View>
-            <View style={styles.cardBody}>
-              <View style={styles.cardTitleRow}>
-                <Text style={[styles.cardTitle, { color: colors.text }]}>Custom / Non-Standard</Text>
-                <View style={[styles.fastBadge, { backgroundColor: '#FCE7F3' }]}>
-                  <Text style={[styles.fastBadgeText, { color: '#BE185D' }]}>Custom</Text>
-                </View>
-              </View>
-              <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
+            <Image 
+              source={require('../../../assets/non standard.png')} 
+              style={styles.emergencyButtonImage}
+              resizeMode="cover"
+            />
+            <View style={styles.emergencyButtonOverlay}>
+              <Text style={[styles.emergencyButtonTitle, { color: colors.text }]}>Custom / Non-Standard</Text>
+              <Text style={[styles.emergencyButtonSubtitle, { color: colors.textSecondary }]}>
                 Describe your unique problem. Multiple providers send competitive offers.
               </Text>
-              <View style={styles.chips}>
-                {['💬 Describe issue','📸 Add photos','💰 Compare offers'].map(s => (
-                  <View key={s} style={[styles.chip, { backgroundColor: '#FCE7F3' }]}>
-                    <Text style={[styles.chipText, { color: '#BE185D' }]}>{s}</Text>
-                  </View>
-                ))}
-              </View>
             </View>
-            <Svg width="20" height="20" viewBox="0 0 24 24">
-              <Path d="M9 6l6 6-6 6" stroke={colors.textSecondary} strokeWidth="2" fill="none" strokeLinecap="round"/>
-            </Svg>
           </TouchableOpacity>
 
           {/* How it works */}
@@ -248,23 +224,40 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 22, fontWeight: '700', marginBottom: 6 },
   sectionSub:   { fontSize: 13, marginBottom: 20, lineHeight: 18 },
 
-  card: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    padding: 18, borderRadius: 16, borderWidth: 1,
-    marginBottom: 16, gap: 14,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+  emergencyButtonContainer: {
+    position: 'relative',
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  cardIcon: { width: 60, height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  cardBody: { flex: 1 },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  cardTitle: { fontSize: 16, fontWeight: '700', flex: 1, marginRight: 8 },
-  fastBadge: { backgroundColor: '#DBEAFE', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  fastBadgeText: { fontSize: 11, fontWeight: '700', color: '#1E40AF' },
-  cardDesc: { fontSize: 13, lineHeight: 18, marginBottom: 10 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  chipText: { fontSize: 11, fontWeight: '600' },
+  emergencyButtonImage: {
+    width: '100%',
+    height: 200,
+  },
+  emergencyButtonOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    padding: 18,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  emergencyButtonTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  emergencyButtonSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
 
   infoCard: {
     flexDirection: 'row', padding: 16,

@@ -156,6 +156,12 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
+    // ML Kit Face Detection
+    implementation 'com.google.mlkit:face-detection:16.1.5'
+    // ML Kit Hand Detection and Pose Detection for finger tracking
+    implementation 'com.google.mlkit:pose-detection:18.0.0-beta4'
+    implementation 'com.google.mlkit:pose-detection-accurate:18.0.0-beta4'
+
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
     def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: "") == "true";

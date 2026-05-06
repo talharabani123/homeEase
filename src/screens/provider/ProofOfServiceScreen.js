@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView, Alert, Image } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
 import { saveDraft, loadDraft } from '../../services/providerRegistrationService';
+import DocumentGuidelineScreen from '../../components/DocumentGuidelineScreen';
 
 const ProofOfServiceScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
@@ -17,9 +19,12 @@ const ProofOfServiceScreen = ({ route, navigation }) => {
       proofDocuments: service.proofDocuments || []
     }));
   });
+  const [showGuideline, setShowGuideline] = useState(false);
+  const [skipGuidelines, setSkipGuidelines] = useState(false);
 
   useEffect(() => {
     loadSavedDraft();
+    checkSkipPreference();
   }, []);
 
   const loadSavedDraft = async () => {
@@ -31,6 +36,54 @@ const ProofOfServiceScreen = ({ route, navigation }) => {
       }));
       setServicesWithProof(servicesWithDocs);
     }
+  };
+
+  const checkSkipPreference = async () => {
+    try {
+      const skipPref = await AsyncStorage.getItem('@skip_document_guidelines');
+      setSkipGuidelines(skipPref === 'true');
+    } catch (error) {
+      console.log('Error checking skip preference:', error);
+    }
+  };
+
+  const saveSkipPreference = async () => {
+    try {
+      await AsyncStorage.setItem('@skip_document_guidelines', 'true');
+      setSkipGuidelines(true);
+    } catch (error) {
+      console.log('Error saving skip preference:', error);
+    }
+  };
+
+  const showGuidelineScreen = () => {
+    if (skipGuidelines) {
+      showImagePickerOptions();
+    } else {
+      setShowGuideline(true);
+    }
+  };
+
+  const handleGuidelineContinue = () => {
+    setShowGuideline(false);
+    showImagePickerOptions();
+  };
+
+  const handleGuidelineSkip = () => {
+    saveSkipPreference();
+    handleGuidelineContinue();
+  };
+
+  const showImagePickerOptions = () => {
+    Alert.alert(
+      'Select Image Source',
+      'Choose how you want to add your certificate',
+      [
+        { text: 'Take Photo', onPress: () => takePhoto() },
+        { text: 'Choose from Gallery', onPress: () => pickImage() },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
 
   const currentService = servicesWithProof[currentServiceIndex] || {};
@@ -104,7 +157,16 @@ const ProofOfServiceScreen = ({ route, navigation }) => {
         };
         return updated;
       });
+      
+      // Show success animation
+      showSuccessAnimation();
     }
+  };
+
+  const showSuccessAnimation = () => {
+    // This would show the tick.mp4 animation
+    // For now, we'll show a simple success message
+    Alert.alert('Success!', 'Certificate uploaded successfully');
   };
 
   const removeImage = (index) => {
@@ -143,8 +205,17 @@ const ProofOfServiceScreen = ({ route, navigation }) => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
+    <>
+      {showGuideline ? (
+        <DocumentGuidelineScreen
+          documentType="certificate"
+          onContinue={handleGuidelineContinue}
+          onSkip={handleGuidelineSkip}
+          showSkipOption={true}
+        />
+      ) : (
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+          <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -188,18 +259,11 @@ const ProofOfServiceScreen = ({ route, navigation }) => {
           </Text>
           
           <View style={styles.uploadButtons}>
-            <TouchableOpacity style={[styles.uploadButton, { backgroundColor: colors.card, borderColor: colors.cardBorder }]} onPress={takePhoto}>
+            <TouchableOpacity style={[styles.uploadButton, { backgroundColor: colors.card, borderColor: colors.cardBorder }]} onPress={showGuidelineScreen}>
               <Svg width="24" height="24" viewBox="0 0 24 24">
                 <Path d="M12 15.2C13.77 15.2 15.2 13.77 15.2 12C15.2 10.23 13.77 8.8 12 8.8C10.23 8.8 8.8 10.23 8.8 12C8.8 13.77 10.23 15.2 12 15.2ZM9 2L7.17 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4H16.83L15 2H9Z" fill={colors.primary} />
               </Svg>
-              <Text style={[styles.uploadText, { color: colors.text }]}>Take Photo</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.uploadButton, { backgroundColor: colors.card, borderColor: colors.cardBorder }]} onPress={pickImage}>
-              <Svg width="24" height="24" viewBox="0 0 24 24">
-                <Path d="M21 19V5C21 3.9 20.1 3 19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19ZM8.5 13.5L11 16.51L14.5 12L19 18H5L8.5 13.5Z" fill={colors.primary} />
-              </Svg>
-              <Text style={[styles.uploadText, { color: colors.text }]}>Choose Image</Text>
+              <Text style={[styles.uploadText, { color: colors.text }]}>Upload Certificate</Text>
             </TouchableOpacity>
           </View>
 
@@ -245,6 +309,8 @@ const ProofOfServiceScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
     </SafeAreaView>
+      )}
+    </>
   );
 };
 

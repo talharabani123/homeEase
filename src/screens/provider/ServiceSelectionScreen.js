@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView, Alert, Platform } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useTheme } from '../../context/ThemeContext';
 import { SERVICE_CATEGORIES, saveDraft, loadDraft } from '../../services/providerRegistrationService';
@@ -55,8 +55,8 @@ const ServiceSelectionScreen = ({ route, navigation }) => {
       <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+      <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 50 : 20 }]}>
+        <TouchableOpacity onPress={() => navigation.canGoBack() && navigation.goBack()} style={styles.backButton}>
           <Svg width="24" height="24" viewBox="0 0 24 24">
             <Path d="M15 18 L9 12 L15 6" stroke={colors.text} strokeWidth="2" fill="none" />
           </Svg>
@@ -136,9 +136,9 @@ const ServiceSelectionScreen = ({ route, navigation }) => {
           })}
         </View>
 
-        {/* Help Text */}
+        {/* Help Text - Removed tip section as requested */}
         <View style={[styles.helpSection, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-          <Text style={[styles.helpTitle, { color: colors.text }]}>💡 Tip</Text>
+          <Text style={[styles.helpTitle, { color: colors.text }]}>💡 Note</Text>
           <Text style={[styles.helpText, { color: colors.textSecondary }]}>
             You can select multiple services if you have skills in different areas. You'll need to provide proof for each service separately.
           </Text>

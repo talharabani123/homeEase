@@ -6,8 +6,13 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
+import {
+  getServiceRequests as getUserRequests,
+  saveServiceRequests,
+  addServiceHistory,
+} from './userDataService';
 
-// Storage Keys
+// Storage Keys (global fallback)
 const SERVICE_REQUESTS_KEY = '@marketplace_service_requests';
 const PROVIDERS_KEY = '@marketplace_providers';
 const ACTIVE_JOBS_KEY = '@marketplace_active_jobs';
@@ -102,10 +107,10 @@ export const createServiceRequest = async (requestData) => {
       review: null,
     };
 
-    // Save request
-    const requests = await getAllServiceRequests();
+    // Save request — user-scoped
+    const requests = await getAllServiceRequests(requestData.customerId);
     requests.push(serviceRequest);
-    await AsyncStorage.setItem(SERVICE_REQUESTS_KEY, JSON.stringify(requests));
+    await setAllServiceRequests(requests, requestData.customerId);
 
     console.log('✅ Service request created:', requestId);
 
@@ -383,7 +388,7 @@ export const startJob = async (requestId) => {
  */
 export const completeJob = async (requestId, serviceFee) => {
   try {
-    const requests = await getAllServiceRequests();
+    const requests = await getAllServiceRequests(null);
     const requestIndex = requests.findIndex(r => r.id === requestId);
     
     if (requestIndex === -1) {
@@ -391,8 +396,6 @@ export const completeJob = async (requestId, serviceFee) => {
     }
 
     const request = requests[requestIndex];
-
-    // STEP 8: Calculate Total Amount
     const totalAmount = (request.travelFee || 0) + (serviceFee || 0);
 
     request.status = 'completed';
@@ -401,18 +404,24 @@ export const completeJob = async (requestId, serviceFee) => {
     request.completedAt = new Date().toISOString();
 
     requests[requestIndex] = request;
-    await AsyncStorage.setItem(SERVICE_REQUESTS_KEY, JSON.stringify(requests));
+    await setAllServiceRequests(requests, request.customerId);
 
-    // Mark provider as available
+    // Write to user's service history
+    if (request.customerId) {
+      await addServiceHistory(request.customerId, {
+        serviceType: request.serviceName,
+        providerName: request.providerName || 'Provider',
+        date: request.completedAt,
+        amount: totalAmount,
+        status: 'completed',
+        rating: 0,
+        requestId,
+      });
+    }
+
     await updateProviderStatus(request.selectedProviderId, { isBusy: false });
 
-    console.log(`✅ Job completed. Total: ${totalAmount} PKR (Travel: ${request.travelFee} + Service: ${serviceFee})`);
-
-    return {
-      success: true,
-      request,
-      totalAmount
-    };
+    return { success: true, request, totalAmount };
   } catch (error) {
     console.error('❌ Complete job error:', error);
     return { success: false, error: 'Failed to complete job' };
@@ -556,16 +565,11 @@ export const getAvailableRequests = async (providerId) => {
  */
 export const getCustomerRequests = async (customerId) => {
   try {
-    const requests = await getAllServiceRequests();
+    // Use user-scoped storage directly
+    const requests = await getAllServiceRequests(customerId);
     const customerRequests = requests.filter(r => r.customerId === customerId);
-    
-    // Sort by created date (newest first)
     customerRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-    return {
-      success: true,
-      requests: customerRequests
-    };
+    return { success: true, requests: customerRequests };
   } catch (error) {
     console.error('❌ Get customer requests error:', error);
     return { success: false, error: 'Failed to get requests', requests: [] };
@@ -593,12 +597,33 @@ export const getRequestById = async (requestId) => {
 
 // Helper Functions
 
-const getAllServiceRequests = async () => {
+/**
+ * Get all service requests — user-scoped when customerId provided
+ */
+const getAllServiceRequests = async (customerId) => {
   try {
+    if (customerId) {
+      return await getUserRequests(customerId);
+    }
     const stored = await AsyncStorage.getItem(SERVICE_REQUESTS_KEY);
     return stored ? JSON.parse(stored) : [];
   } catch (error) {
     return [];
+  }
+};
+
+/**
+ * Save service requests — user-scoped when customerId provided
+ */
+const setAllServiceRequests = async (requests, customerId) => {
+  try {
+    if (customerId) {
+      await saveServiceRequests(customerId, requests);
+    } else {
+      await AsyncStorage.setItem(SERVICE_REQUESTS_KEY, JSON.stringify(requests));
+    }
+  } catch (error) {
+    console.error('setAllServiceRequests error:', error);
   }
 };
 

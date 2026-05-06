@@ -5,6 +5,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { AuthProvider } from './src/context/AuthContext';
+import { ProviderProvider } from './src/context/ProviderContext';
+import { UserRegistrationProvider } from './src/context/UserRegistrationContext';
 import SplashScreen from './src/screens/SplashScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import OnboardingScreen1 from './src/screens/onboarding/OnboardingScreen1';
@@ -13,13 +15,12 @@ import OnboardingScreen3 from './src/screens/onboarding/OnboardingScreen3';
 import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import CustomerLoginScreen from './src/screens/auth/CustomerLoginScreen';
-import CustomerSignupScreen from './src/screens/auth/CustomerSignupScreen';
+import CustomerSignupScreen from './src/screens/customer/CustomerSignupScreen';
 import EnhancedLoginScreen from './src/screens/auth/EnhancedLoginScreen';
 import EmailAuthScreen from './src/screens/auth/EmailAuthScreen';
 import EmailVerificationHandler from './src/screens/auth/EmailVerificationHandler';
 import EmailOTPVerificationScreen from './src/screens/auth/EmailOTPVerificationScreen';
 import ProviderLoginScreen from './src/screens/auth/ProviderLoginScreen';
-import ProviderSignupScreen from './src/screens/auth/ProviderSignupScreen';
 import PendingVerificationScreen from './src/screens/auth/PendingVerificationScreen';
 import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
 import ResetPasswordScreen from './src/screens/auth/ResetPasswordScreen';
@@ -72,11 +73,21 @@ import PersonalInfoScreen from './src/screens/provider/PersonalInfoScreenSimple'
 import ProfessionalInfoScreen from './src/screens/provider/ProfessionalInfoScreen';
 import CNICVerificationScreen from './src/screens/provider/CNICVerificationScreen';
 import SelfieVerificationScreen from './src/screens/provider/SelfieVerificationScreen';
+import EmployeeDetectionScreen from './src/screens/provider/EmployeeDetectionScreen';
+import EmployeeDetectionDemo from './src/screens/provider/EmployeeDetectionDemo';
+import FingerScannerScreen from './src/screens/provider/FingerScannerScreen';
+import TouchlessIDDemo from './src/screens/auth/TouchlessIDDemo';
 import ProofOfServiceScreen from './src/screens/provider/ProofOfServiceScreen';
+import ModernApplicationScreen from './src/screens/provider/ModernApplicationScreen';
 import ProviderAgreementScreen from './src/screens/provider/ProviderAgreementScreen';
 import SubmissionStatusScreen from './src/screens/provider/SubmissionStatusScreen';
+import ProviderProfileScreen from './src/screens/provider/ProviderProfileScreen';
+import ProviderNotificationsScreen from './src/screens/provider/ProviderNotificationsScreen';
 import ProviderJobHistoryScreen from './src/screens/provider/ProviderJobHistoryScreen';
 import ProviderWalletScreen from './src/screens/provider/ProviderWalletScreen';
+import ProviderDashboardScreenEnhanced from './src/screens/provider/ProviderDashboardScreenEnhanced';
+import AvailableRequestsScreen from './src/screens/provider/AvailableRequestsScreen';
+import RequestDetailScreen from './src/screens/provider/RequestDetailScreen';
 // Real-Time Job Flow Screens
 import JobTrackingScreen from './src/screens/customer/JobTrackingScreenEnhanced';
 import JobChatScreen from './src/screens/customer/JobChatScreen';
@@ -92,8 +103,10 @@ const Stack = createStackNavigator();
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <NavigationContainer>
+      <UserRegistrationProvider>
+        <AuthProvider>
+          <ProviderProvider>
+            <NavigationContainer>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Splash" component={SplashScreen} />
             <Stack.Screen name="Onboarding1" component={OnboardingScreen1} />
@@ -109,7 +122,6 @@ export default function App() {
             <Stack.Screen name="CustomerSignup" component={CustomerSignupScreen} />
             <Stack.Screen name="EmailOTPVerification" component={EmailOTPVerificationScreen} />
             <Stack.Screen name="ProviderLogin" component={ProviderLoginScreen} />
-            <Stack.Screen name="ProviderSignup" component={ProviderSignupScreen} />
             <Stack.Screen name="PendingVerification" component={PendingVerificationScreen} />
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
@@ -158,7 +170,12 @@ export default function App() {
             <Stack.Screen name="ProfessionalInfo" component={ProfessionalInfoScreen} />
             <Stack.Screen name="CNICVerification" component={CNICVerificationScreen} />
             <Stack.Screen name="SelfieVerification" component={SelfieVerificationScreen} />
+            <Stack.Screen name="EmployeeDetection" component={EmployeeDetectionScreen} />
+            <Stack.Screen name="EmployeeDetectionDemo" component={EmployeeDetectionDemo} />
+            <Stack.Screen name="FingerScanner" component={FingerScannerScreen} />
+            <Stack.Screen name="TouchlessIDDemo" component={TouchlessIDDemo} />
             <Stack.Screen name="ProofOfService" component={ProofOfServiceScreen} />
+            <Stack.Screen name="ModernApplication" component={ModernApplicationScreen} />
             <Stack.Screen name="ProviderAgreement" component={ProviderAgreementScreen} />
             <Stack.Screen name="SubmissionStatus" component={SubmissionStatusScreen} />
             <Stack.Screen name="JobTracking" component={JobTrackingScreen} />
@@ -171,9 +188,16 @@ export default function App() {
             {/* Map Screens - DISABLED FOR EXPO GO */}
             {/* <Stack.Screen name="CustomerMap" component={CustomerMapScreen} /> */}
             {/* <Stack.Screen name="ProviderMap" component={ProviderMapScreen} /> */}
+            <Stack.Screen name="ProviderDashboardEnhanced" component={ProviderDashboardScreenEnhanced} />
+            <Stack.Screen name="AvailableRequests" component={AvailableRequestsScreen} />
+            <Stack.Screen name="RequestDetail" component={RequestDetailScreen} />
+            <Stack.Screen name="ProviderProfile" component={ProviderProfileScreen} />
+            <Stack.Screen name="ProviderNotifications" component={ProviderNotificationsScreen} />
           </Stack.Navigator>
         </NavigationContainer>
+        </ProviderProvider>
       </AuthProvider>
+      </UserRegistrationProvider>
     </ThemeProvider>
   );
 }

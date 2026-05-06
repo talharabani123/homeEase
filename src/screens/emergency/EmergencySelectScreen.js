@@ -58,12 +58,32 @@ const EmergencySelectScreen = ({ navigation }) => {
               ]}
               onPress={() => { setTab(TAB.STANDARD); setSelectedService(null); }}
             >
-              <Text style={[
-                styles.typeBtnText,
-                { color: tab === TAB.STANDARD ? '#fff' : colors.textSecondary },
-              ]}>
-                ⚡ Standard
-              </Text>
+              <View style={styles.typeBtnContent}>
+                <View style={styles.typeBtnImageContainer}>
+                  <Svg width="40" height="40" viewBox="0 0 100 100">
+                    {/* Toolbox */}
+                    <Path d="M20 30 L80 30 L80 70 L20 70 Z" fill="#F59E0B" stroke="#D97706" strokeWidth="2"/>
+                    <Path d="M15 25 L85 25 L85 35 L15 35 Z" fill="#FCD34D" stroke="#D97706" strokeWidth="1"/>
+                    {/* Tools */}
+                    <Path d="M30 40 L35 45 L30 50 L25 45 Z" fill="#9CA3AF"/>
+                    <Path d="M45 35 L50 35 L50 55 L45 55 Z" fill="#6B7280"/>
+                    <Path d="M60 38 L70 38 L70 42 L60 42 Z" fill="#EF4444"/>
+                    <Path d="M65 42 L65 52 L61 52 L61 42 Z" fill="#DC2626"/>
+                  </Svg>
+                </View>
+                <Text style={[
+                  styles.typeBtnText,
+                  { color: tab === TAB.STANDARD ? '#fff' : '#374151' },
+                ]}>
+                  Standard Emergency
+                </Text>
+                <Text style={[
+                  styles.typeBtnSubtext,
+                  { color: tab === TAB.STANDARD ? 'rgba(255,255,255,0.8)' : '#6B7280' },
+                ]}>
+                  Quick fixes & repairs
+                </Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -73,12 +93,37 @@ const EmergencySelectScreen = ({ navigation }) => {
               ]}
               onPress={() => { setTab(TAB.CUSTOM); setSelectedService(null); }}
             >
-              <Text style={[
-                styles.typeBtnText,
-                { color: tab === TAB.CUSTOM ? '#fff' : colors.textSecondary },
-              ]}>
-                📝 Non-Standard
-              </Text>
+              <View style={styles.typeBtnContent}>
+                <View style={styles.typeBtnImageContainer}>
+                  <Svg width="40" height="40" viewBox="0 0 100 100">
+                    {/* House structure */}
+                    <Path d="M20 45 L50 20 L80 45 L80 75 L20 75 Z" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="2"/>
+                    <Path d="M15 45 L50 15 L85 45 L80 45 L50 20 L20 45 Z" fill="#6B7280"/>
+                    {/* Brick pattern */}
+                    <Path d="M20 50 L35 50 L35 55 L20 55 Z" fill="#DC2626"/>
+                    <Path d="M25 55 L40 55 L40 60 L25 60 Z" fill="#B91C1C"/>
+                    <Path d="M20 60 L35 60 L35 65 L20 65 Z" fill="#DC2626"/>
+                    {/* Tools */}
+                    <Path d="M45 35 L55 35 L55 45 L45 45 Z" fill="#F59E0B"/>
+                    <Path d="M60 40 L70 30 L72 32 L62 42 Z" fill="#6B7280"/>
+                    <Path d="M65 50 L75 50 L75 55 L65 55 Z" fill="#EF4444"/>
+                    {/* Hard hat */}
+                    <Path d="M40 25 L60 25 L62 30 L38 30 Z" fill="#F59E0B"/>
+                  </Svg>
+                </View>
+                <Text style={[
+                  styles.typeBtnText,
+                  { color: tab === TAB.CUSTOM ? '#fff' : '#374151' },
+                ]}>
+                  Non-Standard
+                </Text>
+                <Text style={[
+                  styles.typeBtnSubtext,
+                  { color: tab === TAB.CUSTOM ? 'rgba(255,255,255,0.8)' : '#6B7280' },
+                ]}>
+                  Complex projects
+                </Text>
+              </View>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -213,8 +258,11 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700' },
   headerSub: { fontSize: 12, marginTop: 2 },
   typeBtnRow: { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 16, gap: 12 },
-  typeBtn: { flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: 'center', borderWidth: 1.5 },
-  typeBtnText: { fontSize: 14, fontWeight: '700' },
+  typeBtn: { flex: 1, paddingVertical: 16, paddingHorizontal: 12, borderRadius: 16, alignItems: 'center', borderWidth: 2, minHeight: 120 },
+  typeBtnContent: { alignItems: 'center', justifyContent: 'center' },
+  typeBtnImageContainer: { marginBottom: 8 },
+  typeBtnText: { fontSize: 14, fontWeight: '700', textAlign: 'center', marginBottom: 2 },
+  typeBtnSubtext: { fontSize: 11, fontWeight: '500', textAlign: 'center' },
   scroll: { flex: 1 },
   section: { padding: 20 },
   sectionTitle: { fontSize: 20, fontWeight: '700', marginBottom: 4 },

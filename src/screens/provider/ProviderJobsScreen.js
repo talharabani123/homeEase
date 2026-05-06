@@ -3,26 +3,24 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAr
 import Svg, { Path, Circle } from 'react-native-svg';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { getProviderJobs, acceptJob, rejectJob, completeJob } from '../../services/providerJobService';
 import { acceptJobRequest } from '../../services/realtimeJobFlowService';
 
 const ProviderJobsScreen = ({ navigation }) => {
   const { colors } = useTheme();
-  const [activeTab, setActiveTab] = useState('pending'); // pending, active, completed
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('pending');
   const [jobs, setJobs] = useState({ pending: [], active: [], completed: [] });
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadJobs();
-  }, []);
+  useEffect(() => { loadJobs(); }, [user]);
 
   const loadJobs = async () => {
     setLoading(true);
-    const result = await getProviderJobs();
-    if (result.success) {
-      setJobs(result.jobs);
-    }
+    const result = await getProviderJobs(user?.uid);
+    if (result.success) setJobs(result.jobs);
     setLoading(false);
   };
 

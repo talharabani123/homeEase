@@ -3,25 +3,23 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Refres
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { getProviderJobs } from '../../services/providerJobService';
 
 const ProviderJobHistoryScreen = ({ navigation }) => {
   const { colors } = useTheme();
+  const { user } = useAuth();
   const [jobs, setJobs] = useState({ completed: [], cancelled: [] });
-  const [activeTab, setActiveTab] = useState('completed'); // completed, cancelled
+  const [activeTab, setActiveTab] = useState('completed');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadJobs();
-  }, []);
+  useEffect(() => { loadJobs(); }, [user]);
 
   const loadJobs = async () => {
     setLoading(true);
-    const result = await getProviderJobs();
-    if (result.success) {
-      setJobs(result.jobs);
-    }
+    const result = await getProviderJobs(user?.uid);
+    if (result.success) setJobs(result.jobs);
     setLoading(false);
   };
 

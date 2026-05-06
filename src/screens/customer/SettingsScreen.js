@@ -7,39 +7,32 @@ import { TYPOGRAPHY } from '../../constants/typography';
 import ScreenHeader from '../../components/ScreenHeader';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
-
-const SETTINGS_KEY = '@homeease_settings';
+import { useAuth } from '../../context/AuthContext';
+import { getUserSettings, saveUserSettings } from '../../services/userDataService';
 
 const SettingsScreen = ({ navigation }) => {
   const { isDarkMode, toggleTheme, colors } = useTheme();
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState(true);
+  const [serviceVoice, setServiceVoice] = useState(true);
   const [locationServices, setLocationServices] = useState(true);
   const [selectedLanguage, setSelectedLanguage] = useState('English');
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
+  useEffect(() => { loadSettings(); }, [user]);
 
   const loadSettings = async () => {
     try {
-      const stored = await AsyncStorage.getItem(SETTINGS_KEY);
-      if (stored) {
-        const settings = JSON.parse(stored);
+      // Load user-scoped settings
+      if (user?.uid) {
+        const settings = await getUserSettings(user.uid);
         setNotifications(settings.notifications ?? true);
+        setServiceVoice(settings.serviceVoice ?? true);
         setLocationServices(settings.locationServices ?? true);
       }
-      
-      // Load language
+      // Load language (global — not user-specific)
       const lang = await AsyncStorage.getItem('@homeease_language');
       if (lang) {
-        const langNames = {
-          'en': 'English',
-          'ur': 'Urdu',
-          'ar': 'Arabic',
-          'hi': 'Hindi',
-          'es': 'Spanish',
-          'fr': 'French',
-        };
+        const langNames = { en: 'English', ur: 'Urdu', ar: 'Arabic', hi: 'Hindi', es: 'Spanish', fr: 'French' };
         setSelectedLanguage(langNames[lang] || 'English');
       }
     } catch (error) {
@@ -47,25 +40,25 @@ const SettingsScreen = ({ navigation }) => {
     }
   };
 
-  const saveSettings = async (key, value) => {
-    try {
-      const stored = await AsyncStorage.getItem(SETTINGS_KEY);
-      const settings = stored ? JSON.parse(stored) : {};
-      settings[key] = value;
-      await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    } catch (error) {
-      console.error('Error saving settings:', error);
-    }
+  const saveSetting = async (key, value) => {
+    if (!user?.uid) return;
+    const current = await getUserSettings(user.uid);
+    await saveUserSettings(user.uid, { ...current, [key]: value });
   };
 
   const handleNotificationsToggle = (value) => {
     setNotifications(value);
-    saveSettings('notifications', value);
+    saveSetting('notifications', value);
   };
 
   const handleLocationToggle = (value) => {
     setLocationServices(value);
-    saveSettings('locationServices', value);
+    saveSetting('locationServices', value);
+  };
+
+  const handleServiceVoiceToggle = (value) => {
+    setServiceVoice(value);
+    saveSetting('serviceVoice', value);
   };
 
   const handleDarkModeToggle = () => {
@@ -110,6 +103,14 @@ const SettingsScreen = ({ navigation }) => {
           onToggle: handleLocationToggle,
         },
         {
+          id: 'serviceVoice',
+          label: 'Service Voice',
+          subtitle: 'Hear sound when service request arrives',
+          type: 'toggle',
+          value: serviceVoice,
+          onToggle: handleServiceVoiceToggle,
+        },
+        {
           id: 'darkmode',
           label: 'Dark Mode',
           subtitle: 'Use dark theme',
@@ -128,6 +129,13 @@ const SettingsScreen = ({ navigation }) => {
           subtitle: selectedLanguage,
           type: 'navigation',
           onPress: () => navigation.navigate('Language'),
+        },
+        {
+          id: 'fingerprint',
+          label: 'Touchless ID Demo',
+          subtitle: 'Camera-based hand scanning (Demo)',
+          type: 'navigation',
+          onPress: () => navigation.navigate('TouchlessIDDemo'),
         },
         {
           id: 'privacy',

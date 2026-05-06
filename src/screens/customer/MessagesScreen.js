@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   StatusBar, ActivityIndicator, RefreshControl, Alert,
@@ -7,7 +7,9 @@ import {
 import Svg, { Path, Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import ScreenWrapper from '../../components/ScreenWrapper';
+import { getConversations, deleteConversation } from '../../services/userDataService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const DELETE_THRESHOLD = -80; // how far left to reveal delete
@@ -83,16 +85,28 @@ const swipeStyles = StyleSheet.create({
 // ─── Main screen ──────────────────────────────────────────────────────────────
 const MessagesScreen = ({ navigation }) => {
   const { colors } = useTheme();
-  const [conversations, setConversations] = useState(MOCK_CONVERSATIONS);
-  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => { loadConversations(); }, [user]);
+
+  const loadConversations = async () => {
+    setLoading(true);
+    if (user?.uid) {
+      const data = await getConversations(user.uid);
+      setConversations(data);
+    } else {
+      setConversations([]);
+    }
+    setLoading(false);
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setConversations(MOCK_CONVERSATIONS);
-      setRefreshing(false);
-    }, 800);
+    await loadConversations();
+    setRefreshing(false);
   };
 
   const handleConversationPress = (conv) => {
@@ -112,7 +126,10 @@ const MessagesScreen = ({ navigation }) => {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete', style: 'destructive',
-          onPress: () => setConversations(prev => prev.filter(c => c.id !== conv.id)),
+          onPress: async () => {
+            if (user?.uid) await deleteConversation(user.uid, conv.id);
+            setConversations(prev => prev.filter(c => c.id !== conv.id));
+          },
         },
       ]
     );
@@ -233,13 +250,7 @@ const MessagesScreen = ({ navigation }) => {
   );
 };
 
-const MOCK_CONVERSATIONS = [
-  { id: 'c1', requestId: 'r1', providerId: 'p1', providerName: 'Ahmed Khan',   serviceType: 'Plumber',     serviceIcon: '🔧', lastMessage: 'I will arrive in 10 minutes',       lastMessageSender: 'provider', lastMessageTime: Date.now() - 300000,   unreadCount: 2, isOnline: true  },
-  { id: 'c2', requestId: 'r2', providerId: 'p2', providerName: 'Ali Raza',     serviceType: 'Electrician', serviceIcon: '⚡', lastMessage: 'Thank you for your service!',       lastMessageSender: 'you',      lastMessageTime: Date.now() - 3600000,  unreadCount: 0, isOnline: false },
-  { id: 'c3', requestId: 'r3', providerId: 'p3', providerName: 'Hassan Ali',   serviceType: 'Carpenter',   serviceIcon: '🪚', lastMessage: 'What time works best for you?',     lastMessageSender: 'provider', lastMessageTime: Date.now() - 7200000,  unreadCount: 1, isOnline: true  },
-  { id: 'c4', requestId: 'r4', providerId: 'p4', providerName: 'Usman Sheikh', serviceType: 'Painter',     serviceIcon: '🎨', lastMessage: 'Job completed successfully',         lastMessageSender: 'provider', lastMessageTime: Date.now() - 86400000, unreadCount: 0, isOnline: false },
-  { id: 'c5', requestId: 'r5', providerId: 'p5', providerName: 'Bilal Ahmed',  serviceType: 'AC Repair',   serviceIcon: '❄️', lastMessage: 'Can you send me your location?',    lastMessageSender: 'you',      lastMessageTime: Date.now() - 172800000,unreadCount: 0, isOnline: false },
-];
+// No more hardcoded mock data — conversations are loaded from user-specific storage
 
 const styles = StyleSheet.create({
   header: {

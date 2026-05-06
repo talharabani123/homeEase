@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView, ActivityIndicator } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { COLORS } from '../../constants/colors';
@@ -100,6 +100,19 @@ const MoreScreen = ({ navigation }) => {
     );
   };
 
+  const handleEarnAsProvider = () => {
+    alert.confirm(
+      'Become a Service Provider',
+      'You will be redirected to the Service Provider registration process. This will allow you to offer services and earn money on HomeEase.',
+      () => {
+        // Navigate to existing provider registration intro screen
+        navigation.navigate('ProviderRegistrationIntro');
+      },
+      'Continue',
+      'Cancel'
+    );
+  };
+
   // Dynamic provider/mode button based on user role and status
   const getProviderButton = () => {
     // If user is verified provider (can switch modes)
@@ -111,8 +124,8 @@ const MoreScreen = ({ navigation }) => {
         icon: () => (
           <Svg width="24" height="24" viewBox="0 0 24 24">
             <Path
-              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"
-              fill="#10B981"
+              d="M7.5 5.6L10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29c-.39-.39-1.02-.39-1.41 0L1.29 18.96c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0L14.37 8.7c.39-.38.39-1.02 0-1.41z"
+              fill={colors.primary}
             />
           </Svg>
         ),
@@ -132,7 +145,7 @@ const MoreScreen = ({ navigation }) => {
           <Svg width="24" height="24" viewBox="0 0 24 24">
             <Path
               d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-              fill="#F59E0B"
+              fill={colors.warning}
             />
           </Svg>
         ),
@@ -141,20 +154,20 @@ const MoreScreen = ({ navigation }) => {
       };
     }
     
-    // Default: Show "Become a Provider" for customers
+    // Default: Show "Earn as a Service Provider" for customers
     return {
-      id: 'provider',
+      id: 'earnAsProvider',
       label: 'Earn as a Service Provider',
-      subtitle: 'Register and start earning',
+      subtitle: 'Create provider account and start earning',
       icon: () => (
         <Svg width="24" height="24" viewBox="0 0 24 24">
           <Path
-            d="M20 6h-2.18c.11-.31.18-.65.18-1 0-1.66-1.34-3-3-3-1.05 0-1.96.54-2.5 1.35l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z"
-            fill="#F59E0B"
+            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+            fill={colors.warning}
           />
         </Svg>
       ),
-      onPress: () => navigation.navigate('ProviderRegistrationIntro'),
+      onPress: handleEarnAsProvider,
       highlight: true,
     };
   };
@@ -229,19 +242,6 @@ const MoreScreen = ({ navigation }) => {
       onPress: () => navigation.navigate('Safety'),
     },
     {
-      id: 'notifications',
-      label: 'Notifications',
-      icon: () => (
-        <Svg width="24" height="24" viewBox="0 0 24 24">
-          <Path
-            d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"
-            fill={COLORS.primaryGreen}
-          />
-        </Svg>
-      ),
-      onPress: () => navigation.navigate('Notifications'),
-    },
-    {
       id: 'help',
       label: 'Help',
       icon: () => (
@@ -256,13 +256,6 @@ const MoreScreen = ({ navigation }) => {
     },
   ];
 
-  // Get user display data with safety checks
-  const safeName = userData?.fullName || user?.displayName || 'Guest User';
-  const safeEmail = userData?.email || user?.email || '';
-  const safePhone = userData?.phone || 'Not logged in';
-  const safeProfileImage = userData?.profileImage || user?.photoURL || null;
-  const initials = safeName.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
-
   return (
     <ScreenWrapper variant="default">
       <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
@@ -274,26 +267,6 @@ const MoreScreen = ({ navigation }) => {
           <Text style={[styles.headerTitle, { color: colors.text }]}>More</Text>
         </View>
 
-        {/* Profile Section */}
-        <TouchableOpacity
-          style={[styles.profileSection, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-          onPress={() => navigation.navigate('Profile')}
-        >
-          <View style={[styles.profileAvatarWrap, { backgroundColor: COLORS.primaryGreen }]}>
-            <Text style={styles.profileInitials}>{initials}</Text>
-          </View>
-          <View style={styles.profileInfo}>
-            <Text style={[styles.profileName, { color: colors.text }]}>{safeName}</Text>
-            {safeEmail ? (
-              <Text style={[styles.profileEmail, { color: colors.textSecondary }]} numberOfLines={1}>{safeEmail}</Text>
-            ) : null}
-            <Text style={[styles.profilePhone, { color: colors.textSecondary }]}>{safePhone}</Text>
-          </View>
-          <View style={[styles.editBadge, { backgroundColor: colors.primaryLight }]}>
-            <Text style={[styles.editBadgeText, { color: COLORS.primaryGreen }]}>Edit</Text>
-          </View>
-        </TouchableOpacity>
-
         {/* Menu Items */}
         <View style={styles.menuSection}>
           {menuItems.map((item) => (
@@ -302,7 +275,7 @@ const MoreScreen = ({ navigation }) => {
               style={[
                 styles.menuItem, 
                 { backgroundColor: colors.card, borderColor: colors.cardBorder },
-                item.highlight && { borderColor: '#F59E0B', borderWidth: 2, backgroundColor: '#FEF3C7' }
+                item.highlight && { borderColor: colors.primary, borderWidth: 2, backgroundColor: colors.primaryLight }
               ]}
               onPress={item.onPress}
               disabled={item.loading}
@@ -311,9 +284,9 @@ const MoreScreen = ({ navigation }) => {
                 {item.icon()}
               </View>
               <View style={styles.menuContent}>
-                <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>
+        <Text style={[styles.menuLabel, { color: item.highlight ? colors.primary : colors.text }]}>{item.label}</Text>
                 {item.subtitle && (
-                  <Text style={[styles.menuSubtitle, { color: colors.textSecondary }]}>{item.subtitle}</Text>
+                  <Text style={[styles.menuSubtitle, { color: item.highlight ? colors.primary : colors.textSecondary }]}>{item.subtitle}</Text>
                 )}
               </View>
               {item.loading ? (
@@ -371,60 +344,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: TYPOGRAPHY.headerWeight,
   },
-  profileSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 18,
-    marginTop: 16,
-    borderRadius: 16,
-    marginHorizontal: 20,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  profileAvatarWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  profileInitials: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  profileInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  profileName: {
-    fontSize: 17,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  profileEmail: {
-    fontSize: 13,
-    marginBottom: 1,
-  },
-  profilePhone: {
-    fontSize: 13,
-  },
-  editBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  editBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
   menuSection: {
-    marginTop: 20,
+    marginTop: 16,
     paddingHorizontal: 20,
   },
   menuItem: {

@@ -108,7 +108,7 @@ const AvailableRequestsScreen = ({ navigation }) => {
     return (
       <TouchableOpacity
         style={[styles.requestCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-        onPress={() => handleAcceptRequest(item)}
+        onPress={() => navigation.navigate('RequestDetail', { request: item })}
       >
         <View style={styles.requestHeader}>
           <View style={[styles.serviceIcon, { backgroundColor: colors.primaryLight }]}>
@@ -148,10 +148,10 @@ const AvailableRequestsScreen = ({ navigation }) => {
           </View>
 
           <TouchableOpacity
-            style={[styles.acceptButton, { backgroundColor: colors.primary }]}
-            onPress={() => handleAcceptRequest(item)}
+            style={[styles.viewButton, { backgroundColor: colors.primary }]}
+            onPress={() => navigation.navigate('RequestDetail', { request: item })}
           >
-            <Text style={styles.acceptButtonText}>Accept Job</Text>
+            <Text style={styles.viewButtonText}>View Details</Text>
           </TouchableOpacity>
         </View>
 
@@ -259,6 +259,8 @@ const styles = StyleSheet.create({
   feeAmount: { fontSize: 18, fontWeight: '700' },
   acceptButton: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
   acceptButtonText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+  viewButton: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  viewButtonText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
   urgentBadge: { position: 'absolute', top: 12, right: 12, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   urgentText: { fontSize: 11, fontWeight: '700' },
   emptyContainer: { alignItems: 'center', paddingVertical: 60 },

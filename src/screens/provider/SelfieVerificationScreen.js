@@ -2,17 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView, Alert, Image } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
+import { useUserRegistration } from '../../context/UserRegistrationContext';
 import { saveDraft, loadDraft } from '../../services/providerRegistrationService';
+import DocumentGuidelineScreen from '../../components/DocumentGuidelineScreen';
 
 const SelfieVerificationScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
+  const { registrationData: contextData, setSelfieImage: setContextSelfie } = useUserRegistration();
   const { registrationData } = route.params;
   
   const [selfieImage, setSelfieImage] = useState(null);
+  const [showGuideline, setShowGuideline] = useState(false);
+  const [skipGuidelines, setSkipGuidelines] = useState(false);
 
   useEffect(() => {
     loadSavedDraft();
+    checkSkipPreference();
   }, []);
 
   const loadSavedDraft = async () => {
@@ -20,6 +27,42 @@ const SelfieVerificationScreen = ({ route, navigation }) => {
     if (result.success && result.data && result.data.selfieImage) {
       setSelfieImage(result.data.selfieImage);
     }
+  };
+
+  const checkSkipPreference = async () => {
+    try {
+      const skipPref = await AsyncStorage.getItem('@skip_document_guidelines');
+      setSkipGuidelines(skipPref === 'true');
+    } catch (error) {
+      console.log('Error checking skip preference:', error);
+    }
+  };
+
+  const saveSkipPreference = async () => {
+    try {
+      await AsyncStorage.setItem('@skip_document_guidelines', 'true');
+      setSkipGuidelines(true);
+    } catch (error) {
+      console.log('Error saving skip preference:', error);
+    }
+  };
+
+  const showGuidelineScreen = () => {
+    if (skipGuidelines) {
+      takeSelfie();
+    } else {
+      setShowGuideline(true);
+    }
+  };
+
+  const handleGuidelineContinue = () => {
+    setShowGuideline(false);
+    takeSelfie();
+  };
+
+  const handleGuidelineSkip = () => {
+    saveSkipPreference();
+    handleGuidelineContinue();
   };
 
   const takeSelfie = async () => {
@@ -30,16 +73,35 @@ const SelfieVerificationScreen = ({ route, navigation }) => {
       return;
     }
 
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 0.8,
-      aspect: [1, 1],
-      cameraType: ImagePicker.CameraType.front,
-    });
+    // Direct camera capture without employee detection screen
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-    if (!result.canceled) {
-      setSelfieImage(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        const photoUri = result.assets[0].uri;
+        setSelfieImage(photoUri);
+        
+        // Save to context immediately
+        await setContextSelfie(photoUri);
+        
+        // Show success feedback
+        Alert.alert('Success!', 'Selfie captured successfully');
+      }
+    } catch (error) {
+      console.error('Error capturing selfie:', error);
+      Alert.alert('Error', 'Failed to capture selfie. Please try again.');
     }
+  };
+
+  const showSuccessAnimation = () => {
+    // This would show the tick.mp4 animation
+    // For now, we'll show a simple success message
+    Alert.alert('Success!', 'Selfie captured successfully');
   };
 
   const handleContinue = async () => {
@@ -48,22 +110,36 @@ const SelfieVerificationScreen = ({ route, navigation }) => {
       return;
     }
 
+    // Save to context
+    await setContextSelfie(selfieImage);
+
     const data = {
       ...registrationData,
+      ...contextData,
       selfieImage,
       currentStep: 5
     };
 
     await saveDraft(data);
-    navigation.navigate('ProofOfService', { registrationData: data });
+    // Navigate to modern application screen instead of ProofOfService
+    navigation.navigate('ModernApplication', { registrationData: data });
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
+    <>
+      {showGuideline ? (
+        <DocumentGuidelineScreen
+          documentType="selfie_with_cnic"
+          onContinue={handleGuidelineContinue}
+          onSkip={handleGuidelineSkip}
+          showSkipOption={true}
+        />
+      ) : (
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+          <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => navigation.canGoBack() && navigation.goBack()} style={styles.backButton}>
           <Svg width="24" height="24" viewBox="0 0 24 24">
             <Path d="M15 18 L9 12 L15 6" stroke={colors.text} strokeWidth="2" fill="none" />
           </Svg>
@@ -103,12 +179,12 @@ const SelfieVerificationScreen = ({ route, navigation }) => {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity style={[styles.captureButton, { backgroundColor: colors.primary }]} onPress={takeSelfie}>
+          <TouchableOpacity style={[styles.captureButton, { backgroundColor: colors.primary }]} onPress={showGuidelineScreen}>
             <Svg width="32" height="32" viewBox="0 0 32 32">
               <Circle cx="16" cy="16" r="14" stroke="#FFFFFF" strokeWidth="2" fill="none" />
               <Circle cx="16" cy="16" r="10" fill="#FFFFFF" />
             </Svg>
-            <Text style={styles.captureText}>Take Selfie</Text>
+            <Text style={styles.captureText}>Take Selfie with CNIC</Text>
           </TouchableOpacity>
         )}
 
@@ -168,6 +244,8 @@ const SelfieVerificationScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
     </SafeAreaView>
+      )}
+    </>
   );
 };
 

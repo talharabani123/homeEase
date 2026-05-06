@@ -65,7 +65,7 @@ const ProviderAgreementScreen = ({ route, navigation }) => {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={[styles.commissionCard, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-          <Text style={[styles.commissionTitle, { color: colors.text }]}>💰 Commission Structure</Text>
+          <Text style={[styles.commissionTitle, { color: colors.text }]}>Commission Structure</Text>
           <View style={styles.commissionItem}>
             <Text style={[styles.commissionLabel, { color: colors.text }]}>Standard Services</Text>
             <Text style={[styles.commissionValue, { color: colors.primary }]}>{COMMISSION_RATES.standard_service}%</Text>
@@ -75,13 +75,13 @@ const ProviderAgreementScreen = ({ route, navigation }) => {
             <Text style={[styles.commissionValue, { color: colors.primary }]}>{COMMISSION_RATES.emergency_service}%</Text>
           </View>
           <View style={styles.commissionItem}>
-            <Text style={[styles.commissionLabel, { color: colors.text }]}>First 10 Jobs (Promo)</Text>
+            <Text style={[styles.commissionLabel, { color: colors.text }]}>First 10 Jobs (Promotional)</Text>
             <Text style={[styles.commissionValue, { color: '#10B981' }]}>{COMMISSION_RATES.first_10_jobs}%</Text>
           </View>
         </View>
 
         <View style={[styles.termsCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-          <Text style={[styles.termsTitle, { color: colors.text }]}>📋 Key Terms</Text>
+          <Text style={[styles.termsTitle, { color: colors.text }]}>Key Terms</Text>
           
           <Text style={[styles.termItem, { color: colors.text }]}>
             <Text style={styles.termBullet}>• </Text>
@@ -115,7 +115,7 @@ const ProviderAgreementScreen = ({ route, navigation }) => {
         </View>
 
         <View style={[styles.penaltyCard, { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' }]}>
-          <Text style={styles.penaltyTitle}>⚠️ Cancellation Policy</Text>
+          <Text style={styles.penaltyTitle}>Cancellation Policy</Text>
           <Text style={styles.penaltyText}>
             • First cancellation: Warning{'\n'}
             • Second cancellation: Rs. 200 penalty{'\n'}

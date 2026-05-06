@@ -105,6 +105,70 @@ export const formatCNIC = (cnic) => {
   return `${cleanCNIC.slice(0, 5)}-${cleanCNIC.slice(5, 12)}-${cleanCNIC.slice(12, 13)}`;
 };
 
+// Validate email format
+export const validateEmail = (email) => {
+  if (!email) {
+    return { valid: false, error: 'Email is required' };
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { valid: false, error: 'Please enter a valid email address' };
+  }
+  
+  return { valid: true };
+};
+
+// Validate phone number (Pakistani format)
+export const validatePhone = (phone) => {
+  if (!phone) {
+    return { valid: false, error: 'Phone number is required' };
+  }
+  
+  // Remove any non-digit characters
+  const cleanPhone = phone.replace(/\D/g, '');
+  
+  // Check if it's 10 digits (without country code)
+  if (cleanPhone.length !== 10) {
+    return { valid: false, error: 'Phone number must be 10 digits' };
+  }
+  
+  // Check if it starts with 3 (Pakistani mobile numbers)
+  if (!cleanPhone.startsWith('3')) {
+    return { valid: false, error: 'Phone number must start with 3' };
+  }
+  
+  return { valid: true };
+};
+
+// Validate password strength
+export const validatePassword = (password) => {
+  if (!password) {
+    return { valid: false, error: 'Password is required' };
+  }
+  
+  if (password.length < 8) {
+    return { valid: false, error: 'Password must be at least 8 characters' };
+  }
+  
+  // Check for uppercase letter
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one uppercase letter' };
+  }
+  
+  // Check for lowercase letter
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one lowercase letter' };
+  }
+  
+  // Check for number
+  if (!/\d/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one number' };
+  }
+  
+  return { valid: true };
+};
+
 // Check if CNIC already exists
 export const checkCNICExists = async (cnic) => {
   try {
@@ -188,6 +252,8 @@ export const submitProviderRegistration = async (registrationData) => {
       cnicFrontImage: registrationData.cnicFrontImage,
       cnicBackImage: registrationData.cnicBackImage,
       selfieImage: registrationData.selfieImage,
+      biometricVerified: registrationData.biometricVerified || false,
+      biometricTimestamp: registrationData.biometricTimestamp || null,
       
       // Verification Status
       isVerified: false,

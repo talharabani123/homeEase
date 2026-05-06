@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,16 @@ import {
   TouchableOpacity,
   StatusBar,
   Dimensions,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { SERVICE_CATEGORIES } from '../../services/mockDataService';
+import { getUnreadCount, addNotificationListener } from '../../services/notificationService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const H_PAD = 20;
@@ -25,6 +29,35 @@ const FEATURED_SERVICES = SERVICE_CATEGORIES;
 
 const HomeScreen = ({ navigation }) => {
   const { colors } = useTheme();
+  const { userData, user } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Load unread count
+  const loadUnreadCount = async () => {
+    if (user?.uid) {
+      const count = await getUnreadCount(user.uid);
+      setUnreadCount(count);
+    }
+  };
+
+  // Setup notification listener for real-time updates
+  useEffect(() => {
+    const unsubscribe = addNotificationListener((event, data) => {
+      if (event === 'unread_count_changed') {
+        setUnreadCount(data);
+      } else if (event === 'notification_added' || event === 'notification_deleted' || 
+                 event === 'notification_read' || event === 'all_notifications_read') {
+        loadUnreadCount();
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    loadUnreadCount();
+  }, [user?.uid]);
 
   const handleServicePress = (service) => {
     navigation.navigate('RequestServiceForm', {
@@ -36,6 +69,18 @@ const HomeScreen = ({ navigation }) => {
         description: service.description,
       },
     });
+  };
+
+  // Get user initials for profile icon
+  const getUserInitials = () => {
+    if (userData?.fullName) {
+      return userData.fullName
+        .split(' ')
+        .map(name => name.charAt(0).toUpperCase())
+        .slice(0, 2)
+        .join('');
+    }
+    return 'U';
   };
 
   return (
@@ -59,6 +104,41 @@ const HomeScreen = ({ navigation }) => {
           <Text style={[styles.appName, { color: colors.text }]}>HomeEase</Text>
           <Text style={[styles.tagline, { color: COLORS.primaryGreen }]}>Your Home Service Partner</Text>
         </View>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity 
+            style={[styles.notificationButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => navigation.navigate('Notifications')}
+          >
+            <Svg width="24" height="24" viewBox="0 0 24 24">
+              <Path 
+                d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" 
+                fill={colors.text} 
+              />
+            </Svg>
+            {unreadCount > 0 && (
+              <View style={[styles.notificationBadge, { backgroundColor: COLORS.primaryGreen }]}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount.toString()}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.profileButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            {userData?.profileImage ? (
+              <Image 
+                source={{ uri: userData.profileImage }} 
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={[styles.profileInitials, { backgroundColor: COLORS.primaryGreen }]}>
+                <Text style={styles.profileInitialsText}>{getUserInitials()}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -68,7 +148,9 @@ const HomeScreen = ({ navigation }) => {
       >
         {/* ── Greeting ───────────────────────────────────────────────────────── */}
         <View style={styles.greetingRow}>
-          <Text style={[styles.greeting, { color: colors.text }]}>Hello! 👋</Text>
+          <Text style={[styles.greeting, { color: colors.text }]}>
+            Hello{userData?.fullName ? `, ${userData.fullName.split(' ')[0]}` : ''}! 👋
+          </Text>
           <Text style={[styles.greetingSub, { color: colors.textSecondary }]}>
             What do you need today?
           </Text>
@@ -88,30 +170,41 @@ const HomeScreen = ({ navigation }) => {
         </TouchableOpacity>
 
         {/* ── Primary action cards ────────────────────────────────────────────── */}
-        {/* Book a Service — full width */}
-        <TouchableOpacity
-          style={[styles.bookCard, { backgroundColor: COLORS.primaryGreen }]}
-          onPress={() => navigation.navigate('ServicesList')}
-          activeOpacity={0.85}
-        >
-          <View style={styles.actionIconCircle}>
-            <Text style={styles.actionEmoji}>🏠</Text>
+        {/* Book a Service — full width with image background */}
+        <View style={styles.bookServiceContainer}>
+          <View style={styles.bookServiceCard}>
+            {/* Full background image */}
+            <Image 
+              source={require('../../../assets/book.png')} 
+              style={styles.bookServiceBackgroundImage}
+              resizeMode="cover"
+            />
+            {/* Gradient overlay */}
+            <LinearGradient
+              colors={['rgba(76, 175, 80, 0.85)', 'rgba(46, 125, 50, 0.85)', 'rgba(27, 94, 32, 0.85)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.bookServiceOverlay}
+            />
+            {/* Content */}
+            <View style={styles.bookServiceContent}>
+              <Text style={styles.bookServiceTitle}>Book a Service</Text>
+              <Text style={styles.bookServiceSubtitle}>Professional help in 30 mins</Text>
+              <TouchableOpacity
+                style={styles.bookNowButton}
+                onPress={() => navigation.navigate('ServicesList')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.bookNowText}>BOOK NOW</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={styles.bookCardText}>
-            <Text style={styles.actionTitle}>Book a Service</Text>
-            <Text style={styles.actionSub}>Plumber, Electrician & more</Text>
-          </View>
-          <View style={styles.actionArrow}>
-            <Svg width="16" height="16" viewBox="0 0 20 20">
-              <Path d="M7 4L13 10L7 16" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            </Svg>
-          </View>
-        </TouchableOpacity>
+        </View>
 
         {/* Emergency — Standard + Non-Standard side by side */}
         <View style={styles.actionRow}>
           <TouchableOpacity
-            style={styles.actionCardStandard}
+            style={styles.emergencyButtonContainer}
             onPress={() => navigation.navigate('EmergencyLocation', {
               type: 'standard',
               service: null,
@@ -119,20 +212,19 @@ const HomeScreen = ({ navigation }) => {
             })}
             activeOpacity={0.85}
           >
-            <View style={styles.actionIconCircle}>
-              <Text style={styles.actionEmoji}>⚡</Text>
-            </View>
-            <Text style={styles.actionTitle}>Standard</Text>
-            <Text style={styles.actionSub}>Fixed services, instant dispatch</Text>
-            <View style={styles.actionArrow}>
-              <Svg width="16" height="16" viewBox="0 0 20 20">
-                <Path d="M7 4L13 10L7 16" stroke="#C0392B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              </Svg>
+            <Image 
+              source={require('../../../assets/icon.png')} 
+              style={styles.emergencyButtonImage}
+              resizeMode="cover"
+            />
+            <View style={styles.emergencyButtonOverlay}>
+              <Text style={styles.emergencyButtonTitle}>Standard</Text>
+              <Text style={styles.emergencyButtonSubtitle}>Fixed services, instant dispatch</Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.actionCardCustom}
+            style={styles.emergencyButtonContainer}
             onPress={() => navigation.navigate('EmergencyLocation', {
               type: 'custom',
               service: null,
@@ -140,15 +232,14 @@ const HomeScreen = ({ navigation }) => {
             })}
             activeOpacity={0.85}
           >
-            <View style={styles.actionIconCircle}>
-              <Text style={styles.actionEmoji}>📝</Text>
-            </View>
-            <Text style={styles.actionTitleDark}>Non-Standard</Text>
-            <Text style={styles.actionSubDark}>Custom issue, get offers</Text>
-            <View style={styles.actionArrowDark}>
-              <Svg width="16" height="16" viewBox="0 0 20 20">
-                <Path d="M7 4L13 10L7 16" stroke="#922B21" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              </Svg>
+            <Image 
+              source={require('../../../assets/non standard.png')} 
+              style={styles.emergencyButtonImage}
+              resizeMode="cover"
+            />
+            <View style={styles.emergencyButtonOverlay}>
+              <Text style={styles.emergencyButtonTitle}>Non-Standard</Text>
+              <Text style={styles.emergencyButtonSubtitle}>Custom issue, get offers</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -203,6 +294,23 @@ const HomeScreen = ({ navigation }) => {
             ))}
           </View>
         </View>
+
+        {/* Development: Test Notifications Button (Hidden in production) */}
+        {__DEV__ && (
+          <TouchableOpacity
+            style={[styles.testButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={async () => {
+              if (user?.uid) {
+                const { simulateRealTimeNotification } = require('../../utils/notificationUtils');
+                await simulateRealTimeNotification(user.uid);
+              }
+            }}
+          >
+            <Text style={[styles.testButtonText, { color: colors.textSecondary }]}>
+              🔔 Add Test Notification (Dev Only)
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -228,7 +336,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1.5,
   },
-  headerTitles: { justifyContent: 'center' },
+  headerTitles: { justifyContent: 'center', flex: 1 },
+  headerIcons: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 8 
+  },
+  profileButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  profileImage: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+  },
+  profileInitials: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileInitialsText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  notificationButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 12,
+  },
   appName: { fontSize: 20, fontWeight: '800', lineHeight: 24 },
   tagline: { fontSize: 11, fontWeight: '500', marginTop: 1 },
 
@@ -266,35 +431,39 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 28,
   },
-  actionCardStandard: {
+  emergencyButtonContainer: {
     flex: 1,
+    position: 'relative',
     borderRadius: 18,
-    padding: 18,
-    minHeight: 150,
-    justifyContent: 'space-between',
-    backgroundColor: '#FFEBEE',
-    borderWidth: 1.5,
-    borderColor: '#FFCDD2',
-    shadowColor: '#E53935',
+    overflow: 'hidden',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
-  actionCardCustom: {
-    flex: 1,
-    borderRadius: 18,
-    padding: 18,
-    minHeight: 150,
-    justifyContent: 'space-between',
-    backgroundColor: '#FCE4EC',
-    borderWidth: 1.5,
-    borderColor: '#F8BBD0',
-    shadowColor: '#C62828',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+  emergencyButtonImage: {
+    width: '100%',
+    height: 150,
+  },
+  emergencyButtonOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    padding: 12,
+  },
+  emergencyButtonTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  emergencyButtonSubtitle: {
+    fontSize: 11,
+    color: '#fff',
+    opacity: 0.9,
   },
   actionIconCircle: {
     width: 48,
@@ -306,6 +475,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   actionEmoji: { fontSize: 24 },
+  actionImage: { width: 32, height: 32 },
   actionTitle: { fontSize: 16, fontWeight: '800', color: '#C0392B', marginBottom: 3 },
   actionTitleDark: { fontSize: 16, fontWeight: '800', color: '#922B21', marginBottom: 3 },
   actionSub: { fontSize: 11, color: '#E57373', lineHeight: 15, flex: 1 },
@@ -375,21 +545,82 @@ const styles = StyleSheet.create({
   tileName: { fontSize: 12, fontWeight: '700', textAlign: 'center', marginBottom: 2 },
   tilePrice: { fontSize: 10, textAlign: 'center' },
 
-  // Book card (full width)
-  bookCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  // Book service card (full image background)
+  bookServiceContainer: {
     marginHorizontal: H_PAD,
-    padding: 18,
-    borderRadius: 18,
     marginBottom: 12,
+  },
+  bookServiceCard: {
+    borderRadius: 18,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 5,
+    position: 'relative',
+    minHeight: 120,
   },
-  bookCardText: { flex: 1, marginLeft: 12 },
+  bookServiceBackgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+  bookServiceOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+  bookServiceContent: {
+    padding: 20,
+    zIndex: 3,
+    position: 'relative',
+  },
+  bookServiceTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#fff',
+    marginBottom: 6,
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
+  bookServiceSubtitle: {
+    fontSize: 15,
+    color: '#fff',
+    marginBottom: 18,
+    fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+    opacity: 0.95,
+  },
+  bookNowButton: {
+    backgroundColor: '#000',
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 30,
+    alignSelf: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  bookNowText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
 
   // Emergency label above the two cards
   emergencyLabel: {
@@ -441,6 +672,20 @@ const styles = StyleSheet.create({
   },
   howNumText: { fontSize: 16, fontWeight: '800', color: '#fff' },
   howLabel: { fontSize: 12, fontWeight: '500', textAlign: 'center' },
+
+  // Test button (development only)
+  testButton: {
+    marginHorizontal: H_PAD,
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  testButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
 });
 
 export default HomeScreen;

@@ -1,51 +1,69 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Switch } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity, 
+  StatusBar, 
+  RefreshControl,
+  Alert
+} from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenWrapper from '../../components/ScreenWrapper';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const NotificationsScreen = ({ navigation }) => {
   const { colors } = useTheme();
-  const [pushEnabled, setPushEnabled] = useState(true);
-  const [emailEnabled, setEmailEnabled] = useState(true);
-  const [smsEnabled, setSmsEnabled] = useState(false);
+  const { 
+    notifications, 
+    unreadCount, 
+    loading, 
+    loadNotifications, 
+    markNotificationAsRead, 
+    markAllNotificationsAsRead, 
+    removeNotification 
+  } = useNotifications();
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [notifications, setNotifications] = useState([
-    {
-      id: '1',
-      title: 'Service Completed',
-      message: 'Your plumbing service has been completed. Please rate your experience.',
-      time: '2 hours ago',
-      read: false,
-      type: 'success',
-    },
-    {
-      id: '2',
-      title: 'Provider Arriving Soon',
-      message: 'Ahmed Khan is 5 minutes away from your location.',
-      time: '5 hours ago',
-      read: false,
-      type: 'info',
-    },
-    {
-      id: '3',
-      title: 'Payment Successful',
-      message: 'Your payment of Rs. 580 has been processed successfully.',
-      time: '1 day ago',
-      read: true,
-      type: 'success',
-    },
-    {
-      id: '4',
-      title: 'New Offer Available',
-      message: 'Get 20% off on your next electrician service. Valid till tomorrow!',
-      time: '2 days ago',
-      read: true,
-      type: 'promo',
-    },
-  ]);
+  // Refresh notifications
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadNotifications();
+    setRefreshing(false);
+  };
 
+  // Handle notification tap (mark as read)
+  const handleNotificationPress = async (notification) => {
+    if (!notification.read) {
+      await markNotificationAsRead(notification.id);
+    }
+  };
+
+  // Handle delete notification
+  const handleDeleteNotification = (notificationId) => {
+    Alert.alert(
+      'Delete Notification',
+      'Are you sure you want to delete this notification?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => removeNotification(notificationId)
+        }
+      ]
+    );
+  };
+
+  // Handle mark all as read
+  const handleMarkAllAsRead = () => {
+    markAllNotificationsAsRead();
+  };
+
+  // Get notification icon based on type
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'success':
@@ -57,11 +75,11 @@ const NotificationsScreen = ({ navigation }) => {
             />
           </Svg>
         );
-      case 'info':
+      case 'service':
         return (
           <Svg width="24" height="24" viewBox="0 0 24 24">
             <Path
-              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+              d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
               fill="#2196F3"
             />
           </Svg>
@@ -75,28 +93,62 @@ const NotificationsScreen = ({ navigation }) => {
             />
           </Svg>
         );
+      case 'urgent':
+        return (
+          <Svg width="24" height="24" viewBox="0 0 24 24">
+            <Path
+              d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"
+              fill="#F44336"
+            />
+          </Svg>
+        );
       default:
-        return null;
+        return (
+          <Svg width="24" height="24" viewBox="0 0 24 24">
+            <Path
+              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
+              fill="#2196F3"
+            />
+          </Svg>
+        );
     }
   };
 
-  const markAsRead = (id) => {
-    setNotifications(notifications.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    ));
-  };
+  // Format timestamp
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = (now - date) / (1000 * 60 * 60);
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+    if (diffInHours < 1) {
+      const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+      return diffInMinutes <= 1 ? 'Just now' : `${diffInMinutes} minutes ago`;
+    } else if (diffInHours < 24) {
+      return `${Math.floor(diffInHours)} hours ago`;
+    } else if (diffInHours < 48) {
+      return 'Yesterday';
+    } else {
+      const diffInDays = Math.floor(diffInHours / 24);
+      return `${diffInDays} days ago`;
+    }
   };
-
-  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <ScreenWrapper variant="default">
       <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" translucent />
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
         {/* Header */}
         <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -106,84 +158,87 @@ const NotificationsScreen = ({ navigation }) => {
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Notifications</Text>
           {unreadCount > 0 && (
-            <TouchableOpacity onPress={markAllAsRead}>
+            <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.markAllButton}>
               <Text style={[styles.markAllText, { color: colors.primary }]}>Mark all read</Text>
             </TouchableOpacity>
           )}
-          {unreadCount === 0 && <View style={{ width: 24 }} />}
+          {unreadCount === 0 && <View style={{ width: 80 }} />}
         </View>
 
-        {/* Notification Settings */}
-        <View style={styles.settingsSection}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Notification Preferences</Text>
-          
-          <View style={[styles.settingCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingTitle, { color: colors.text }]}>Push Notifications</Text>
-              <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Receive notifications on your device</Text>
-            </View>
-            <Switch
-              value={pushEnabled}
-              onValueChange={setPushEnabled}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={COLORS.white}
-            />
+        {/* Unread Count Banner */}
+        {unreadCount > 0 && (
+          <View style={[styles.unreadBanner, { backgroundColor: colors.primaryLight }]}>
+            <Text style={[styles.unreadBannerText, { color: colors.primary }]}>
+              You have {unreadCount} unread notification{unreadCount > 1 ? 's' : ''}
+            </Text>
           </View>
-
-          <View style={[styles.settingCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingTitle, { color: colors.text }]}>Email Notifications</Text>
-              <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Get updates via email</Text>
-            </View>
-            <Switch
-              value={emailEnabled}
-              onValueChange={setEmailEnabled}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={COLORS.white}
-            />
-          </View>
-
-          <View style={[styles.settingCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingTitle, { color: colors.text }]}>SMS Notifications</Text>
-              <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Receive SMS alerts</Text>
-            </View>
-            <Switch
-              value={smsEnabled}
-              onValueChange={setSmsEnabled}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={COLORS.white}
-            />
-          </View>
-        </View>
+        )}
 
         {/* Notifications List */}
         <View style={styles.notificationsSection}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Notifications</Text>
-          
-          {notifications.map((notification) => (
-            <TouchableOpacity
-              key={notification.id}
-              style={[
-                styles.notificationCard,
-                { backgroundColor: colors.card, borderColor: colors.cardBorder },
-                !notification.read && { backgroundColor: colors.primaryLight, borderColor: colors.primary },
-              ]}
-              onPress={() => markAsRead(notification.id)}
-            >
-              <View style={styles.notificationIcon}>
-                {getNotificationIcon(notification.type)}
+          {loading ? (
+            <View style={styles.loadingState}>
+              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading notifications...</Text>
+            </View>
+          ) : notifications.length > 0 ? (
+            notifications.map((notification) => (
+              <View key={notification.id} style={styles.notificationWrapper}>
+                <TouchableOpacity
+                  style={[
+                    styles.notificationCard,
+                    { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                    !notification.read && { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+                  ]}
+                  onPress={() => handleNotificationPress(notification)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.notificationIcon}>
+                    {getNotificationIcon(notification.type)}
+                  </View>
+                  <View style={styles.notificationContent}>
+                    <View style={styles.notificationHeader}>
+                      <Text style={[styles.notificationTitle, { color: colors.text }]} numberOfLines={1}>
+                        {notification.title}
+                      </Text>
+                      {!notification.read && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
+                    </View>
+                    <Text style={[styles.notificationMessage, { color: colors.textSecondary }]} numberOfLines={2}>
+                      {notification.message}
+                    </Text>
+                    <Text style={[styles.notificationTime, { color: colors.textSecondary }]}>
+                      {formatTimestamp(notification.timestamp)}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.deleteButton, { backgroundColor: colors.backgroundSecondary }]}
+                    onPress={() => handleDeleteNotification(notification.id)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Svg width="18" height="18" viewBox="0 0 24 24">
+                      <Path
+                        d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+                        fill="#FF4444"
+                      />
+                    </Svg>
+                  </TouchableOpacity>
+                </TouchableOpacity>
               </View>
-              <View style={styles.notificationContent}>
-                <View style={styles.notificationHeader}>
-                  <Text style={[styles.notificationTitle, { color: colors.text }]}>{notification.title}</Text>
-                  {!notification.read && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
-                </View>
-                <Text style={[styles.notificationMessage, { color: colors.textSecondary }]}>{notification.message}</Text>
-                <Text style={[styles.notificationTime, { color: colors.textSecondary }]}>{notification.time}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Svg width="64" height="64" viewBox="0 0 24 24">
+                <Path
+                  d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"
+                  fill={colors.textSecondary}
+                  opacity="0.3"
+                />
+              </Svg>
+              <Text style={[styles.emptyStateTitle, { color: colors.text }]}>No notifications yet</Text>
+              <Text style={[styles.emptyStateMessage, { color: colors.textSecondary }]}>
+                You'll see your notifications here when you receive them
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </ScreenWrapper>
@@ -191,10 +246,6 @@ const NotificationsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
   scrollView: {
     flex: 1,
   },
@@ -215,49 +266,53 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
+  },
+  markAllButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   markAllText: {
     fontSize: 14,
     fontWeight: '600',
   },
-  settingsSection: {
-    padding: 20,
+  unreadBanner: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 8,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  settingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-  },
-  settingInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  settingTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  settingDescription: {
+  unreadBannerText: {
     fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   notificationsSection: {
     padding: 20,
   },
+  loadingState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+  },
+  notificationWrapper: {
+    marginBottom: 12,
+  },
   notificationCard: {
     flexDirection: 'row',
+    alignItems: 'center',
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   notificationIcon: {
     width: 40,
@@ -268,6 +323,7 @@ const styles = StyleSheet.create({
   },
   notificationContent: {
     flex: 1,
+    marginRight: 12,
   },
   notificationHeader: {
     flexDirection: 'row',
@@ -292,6 +348,29 @@ const styles = StyleSheet.create({
   },
   notificationTime: {
     fontSize: 12,
+  },
+  deleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 

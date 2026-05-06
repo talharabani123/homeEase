@@ -178,8 +178,8 @@ const NearbyProvidersScreen = ({ navigation, route }) => {
 
     try {
       const requestData = {
-        customerId:    user?.id || 'customer_' + Date.now(),
-        customerName:  user?.fullName || 'Customer',
+        customerId:    user?.uid || user?.id || 'customer_' + Date.now(),
+        customerName:  user?.fullName || user?.displayName || 'Customer',
         customerPhone: user?.phone || '+92 300 0000000',
         serviceType:   service.id || service.name.toLowerCase().replace(/\s+/g, '_'),
         serviceName:   service.name,
@@ -198,6 +198,27 @@ const NearbyProvidersScreen = ({ navigation, route }) => {
 
       if (result.success) {
         setBooking(null);
+
+        // Create a conversation entry for this booking so it appears in Messages
+        const userId = user?.uid || user?.id;
+        if (userId) {
+          const { upsertConversation } = require('../../services/userDataService');
+          await upsertConversation(userId, {
+            id: result.requestId,
+            requestId: result.requestId,
+            providerId: provider.id,
+            providerName: provider.name,
+            providerImage: null,
+            serviceType: service.name,
+            serviceIcon: service.icon || '🔧',
+            lastMessage: 'Booking confirmed. Chat with your provider here.',
+            lastMessageSender: 'system',
+            lastMessageTime: Date.now(),
+            unreadCount: 0,
+            isOnline: provider.isAvailable,
+          });
+        }
+
         navigation.replace('JobTrackingScreenEnhanced', {
           requestId: result.requestId,
           request: {

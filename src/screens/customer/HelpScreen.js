@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useTheme } from '../../context/ThemeContext';
 import { COLORS } from '../../constants/colors';
 import ScreenWrapper from '../../components/ScreenWrapper';
+import { openSupportEmail, getSupportEmail } from '../../services/emailSupportService';
 
 const HelpScreen = ({ navigation }) => {
+  const { colors } = useTheme();
   const [expandedFaq, setExpandedFaq] = useState(null);
+
+  const handleEmailSupport = async () => {
+    await openSupportEmail('Help Request', 'Hello, I need help with...');
+  };
 
   const faqs = [
     {
@@ -56,66 +63,81 @@ const HelpScreen = ({ navigation }) => {
 
   return (
     <ScreenWrapper variant="default">
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" translucent />
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Svg width="24" height="24" viewBox="0 0 24 24">
-              <Path d="M15 18 L9 12 L15 6" stroke={COLORS.textBlack} strokeWidth="2" fill="none" />
+              <Path d="M15 18 L9 12 L15 6" stroke={colors.text} strokeWidth="2" fill="none" />
             </Svg>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Help Center</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Help Center</Text>
           <View style={{ width: 24 }} />
         </View>
 
         {/* Quick Actions */}
         <View style={styles.quickActionsSection}>
           <TouchableOpacity
-            style={styles.quickActionCard}
+            style={[styles.quickActionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => navigation.navigate('Support')}
           >
-            <View style={styles.quickActionIcon}>
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.primaryLight }]}>
               <Svg width="24" height="24" viewBox="0 0 24 24">
                 <Path
                   d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"
-                  fill={COLORS.primaryGreen}
+                  fill={colors.primary}
                 />
               </Svg>
             </View>
-            <Text style={styles.quickActionTitle}>Contact Support</Text>
-            <Text style={styles.quickActionSubtitle}>Get help from our team</Text>
+            <Text style={[styles.quickActionTitle, { color: colors.text }]}>Contact Support</Text>
+            <Text style={[styles.quickActionSubtitle, { color: colors.textSecondary }]}>Get help from our team</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.quickActionCard}
-            onPress={() => navigation.navigate('Safety')}
+            style={[styles.quickActionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={handleEmailSupport}
           >
-            <View style={styles.quickActionIcon}>
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.primaryLight }]}>
               <Svg width="24" height="24" viewBox="0 0 24 24">
                 <Path
-                  d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"
-                  fill={COLORS.primaryGreen}
+                  d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"
+                  fill={colors.primary}
                 />
               </Svg>
             </View>
-            <Text style={styles.quickActionTitle}>Safety Center</Text>
-            <Text style={styles.quickActionSubtitle}>Learn about safety</Text>
+            <Text style={[styles.quickActionTitle, { color: colors.text }]}>Email Support</Text>
+            <Text style={[styles.quickActionSubtitle, { color: colors.textSecondary }]}>Send us an email</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Support Email Info */}
+        <View style={styles.emailInfoSection}>
+          <View style={[styles.emailInfoCard, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
+            <Svg width="20" height="20" viewBox="0 0 24 24">
+              <Path
+                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                fill={colors.primary}
+              />
+            </Svg>
+            <Text style={[styles.emailInfoText, { color: colors.text }]}>
+              For any issues or queries, contact us at <Text style={[styles.emailAddress, { color: colors.primary }]}>{getSupportEmail()}</Text>
+            </Text>
+          </View>
         </View>
 
         {/* FAQs */}
         <View style={styles.faqSection}>
-          <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Frequently Asked Questions</Text>
           
           {faqs.map((faq) => (
-            <View key={faq.id} style={styles.faqCard}>
+            <View key={faq.id} style={[styles.faqCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <TouchableOpacity
                 style={styles.faqHeader}
                 onPress={() => toggleFaq(faq.id)}
               >
-                <Text style={styles.faqQuestion}>{faq.question}</Text>
+                <Text style={[styles.faqQuestion, { color: colors.text }]}>{faq.question}</Text>
                 <Svg
                   width="20"
                   height="20"
@@ -124,84 +146,43 @@ const HelpScreen = ({ navigation }) => {
                     transform: [{ rotate: expandedFaq === faq.id ? '180deg' : '0deg' }],
                   }}
                 >
-                  <Path d="M5 7 L10 12 L15 7" stroke={COLORS.textGrey} strokeWidth="2" fill="none" />
+                  <Path d="M5 7 L10 12 L15 7" stroke={colors.textSecondary} strokeWidth="2" fill="none" />
                 </Svg>
               </TouchableOpacity>
               
               {expandedFaq === faq.id && (
-                <View style={styles.faqAnswer}>
-                  <Text style={styles.faqAnswerText}>{faq.answer}</Text>
+                <View style={[styles.faqAnswer, { borderTopColor: colors.border }]}>
+                  <Text style={[styles.faqAnswerText, { color: colors.textSecondary }]}>{faq.answer}</Text>
                 </View>
               )}
             </View>
           ))}
         </View>
 
-        {/* App Guide */}
-        <View style={styles.guideSection}>
-          <Text style={styles.sectionTitle}>App Usage Guide</Text>
-          
-          <View style={styles.guideCard}>
-            <View style={styles.guideStep}>
-              <View style={styles.guideStepNumber}>
-                <Text style={styles.guideStepNumberText}>1</Text>
-              </View>
-              <View style={styles.guideStepContent}>
-                <Text style={styles.guideStepTitle}>Create Your Account</Text>
-                <Text style={styles.guideStepDescription}>
-                  Sign up with your phone number and complete your profile
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.guideStep}>
-              <View style={styles.guideStepNumber}>
-                <Text style={styles.guideStepNumberText}>2</Text>
-              </View>
-              <View style={styles.guideStepContent}>
-                <Text style={styles.guideStepTitle}>Choose a Service</Text>
-                <Text style={styles.guideStepDescription}>
-                  Browse available services and select what you need
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.guideStep}>
-              <View style={styles.guideStepNumber}>
-                <Text style={styles.guideStepNumberText}>3</Text>
-              </View>
-              <View style={styles.guideStepContent}>
-                <Text style={styles.guideStepTitle}>Get Offers</Text>
-                <Text style={styles.guideStepDescription}>
-                  Receive offers from multiple providers and choose the best one
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.guideStep}>
-              <View style={styles.guideStepNumber}>
-                <Text style={styles.guideStepNumberText}>4</Text>
-              </View>
-              <View style={styles.guideStepContent}>
-                <Text style={styles.guideStepTitle}>Track & Pay</Text>
-                <Text style={styles.guideStepDescription}>
-                  Track your provider in real-time and pay securely through the app
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
         {/* Still Need Help */}
         <View style={styles.contactSection}>
-          <Text style={styles.contactTitle}>Still need help?</Text>
-          <Text style={styles.contactSubtitle}>Our support team is here for you</Text>
-          <TouchableOpacity
-            style={styles.contactButton}
-            onPress={() => navigation.navigate('Support')}
-          >
-            <Text style={styles.contactButtonText}>Contact Support</Text>
-          </TouchableOpacity>
+          <Text style={[styles.contactTitle, { color: colors.text }]}>Still need help?</Text>
+          <Text style={[styles.contactSubtitle, { color: colors.textSecondary }]}>Our support team is here for you</Text>
+          <View style={styles.contactButtons}>
+            <TouchableOpacity
+              style={[styles.contactButton, { backgroundColor: colors.primary }]}
+              onPress={() => navigation.navigate('Support')}
+            >
+              <Text style={styles.contactButtonText}>Contact Support</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.contactButton, styles.emailButton, { backgroundColor: colors.primary }]}
+              onPress={handleEmailSupport}
+            >
+              <Svg width="16" height="16" viewBox="0 0 24 24" style={{ marginRight: 6 }}>
+                <Path
+                  d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"
+                  fill={COLORS.white}
+                />
+              </Svg>
+              <Text style={styles.contactButtonText}>Email Us</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </ScreenWrapper>
@@ -220,11 +201,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.white,
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
   },
   backButton: {
     width: 40,
@@ -235,7 +214,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.textBlack,
   },
   quickActionsSection: {
     flexDirection: 'row',
@@ -244,18 +222,15 @@ const styles = StyleSheet.create({
   },
   quickActionCard: {
     flex: 1,
-    backgroundColor: COLORS.white,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
   quickActionIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F0F9F5',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -263,14 +238,32 @@ const styles = StyleSheet.create({
   quickActionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.textBlack,
     marginBottom: 4,
     textAlign: 'center',
   },
   quickActionSubtitle: {
     fontSize: 12,
-    color: COLORS.textGrey,
     textAlign: 'center',
+  },
+  emailInfoSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  emailInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  emailInfoText: {
+    flex: 1,
+    fontSize: 14,
+    marginLeft: 12,
+    lineHeight: 20,
+  },
+  emailAddress: {
+    fontWeight: '600',
   },
   faqSection: {
     padding: 20,
@@ -278,15 +271,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.textBlack,
     marginBottom: 16,
   },
   faqCard: {
-    backgroundColor: COLORS.white,
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
     overflow: 'hidden',
   },
   faqHeader: {
@@ -299,61 +289,16 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.textBlack,
     marginRight: 12,
   },
   faqAnswer: {
     paddingHorizontal: 16,
     paddingBottom: 16,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
     paddingTop: 12,
   },
   faqAnswerText: {
     fontSize: 14,
-    color: COLORS.textGrey,
-    lineHeight: 20,
-  },
-  guideSection: {
-    padding: 20,
-  },
-  guideCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  guideStep: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  guideStepNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.primaryGreen,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  guideStepNumberText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  guideStepContent: {
-    flex: 1,
-  },
-  guideStepTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.textBlack,
-    marginBottom: 4,
-  },
-  guideStepDescription: {
-    fontSize: 14,
-    color: COLORS.textGrey,
     lineHeight: 20,
   },
   contactSection: {
@@ -363,19 +308,27 @@ const styles = StyleSheet.create({
   contactTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.textBlack,
     marginBottom: 8,
   },
   contactSubtitle: {
     fontSize: 14,
-    color: COLORS.textGrey,
     marginBottom: 20,
   },
+  contactButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   contactButton: {
-    backgroundColor: COLORS.primaryGreen,
-    paddingHorizontal: 32,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 12,
+  },
+  emailButton: {
+    // backgroundColor set dynamically
   },
   contactButtonText: {
     fontSize: 16,

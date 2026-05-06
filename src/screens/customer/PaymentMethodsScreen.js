@@ -1,249 +1,256 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Alert } from 'react-native';
-import Svg, { Path, Rect as SvgRect, Circle } from 'react-native-svg';
-import { COLORS } from '../../constants/colors';
-import ScreenHeader from '../../components/ScreenHeader';
-import { useTheme } from '../../context/ThemeContext';
+import {
+  View, Text, StyleSheet, TouchableOpacity,
+  StatusBar, Modal, Pressable,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import ScreenWrapper from '../../components/ScreenWrapper';
+import { useTheme } from '../../context/ThemeContext';
+import { COLORS } from '../../constants/colors';
+
+const METHODS = [
+  {
+    id: 'jazzcash',
+    name: 'JazzCash',
+    subtitle: 'Pay via JazzCash mobile wallet',
+    color: '#E65100',
+    lightColor: '#FFF3E0',
+    icon: () => (
+      <Svg width="36" height="36" viewBox="0 0 36 36">
+        <Rect x="2" y="8" width="32" height="20" rx="4" fill="#E65100" />
+        <Path d="M8 18h6M14 14v8M20 14l4 4-4 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      </Svg>
+    ),
+  },
+  {
+    id: 'easypaisa',
+    name: 'EasyPaisa',
+    subtitle: 'Pay via EasyPaisa mobile wallet',
+    color: '#2E7D32',
+    lightColor: '#E8F5E9',
+    icon: () => (
+      <Svg width="36" height="36" viewBox="0 0 36 36">
+        <Rect x="2" y="8" width="32" height="20" rx="4" fill="#2E7D32" />
+        <Circle cx="18" cy="18" r="5" fill="none" stroke="#fff" strokeWidth="2" />
+        <Path d="M18 13v2M18 21v2M13 18h2M21 18h2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+      </Svg>
+    ),
+  },
+  {
+    id: 'cash',
+    name: 'Cash',
+    subtitle: 'Pay with cash on delivery',
+    color: '#795548',
+    lightColor: '#EFEBE9',
+    icon: () => (
+      <Svg width="36" height="36" viewBox="0 0 36 36">
+        <Rect x="4" y="10" width="28" height="16" rx="2" fill="#795548" />
+        <Text x="18" y="20" textAnchor="middle" fill="#fff" fontSize="8" fontWeight="bold">5000</Text>
+        <Path d="M8 14h4M24 14h4M8 22h4M24 22h4" stroke="#fff" strokeWidth="1" strokeLinecap="round" />
+        <Circle cx="18" cy="18" r="3" fill="none" stroke="#fff" strokeWidth="1.5" />
+      </Svg>
+    ),
+  },
+];
 
 const PaymentMethodsScreen = ({ navigation }) => {
   const { colors } = useTheme();
-  const [selectedMethod, setSelectedMethod] = useState('cash');
+  const [selected, setSelected] = useState(null);   // currently selected method id
+  const [modal, setModal]       = useState(null);   // method shown in modal
 
-  const paymentMethods = [
-    {
-      id: 'cash',
-      name: 'Cash',
-      subtitle: 'Pay with cash on service completion',
-      icon: () => (
-        <Svg width="24" height="24" viewBox="0 0 24 24">
-          <Path
-            d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"
-            fill={COLORS.primaryGreen}
-          />
-        </Svg>
-      ),
-    },
-    {
-      id: 'card',
-      name: 'Credit/Debit Card',
-      subtitle: 'Add a card for quick payments',
-      icon: () => (
-        <Svg width="24" height="24" viewBox="0 0 24 24">
-          <Path
-            d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"
-            fill={COLORS.primaryGreen}
-          />
-        </Svg>
-      ),
-    },
-    {
-      id: 'jazzcash',
-      name: 'JazzCash',
-      subtitle: 'Pay with JazzCash mobile wallet',
-      icon: () => (
-        <Svg width="24" height="24" viewBox="0 0 24 24">
-          <SvgRect x="4" y="6" width="16" height="12" rx="2" fill="#FF6B00" />
-          <Path d="M8 10h8M8 14h5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-        </Svg>
-      ),
-    },
-    {
-      id: 'easypaisa',
-      name: 'Easypaisa',
-      subtitle: 'Pay with Easypaisa mobile wallet',
-      icon: () => (
-        <Svg width="24" height="24" viewBox="0 0 24 24">
-          <SvgRect x="4" y="6" width="16" height="12" rx="2" fill="#00A859" />
-          <Path d="M8 10h8M8 14h5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-        </Svg>
-      ),
-    },
-  ];
-
-  const handleSelectMethod = (methodId) => {
-    setSelectedMethod(methodId);
-    Alert.alert('Payment Method', `${paymentMethods.find(m => m.id === methodId).name} selected`);
+  const handleSelect = (method) => {
+    setSelected(method.id);
+    setModal(method);
   };
 
-  const handleAddCard = () => {
-    Alert.alert('Add Card', 'Card addition feature coming soon!');
+  const handleConfirm = () => {
+    setModal(null);
+  };
+
+  const handleCancel = () => {
+    setSelected(null);
+    setModal(null);
   };
 
   return (
     <ScreenWrapper variant="default">
       <StatusBar barStyle={colors.statusBar} backgroundColor="transparent" translucent />
-      
-      {/* Header with Menu */}
-      <ScreenHeader title="Payment Methods" showBack={true} showMenu={false} navigation={navigation} />
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Select Payment Method</Text>
-
-        {paymentMethods.map((method) => (
-          <TouchableOpacity
-            key={method.id}
-            style={[
-              styles.methodCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-              selectedMethod === method.id && styles.methodCardSelected
-            ]}
-            onPress={() => handleSelectMethod(method.id)}
-          >
-            <View style={[styles.methodIconContainer, { backgroundColor: colors.backgroundSecondary }]}>
-              {method.icon()}
-            </View>
-            <View style={styles.methodInfo}>
-              <Text style={[styles.methodName, { color: colors.text }]}>{method.name}</Text>
-              <Text style={[styles.methodSubtitle, { color: colors.textSecondary }]}>{method.subtitle}</Text>
-            </View>
-            <View style={[
-              styles.radioButton,
-              selectedMethod === method.id && styles.radioButtonSelected
-            ]}>
-              {selectedMethod === method.id && (
-                <View style={styles.radioButtonInner} />
-              )}
-            </View>
+      {/* Header */}
+      <SafeAreaView edges={['top']}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Svg width="24" height="24" viewBox="0 0 24 24">
+              <Path d="M15 18L9 12L15 6" stroke={colors.text} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+            </Svg>
           </TouchableOpacity>
-        ))}
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Payment Methods</Text>
+          <View style={{ width: 40 }} />
+        </View>
+      </SafeAreaView>
 
-        {/* Add Card Button */}
-        <TouchableOpacity style={[styles.addCardButton, { backgroundColor: colors.card }]} onPress={handleAddCard}>
-          <Svg width="24" height="24" viewBox="0 0 24 24">
-            <Path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" fill={COLORS.primaryGreen} />
-          </Svg>
-          <Text style={styles.addCardText}>Add New Card</Text>
-        </TouchableOpacity>
+      {/* Body */}
+      <View style={styles.body}>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          Select your preferred payment method
+        </Text>
 
-        {/* Info Box */}
-        <View style={styles.infoBox}>
-          <Svg width="20" height="20" viewBox="0 0 20 20">
-            <Circle cx="10" cy="10" r="9" stroke={COLORS.primaryGreen} strokeWidth="1.5" fill="none" />
-            <Path d="M10 6v4M10 14h.01" stroke={COLORS.primaryGreen} strokeWidth="2" strokeLinecap="round" />
+        {METHODS.map((method) => {
+          const isSelected = selected === method.id;
+          return (
+            <TouchableOpacity
+              key={method.id}
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: isSelected ? method.color : colors.border },
+                isSelected && { backgroundColor: method.lightColor },
+              ]}
+              onPress={() => handleSelect(method)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.iconWrap, { backgroundColor: isSelected ? method.color + '22' : colors.backgroundSecondary }]}>
+                {method.icon()}
+              </View>
+              <View style={styles.cardText}>
+                <Text style={[styles.methodName, { color: colors.text }]}>{method.name}</Text>
+                <Text style={[styles.methodSub, { color: colors.textSecondary }]}>{method.subtitle}</Text>
+              </View>
+              {/* Radio indicator */}
+              <View style={[styles.radio, { borderColor: isSelected ? method.color : colors.border }]}>
+                {isSelected && <View style={[styles.radioDot, { backgroundColor: method.color }]} />}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+
+        {/* Info note */}
+        <View style={[styles.infoBox, { backgroundColor: colors.primaryLight, borderColor: COLORS.primaryGreen }]}>
+          <Svg width="18" height="18" viewBox="0 0 24 24">
+            <Circle cx="12" cy="12" r="10" fill={COLORS.primaryGreen} />
+            <Path d="M12 8v4M12 16v.01" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
           </Svg>
-          <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-            Your payment information is secure and encrypted. You can change your preferred payment method anytime.
+          <Text style={[styles.infoText, { color: colors.text }]}>
+            Your payment details are secure. No card information is stored.
           </Text>
         </View>
-      </ScrollView>
+      </View>
+
+      {/* ── Themed confirmation modal ── */}
+      <Modal
+        visible={!!modal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancel}
+      >
+        <Pressable style={styles.overlay} onPress={handleCancel}>
+          <Pressable style={[styles.modalBox, { backgroundColor: colors.card }]} onPress={() => {}}>
+            {/* Colored top strip */}
+            {modal && (
+              <View style={[styles.modalStrip, { backgroundColor: modal.color }]} />
+            )}
+
+            {/* Icon */}
+            {modal && (
+              <View style={[styles.modalIconWrap, { backgroundColor: modal.lightColor }]}>
+                {modal.icon()}
+              </View>
+            )}
+
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {modal?.name} Selected
+            </Text>
+            <Text style={[styles.modalMsg, { color: colors.textSecondary }]}>
+              {modal?.name} has been set as your payment method.
+              You can change this anytime.
+            </Text>
+
+            {/* Buttons */}
+            <TouchableOpacity
+              style={[styles.confirmBtn, { backgroundColor: modal?.color || COLORS.primaryGreen }]}
+              onPress={handleConfirm}
+            >
+              <Text style={styles.confirmBtnText}>Continue</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
+              <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+  backBtn: { width: 40, height: 40, justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700' },
+
+  body: { flex: 1, paddingHorizontal: 20, paddingTop: 24 },
+  subtitle: { fontSize: 14, marginBottom: 20, lineHeight: 20 },
+
+  card: {
+    flexDirection: 'row', alignItems: 'center',
+    padding: 16, borderRadius: 16, borderWidth: 2,
+    marginBottom: 14,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+  iconWrap: {
+    width: 60, height: 60, borderRadius: 14,
+    justifyContent: 'center', alignItems: 'center', marginRight: 14,
   },
-  scrollView: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+  cardText: { flex: 1 },
+  methodName: { fontSize: 16, fontWeight: '700', marginBottom: 3 },
+  methodSub:  { fontSize: 13 },
+  radio: {
+    width: 22, height: 22, borderRadius: 11, borderWidth: 2,
+    justifyContent: 'center', alignItems: 'center',
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  methodCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-  },
-  methodCardSelected: {
-    borderColor: COLORS.primaryGreen,
-    backgroundColor: '#F0F9F5',
-  },
-  methodIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  methodInfo: {
-    flex: 1,
-  },
-  methodName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  methodSubtitle: {
-    fontSize: 13,
-  },
-  radioButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioButtonSelected: {
-    borderColor: COLORS.primaryGreen,
-  },
-  radioButtonInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: COLORS.primaryGreen,
-  },
-  addCardButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 8,
-    marginBottom: 20,
-    borderWidth: 2,
-    borderColor: COLORS.primaryGreen,
-    borderStyle: 'dashed',
-  },
-  addCardText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.primaryGreen,
-    marginLeft: 8,
-  },
+  radioDot: { width: 11, height: 11, borderRadius: 6 },
+
   infoBox: {
-    flexDirection: 'row',
-    backgroundColor: '#F0F9F5',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+    flexDirection: 'row', alignItems: 'flex-start',
+    padding: 14, borderRadius: 12, borderWidth: 1,
+    marginTop: 8, gap: 10,
   },
-  infoText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 20,
-    marginLeft: 12,
+  infoText: { flex: 1, fontSize: 13, lineHeight: 18 },
+
+  // Modal
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 28,
   },
+  modalBox: {
+    width: '100%', borderRadius: 20, overflow: 'hidden',
+    alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2, shadowRadius: 20, elevation: 10,
+  },
+  modalStrip: { width: '100%', height: 6 },
+  modalIconWrap: {
+    width: 80, height: 80, borderRadius: 20,
+    justifyContent: 'center', alignItems: 'center',
+    marginTop: 28, marginBottom: 16,
+  },
+  modalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 8 },
+  modalMsg: {
+    fontSize: 14, textAlign: 'center', lineHeight: 20,
+    paddingHorizontal: 20, marginBottom: 28,
+  },
+  confirmBtn: {
+    width: '85%', paddingVertical: 14, borderRadius: 14,
+    alignItems: 'center', marginBottom: 10,
+  },
+  confirmBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  cancelBtn: { paddingVertical: 12, marginBottom: 20 },
+  cancelBtnText: { fontSize: 14, fontWeight: '600' },
 });
 
 export default PaymentMethodsScreen;

@@ -1,4 +1,4 @@
-﻿{
+{
   "expo": {
     "name": "HomeEase",
     "slug": "homeease",
@@ -12,10 +12,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.homeease.app",
+      "newArchEnabled": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "We need your location to show nearby service providers",
-        "NSLocationAlwaysUsageDescription": "We need your location to provide real-time tracking"
+        "NSLocationAlwaysUsageDescription": "We need your location to provide real-time tracking",
+        "NSCameraUsageDescription": "We need camera access for biometric verification and scanning"
       },
       "associatedDomains": [
         "applinks:homeease-97b9d.firebaseapp.com"
@@ -23,9 +25,11 @@
     },
     "android": {
       "package": "com.homeease.app",
+      "newArchEnabled": true,
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA"
       ],
       "intentFilters": [
         {
@@ -50,6 +54,9 @@
       "eas": {
         "projectId": "f09e64c7-9bc1-4681-9a97-c6b3692f95c9"
       }
-    }
+    },
+    "plugins": [
+      "expo-build-properties"
+    ]
   }
 }

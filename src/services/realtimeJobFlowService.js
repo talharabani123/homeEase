@@ -1,16 +1,25 @@
 /**
  * Real-Time Job Flow Service
- * Manages complete job lifecycle with notifications, chat, and tracking
- * Mock implementation for Expo Go - Replace with Firebase in production
+ * All data is scoped per user via userDataService.
+ * No global shared state — each user sees only their own jobs/messages.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
+import {
+  getActiveJobs as getUserJobs,
+  saveActiveJobs,
+  getServiceRequests as getUserRequests,
+  saveServiceRequests,
+  getChatMessages as getUserMessages,
+  saveChatMessage,
+} from './userDataService';
 
-const ACTIVE_JOBS_KEY = '@homeease_active_jobs';
-const SERVICE_REQUESTS_KEY = '@homeease_service_requests'; // Marketplace requests
-const JOB_MESSAGES_KEY = '@homeease_job_messages_';
-const JOB_LOCATIONS_KEY = '@homeease_job_locations_';
+// Legacy global keys kept for backward compat during migration
+const ACTIVE_JOBS_KEY      = '@homeease_active_jobs';
+const SERVICE_REQUESTS_KEY = '@homeease_service_requests';
+const JOB_MESSAGES_KEY     = '@homeease_job_messages_';
+const JOB_LOCATIONS_KEY    = '@homeease_job_locations_';
 
 // Mock notification function (replace with FCM in production)
 export const sendMockNotification = (title, body, data = {}) => {
@@ -25,6 +34,7 @@ export const sendMockNotification = (title, body, data = {}) => {
 export const createJobRequest = async (jobData) => {
   try {
     const jobId = `job_${Date.now()}`;
+    const userId = jobData.customerId || null;
     const job = {
       id: jobId,
       ...jobData,
@@ -37,12 +47,15 @@ export const createJobRequest = async (jobData) => {
       }
     };
 
-    // Save job
-    const jobs = await getActiveJobs();
+    // Save to user-scoped storage if userId available, else global
+    const jobs = await getActiveJobs(userId);
     jobs.push(job);
-    await AsyncStorage.setItem(ACTIVE_JOBS_KEY, JSON.stringify(jobs));
+    if (userId) {
+      await saveActiveJobs(userId, jobs);
+    } else {
+      await AsyncStorage.setItem(ACTIVE_JOBS_KEY, JSON.stringify(jobs));
+    }
 
-    // Notify matching online providers (mock)
     setTimeout(() => {
       sendMockNotification(
         'New Job Request! 🔔',
@@ -99,10 +112,11 @@ export const acceptJobRequest = async (jobId, providerId) => {
 };
 
 /**
- * Get active jobs
+ * Get active jobs — user-scoped when userId provided, falls back to global key
  */
-export const getActiveJobs = async () => {
+export const getActiveJobs = async (userId) => {
   try {
+    if (userId) return await getUserJobs(userId);
     const stored = await AsyncStorage.getItem(ACTIVE_JOBS_KEY);
     return stored ? JSON.parse(stored) : [];
   } catch (error) {
@@ -112,21 +126,27 @@ export const getActiveJobs = async () => {
 };
 
 /**
- * Get job by ID - checks both active jobs and marketplace requests
+ * Get job by ID — checks user-scoped storage, then global fallback
  */
-export const getJobById = async (jobId) => {
+export const getJobById = async (jobId, userId) => {
   try {
-    // Check active jobs first
-    const jobs = await getActiveJobs();
+    // Check user-scoped active jobs first
+    const jobs = await getActiveJobs(userId);
     let job = jobs.find(j => j.id === jobId);
-    
-    // If not found, check marketplace requests
+
+    // Check user-scoped marketplace requests
+    if (!job && userId) {
+      const requests = await getUserRequests(userId);
+      job = requests.find(r => r.id === jobId);
+    }
+
+    // Global fallback
     if (!job) {
       const marketplaceData = await AsyncStorage.getItem(SERVICE_REQUESTS_KEY);
       const requests = marketplaceData ? JSON.parse(marketplaceData) : [];
       job = requests.find(r => r.id === jobId);
     }
-    
+
     return { success: !!job, job };
   } catch (error) {
     console.error('Get job by ID error:', error);
@@ -297,29 +317,30 @@ export const calculateDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 /**
- * Send chat message
+ * Send chat message — user-scoped
  */
-export const sendChatMessage = async (jobId, senderId, senderType, text) => {
+export const sendChatMessage = async (jobId, senderId, senderType, text, userId) => {
   try {
-    const messageId = `msg_${Date.now()}`;
     const message = {
-      id: messageId,
       senderId,
-      senderType, // 'customer' or 'provider'
+      senderType,
       text,
-      timestamp: new Date().toISOString(),
-      read: false
+      read: false,
     };
 
-    const messages = await getChatMessages(jobId);
-    messages.push(message);
-    await AsyncStorage.setItem(`${JOB_MESSAGES_KEY}${jobId}`, JSON.stringify(messages));
+    if (userId) {
+      await saveChatMessage(userId, jobId, message);
+    } else {
+      // Legacy global fallback
+      const msgs = await getChatMessages(jobId);
+      msgs.push({ ...message, id: `msg_${Date.now()}`, timestamp: new Date().toISOString() });
+      await AsyncStorage.setItem(`${JOB_MESSAGES_KEY}${jobId}`, JSON.stringify(msgs));
+    }
 
-    // Notify recipient
     const recipientType = senderType === 'customer' ? 'Provider' : 'Customer';
     sendMockNotification(`New Message from ${recipientType}`, text, { jobId, type: 'chat_message' });
 
-    return { success: true, message };
+    return { success: true };
   } catch (error) {
     console.error('Send chat message error:', error);
     return { success: false, error: 'Failed to send message' };
@@ -327,10 +348,11 @@ export const sendChatMessage = async (jobId, senderId, senderType, text) => {
 };
 
 /**
- * Get chat messages for job
+ * Get chat messages — user-scoped when userId provided
  */
-export const getChatMessages = async (jobId) => {
+export const getChatMessages = async (jobId, userId) => {
   try {
+    if (userId) return await getUserMessages(userId, jobId);
     const stored = await AsyncStorage.getItem(`${JOB_MESSAGES_KEY}${jobId}`);
     return stored ? JSON.parse(stored) : [];
   } catch (error) {
