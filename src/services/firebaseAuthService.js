@@ -184,20 +184,31 @@ export const signInWithEmail = async (email, password) => {
       case 'auth/invalid-credential':
       case 'auth/wrong-password':
       case 'auth/user-not-found':
-        errorMessage = 'Invalid email or password. Please check your credentials.';
+        errorMessage = 'Invalid email or password. Please check your credentials and try again.';
         break;
       case 'auth/invalid-email':
-        errorMessage = 'Invalid email address';
+        errorMessage = 'Invalid email address format.';
         break;
       case 'auth/user-disabled':
-        errorMessage = 'This account has been disabled';
+        errorMessage = 'This account has been disabled. Please contact support.';
         break;
       case 'auth/too-many-requests':
-        errorMessage = 'Too many failed attempts. Please try again later or reset your password.';
+        errorMessage = 'Too many failed login attempts. Please try again later or reset your password.';
         break;
       case 'auth/network-request-failed':
-        errorMessage = 'Network error. Check your connection';
+        errorMessage = 'Network error. Please check your internet connection and try again.';
         break;
+      default:
+        errorMessage = 'Unable to sign in. Please try again.';
+    }
+    
+    return {
+      success: false,
+      error: errorMessage,
+      errorCode: error.code,
+    };
+  }
+};
     }
     
     return {

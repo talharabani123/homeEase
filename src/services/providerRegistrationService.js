@@ -1,11 +1,27 @@
 /**
- * Provider Registration Service
- * Handles provider registration, verification, and approval
- * Mock implementation for Expo Go - Replace with Firebase in production
+ * Provider Registration Service - Firebase Integrated
+ * Handles provider registration, verification, and approval using Firestore and Firebase Storage
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { registerUser } from './authService';
+import { firestore as db, storage } from '../config/firebase';
+import { 
+  doc, 
+  setDoc, 
+  getDoc, 
+  updateDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs,
+  serverTimestamp 
+} from 'firebase/firestore';
+import { 
+  ref, 
+  uploadBytes, 
+  getDownloadURL, 
+  deleteObject 
+} from 'firebase/storage';
+import { getCurrentUser } from './firebaseAuthService';
 
 // Service Categories
 export const SERVICE_CATEGORIES = [
@@ -27,63 +43,163 @@ export const COMMISSION_RATES = {
   first_10_jobs: 10,
 };
 
-// Storage Keys
-const DRAFT_KEY = '@provider_registration_draft';
-const PROFILE_KEY = '@provider_profile';
+// ==================== FIREBASE STORAGE HELPERS ====================
 
-// Save draft
+/**
+ * Upload image to Firebase Storage
+ * @param {string} uri - Local image URI
+ * @param {string} path - Storage path (e.g., 'providers/userId/cnic_front.jpg')
+ * @returns {Promise<{success: boolean, url?: string, error?: string}>}
+ */
+export const uploadImage = async (uri, path) => {
+  try {
+    console.log('📤 Uploading image to:', path);
+    
+    // Fetch the image as blob
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    
+    // Create storage reference
+    const storageRef = ref(storage, path);
+    
+    // Upload the blob
+    await uploadBytes(storageRef, blob);
+    
+    // Get download URL
+    const downloadURL = await getDownloadURL(storageRef);
+    
+    console.log('✅ Image uploaded successfully:', downloadURL);
+    return { success: true, url: downloadURL };
+  } catch (error) {
+    console.error('❌ Upload image error:', error);
+    return { success: false, error: error.message || 'Failed to upload image' };
+  }
+};
+
+/**
+ * Delete image from Firebase Storage
+ * @param {string} url - Download URL of the image
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export const deleteImage = async (url) => {
+  try {
+    const storageRef = ref(storage, url);
+    await deleteObject(storageRef);
+    return { success: true };
+  } catch (error) {
+    console.error('Delete image error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ==================== DRAFT MANAGEMENT ====================
+
+/**
+ * Save registration draft to Firestore
+ * @param {object} data - Draft data to save
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
 export const saveDraft = async (data) => {
   try {
-    await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({
+    const user = getCurrentUser();
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+
+    console.log('💾 Saving draft for user:', user.uid);
+
+    const draftRef = doc(db, 'providerDrafts', user.uid);
+    await setDoc(draftRef, {
       ...data,
-      lastSaved: new Date().toISOString()
-    }));
+      userId: user.uid,
+      lastSaved: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    console.log('✅ Draft saved successfully');
     return { success: true };
   } catch (error) {
-    console.error('Save draft error:', error);
-    return { success: false, error: 'Failed to save draft' };
+    console.error('❌ Save draft error:', error);
+    return { success: false, error: error.message || 'Failed to save draft' };
   }
 };
 
-// Load draft
+/**
+ * Load registration draft from Firestore
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
 export const loadDraft = async () => {
   try {
-    const draft = await AsyncStorage.getItem(DRAFT_KEY);
-    if (draft) {
-      const data = JSON.parse(draft);
-      // Check if draft is not expired (30 days)
-      const lastSaved = new Date(data.lastSaved);
-      const now = new Date();
-      const daysDiff = (now - lastSaved) / (1000 * 60 * 60 * 24);
-      
-      if (daysDiff <= 30) {
-        return { success: true, data };
-      } else {
-        await AsyncStorage.removeItem(DRAFT_KEY);
-        return { success: false, error: 'Draft expired' };
-      }
+    const user = getCurrentUser();
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
     }
+
+    console.log('📂 Loading draft for user:', user.uid);
+
+    const draftRef = doc(db, 'providerDrafts', user.uid);
+    const draftSnap = await getDoc(draftRef);
+
+    if (draftSnap.exists()) {
+      const data = draftSnap.data();
+      
+      // Check if draft is not expired (30 days)
+      if (data.lastSaved) {
+        const lastSaved = data.lastSaved.toDate();
+        const now = new Date();
+        const daysDiff = (now - lastSaved) / (1000 * 60 * 60 * 24);
+        
+        if (daysDiff > 30) {
+          console.log('⚠️ Draft expired');
+          await clearDraft();
+          return { success: false, error: 'Draft expired' };
+        }
+      }
+
+      console.log('✅ Draft loaded successfully');
+      return { success: true, data };
+    }
+
+    console.log('ℹ️ No draft found');
     return { success: false, error: 'No draft found' };
   } catch (error) {
-    console.error('Load draft error:', error);
-    return { success: false, error: 'Failed to load draft' };
+    console.error('❌ Load draft error:', error);
+    return { success: false, error: error.message || 'Failed to load draft' };
   }
 };
 
-// Clear draft
+/**
+ * Clear registration draft from Firestore
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
 export const clearDraft = async () => {
   try {
-    await AsyncStorage.removeItem(DRAFT_KEY);
+    const user = getCurrentUser();
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+
+    console.log('🗑️ Clearing draft for user:', user.uid);
+
+    const draftRef = doc(db, 'providerDrafts', user.uid);
+    await setDoc(draftRef, { deleted: true, deletedAt: serverTimestamp() });
+
+    console.log('✅ Draft cleared successfully');
     return { success: true };
   } catch (error) {
-    console.error('Clear draft error:', error);
-    return { success: false, error: 'Failed to clear draft' };
+    console.error('❌ Clear draft error:', error);
+    return { success: false, error: error.message || 'Failed to clear draft' };
   }
 };
 
-// Validate CNIC format
+// ==================== VALIDATION HELPERS ====================
+
+/**
+ * Validate CNIC format
+ * @param {string} cnic - CNIC number to validate
+ * @returns {{valid: boolean, error?: string}}
+ */
 export const validateCNIC = (cnic) => {
-  // Remove dashes
   const cleanCNIC = cnic.replace(/-/g, '');
   
   if (cleanCNIC.length !== 13) {
@@ -97,7 +213,11 @@ export const validateCNIC = (cnic) => {
   return { valid: true };
 };
 
-// Format CNIC (XXXXX-XXXXXXX-X)
+/**
+ * Format CNIC (XXXXX-XXXXXXX-X)
+ * @param {string} cnic - CNIC number to format
+ * @returns {string} Formatted CNIC
+ */
 export const formatCNIC = (cnic) => {
   const cleanCNIC = cnic.replace(/\D/g, '');
   if (cleanCNIC.length <= 5) return cleanCNIC;
@@ -105,25 +225,31 @@ export const formatCNIC = (cnic) => {
   return `${cleanCNIC.slice(0, 5)}-${cleanCNIC.slice(5, 12)}-${cleanCNIC.slice(12, 13)}`;
 };
 
-// Check if CNIC already exists
+/**
+ * Check if CNIC already exists in Firestore
+ * @param {string} cnic - CNIC number to check
+ * @returns {Promise<{exists: boolean, error?: string}>}
+ */
 export const checkCNICExists = async (cnic) => {
   try {
-    // Mock implementation - In production, check against database
-    const profile = await AsyncStorage.getItem(PROFILE_KEY);
-    if (profile) {
-      const data = JSON.parse(profile);
-      if (data.cnicNumber === cnic) {
-        return { exists: true };
-      }
-    }
-    return { exists: false };
+    const cleanCNIC = cnic.replace(/-/g, '');
+    
+    const providersRef = collection(db, 'providers');
+    const q = query(providersRef, where('cnicNumber', '==', cleanCNIC));
+    const querySnapshot = await getDocs(q);
+    
+    return { exists: !querySnapshot.empty };
   } catch (error) {
     console.error('Check CNIC error:', error);
-    return { exists: false };
+    return { exists: false, error: error.message };
   }
 };
 
-// Calculate age from date of birth
+/**
+ * Calculate age from date of birth
+ * @param {string} dateOfBirth - Date of birth string
+ * @returns {number} Age in years
+ */
 export const calculateAge = (dateOfBirth) => {
   const today = new Date();
   const birthDate = new Date(dateOfBirth);
@@ -137,63 +263,122 @@ export const calculateAge = (dateOfBirth) => {
   return age;
 };
 
-// Submit provider registration
+// ==================== PROVIDER REGISTRATION ====================
+
+/**
+ * Submit provider registration to Firestore
+ * @param {object} registrationData - Complete registration data
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
 export const submitProviderRegistration = async (registrationData) => {
   try {
-    // First, register the user in the auth system
-    const authResult = await registerUser({
-      email: registrationData.email,
-      phone: registrationData.phoneNumber,
-      password: registrationData.password,
-      fullName: registrationData.fullName,
-      cnic: registrationData.cnicNumber,
-      role: 'provider',
-      // Include all registration data
-      ...registrationData
-    });
-
-    if (!authResult.success) {
-      return {
-        success: false,
-        error: authResult.error || 'Failed to create user account'
-      };
+    const user = getCurrentUser();
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
     }
 
-    const profile = {
-      id: 'provider_' + Date.now(),
-      userId: authResult.user.id,
+    console.log('📝 Submitting provider registration for user:', user.uid);
+
+    // Upload images to Firebase Storage if they exist
+    let cnicFrontURL = registrationData.cnicFrontImage;
+    let cnicBackURL = registrationData.cnicBackImage;
+    let selfieURL = registrationData.selfieImage;
+    let proofDocuments = registrationData.proofDocuments || [];
+
+    // Upload CNIC front
+    if (cnicFrontURL && cnicFrontURL.startsWith('file://')) {
+      const uploadResult = await uploadImage(
+        cnicFrontURL,
+        `providers/${user.uid}/cnic_front.jpg`
+      );
+      if (uploadResult.success) {
+        cnicFrontURL = uploadResult.url;
+      } else {
+        return { success: false, error: 'Failed to upload CNIC front image' };
+      }
+    }
+
+    // Upload CNIC back
+    if (cnicBackURL && cnicBackURL.startsWith('file://')) {
+      const uploadResult = await uploadImage(
+        cnicBackURL,
+        `providers/${user.uid}/cnic_back.jpg`
+      );
+      if (uploadResult.success) {
+        cnicBackURL = uploadResult.url;
+      } else {
+        return { success: false, error: 'Failed to upload CNIC back image' };
+      }
+    }
+
+    // Upload selfie
+    if (selfieURL && selfieURL.startsWith('file://')) {
+      const uploadResult = await uploadImage(
+        selfieURL,
+        `providers/${user.uid}/selfie.jpg`
+      );
+      if (uploadResult.success) {
+        selfieURL = uploadResult.url;
+      } else {
+        return { success: false, error: 'Failed to upload selfie image' };
+      }
+    }
+
+    // Upload proof documents
+    const uploadedProofDocs = [];
+    for (let i = 0; i < proofDocuments.length; i++) {
+      const doc = proofDocuments[i];
+      if (doc.uri && doc.uri.startsWith('file://')) {
+        const uploadResult = await uploadImage(
+          doc.uri,
+          `providers/${user.uid}/proof_${i + 1}.jpg`
+        );
+        if (uploadResult.success) {
+          uploadedProofDocs.push({
+            ...doc,
+            uri: uploadResult.url
+          });
+        }
+      } else {
+        uploadedProofDocs.push(doc);
+      }
+    }
+
+    // Create provider profile
+    const providerProfile = {
+      userId: user.uid,
       
       // Services
-      services: registrationData.selectedServices,
+      services: registrationData.selectedServices || [],
       
       // Personal Info
       fullName: registrationData.fullName,
       dateOfBirth: registrationData.dateOfBirth,
-      age: calculateAge(registrationData.dateOfBirth),
+      age: registrationData.dateOfBirth ? calculateAge(registrationData.dateOfBirth) : null,
       phoneNumber: registrationData.phoneNumber,
-      phoneVerified: true,
-      email: registrationData.email,
+      email: user.email,
       residentialAddress: registrationData.residentialAddress,
       city: registrationData.city,
-      gpsLocation: registrationData.gpsLocation,
+      gpsLocation: registrationData.gpsLocation || null,
       
       // Professional Info
-      yearsOfExperience: registrationData.yearsOfExperience,
-      skillsDescription: registrationData.skillsDescription,
-      serviceRadius: registrationData.serviceRadius,
+      yearsOfExperience: registrationData.yearsOfExperience || 0,
+      skillsDescription: registrationData.skillsDescription || '',
+      serviceRadius: registrationData.serviceRadius || 10,
       basePrice: registrationData.basePrice || 0,
       
       // KYC Documents
-      cnicNumber: registrationData.cnicNumber,
-      cnicFrontImage: registrationData.cnicFrontImage,
-      cnicBackImage: registrationData.cnicBackImage,
-      selfieImage: registrationData.selfieImage,
+      cnicNumber: registrationData.cnicNumber?.replace(/-/g, ''),
+      cnicFrontImage: cnicFrontURL,
+      cnicBackImage: cnicBackURL,
+      selfieImage: selfieURL,
+      proofDocuments: uploadedProofDocs,
       
       // Verification Status
       isVerified: false,
       verificationStatus: 'pending',
       rejectionReason: null,
-      submittedAt: new Date().toISOString(),
+      submittedAt: serverTimestamp(),
       approvedAt: null,
       
       // Provider Status
@@ -208,84 +393,117 @@ export const submitProviderRegistration = async (registrationData) => {
       earnings: 0,
       
       // Agreement
-      termsAccepted: registrationData.termsAccepted,
-      termsAcceptedAt: new Date().toISOString(),
-      backgroundCheckAccepted: registrationData.backgroundCheckAccepted,
+      termsAccepted: registrationData.termsAccepted || false,
+      termsAcceptedAt: registrationData.termsAccepted ? serverTimestamp() : null,
+      backgroundCheckAccepted: registrationData.backgroundCheckAccepted || false,
       
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     };
 
-    // Save to AsyncStorage
-    await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-    
+    // Save to Firestore
+    const providerRef = doc(db, 'providers', user.uid);
+    await setDoc(providerRef, providerProfile);
+
+    // Update user document to mark as verified provider
+    const userRef = doc(db, 'users', user.uid);
+    await updateDoc(userRef, {
+      isVerified: false, // Will be true after admin approval
+      providerRegistrationComplete: true,
+      updatedAt: serverTimestamp()
+    });
+
     // Clear draft
     await clearDraft();
-    
-    // Mock auto-approval after 10 seconds for testing
-    setTimeout(async () => {
-      profile.isVerified = true;
-      profile.verificationStatus = 'approved';
-      profile.approvedAt = new Date().toISOString();
-      profile.isActive = true;
-      await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-    }, 10000);
+
+    console.log('✅ Provider registration submitted successfully');
 
     return {
       success: true,
-      data: profile
+      data: providerProfile
     };
   } catch (error) {
-    console.error('Submit registration error:', error);
+    console.error('❌ Submit registration error:', error);
     return {
       success: false,
-      error: 'Failed to submit registration'
+      error: error.message || 'Failed to submit registration'
     };
   }
 };
 
-// Get provider profile
+// ==================== PROVIDER PROFILE ====================
+
+/**
+ * Get provider profile from Firestore
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
 export const getProviderProfile = async () => {
   try {
-    const profile = await AsyncStorage.getItem(PROFILE_KEY);
-    if (profile) {
+    const user = getCurrentUser();
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+
+    console.log('📂 Getting provider profile for user:', user.uid);
+
+    const providerRef = doc(db, 'providers', user.uid);
+    const providerSnap = await getDoc(providerRef);
+
+    if (providerSnap.exists()) {
+      console.log('✅ Provider profile found');
       return {
         success: true,
-        data: JSON.parse(profile)
+        data: { id: providerSnap.id, ...providerSnap.data() }
       };
     }
+
+    console.log('ℹ️ No provider profile found');
     return {
       success: false,
       error: 'No profile found'
     };
   } catch (error) {
-    console.error('Get profile error:', error);
+    console.error('❌ Get profile error:', error);
     return {
       success: false,
-      error: 'Failed to get profile'
+      error: error.message || 'Failed to get profile'
     };
   }
 };
 
-// Update provider online status
+/**
+ * Update provider online status
+ * @param {boolean} isOnline - Online status
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
 export const updateOnlineStatus = async (isOnline) => {
   try {
-    const result = await getProviderProfile();
-    if (result.success) {
-      const profile = result.data;
-      profile.isOnline = isOnline;
-      profile.updatedAt = new Date().toISOString();
-      await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-      return { success: true, data: profile };
+    const user = getCurrentUser();
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
     }
-    return { success: false, error: 'Profile not found' };
+
+    console.log('🔄 Updating online status to:', isOnline);
+
+    const providerRef = doc(db, 'providers', user.uid);
+    await updateDoc(providerRef, {
+      isOnline,
+      lastOnline: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    console.log('✅ Online status updated');
+    return { success: true };
   } catch (error) {
-    console.error('Update online status error:', error);
-    return { success: false, error: 'Failed to update status' };
+    console.error('❌ Update online status error:', error);
+    return { success: false, error: error.message || 'Failed to update status' };
   }
 };
 
-// Check if user is a provider
+/**
+ * Check if user is a verified provider
+ * @returns {Promise<boolean>}
+ */
 export const isProvider = async () => {
   try {
     const result = await getProviderProfile();
@@ -295,7 +513,10 @@ export const isProvider = async () => {
   }
 };
 
-// Get verification status
+/**
+ * Get verification status
+ * @returns {Promise<{success: boolean, status?: string, isVerified?: boolean, error?: string}>}
+ */
 export const getVerificationStatus = async () => {
   try {
     const result = await getProviderProfile();
@@ -303,7 +524,8 @@ export const getVerificationStatus = async () => {
       return {
         success: true,
         status: result.data.verificationStatus,
-        isVerified: result.data.isVerified
+        isVerified: result.data.isVerified,
+        data: result.data
       };
     }
     return {
@@ -313,14 +535,19 @@ export const getVerificationStatus = async () => {
   } catch (error) {
     return {
       success: false,
-      status: 'error'
+      status: 'error',
+      error: error.message
     };
   }
 };
 
+// ==================== EXPORTS ====================
+
 export default {
   SERVICE_CATEGORIES,
   COMMISSION_RATES,
+  uploadImage,
+  deleteImage,
   saveDraft,
   loadDraft,
   clearDraft,

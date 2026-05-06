@@ -1,42 +1,76 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, SafeAreaView, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, SafeAreaView, ActivityIndicator } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../context/ThemeContext';
+import { saveDraft, loadDraft } from '../../services/providerRegistrationService';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const PersonalInfoScreenSimple = ({ route, navigation }) => {
   const { colors } = useTheme();
+  const alert = useAlert();
   const { selectedServices } = route.params;
   
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [city, setCity] = useState('');
+  const [residentialAddress, setResidentialAddress] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleContinue = () => {
-    if (!fullName || !phoneNumber || !email || !password || !city) {
-      Alert.alert('Required Fields', 'Please fill all fields');
+  useEffect(() => {
+    loadSavedData();
+  }, []);
+
+  const loadSavedData = async () => {
+    const result = await loadDraft();
+    if (result.success && result.data) {
+      const data = result.data;
+      if (data.fullName) setFullName(data.fullName);
+      if (data.phoneNumber) setPhoneNumber(data.phoneNumber);
+      if (data.email) setEmail(data.email);
+      if (data.dateOfBirth) setDateOfBirth(data.dateOfBirth);
+      if (data.city) setCity(data.city);
+      if (data.residentialAddress) setResidentialAddress(data.residentialAddress);
+    }
+  };
+
+  const handleContinue = async () => {
+    if (!fullName || !phoneNumber || !email || !city || !residentialAddress) {
+      alert.error('Required Fields', 'Please fill all required fields');
       return;
     }
 
-    // Validate password
-    if (password.length < 6) {
-      Alert.alert('Invalid Password', 'Password must be at least 6 characters');
+    // Validate email
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      alert.error('Invalid Email', 'Please enter a valid email address');
       return;
     }
+
+    setLoading(true);
 
     const registrationData = {
+      selectedServices,
       fullName,
       phoneNumber,
       email,
-      password,
+      dateOfBirth,
       city,
-      selectedServices
+      residentialAddress,
+      currentStep: 2
     };
 
-    navigation.navigate('ProfessionalInfo', { 
-      registrationData
-    });
+    // Save to Firestore
+    const saveResult = await saveDraft(registrationData);
+    
+    setLoading(false);
+
+    if (saveResult.success) {
+      navigation.navigate('ProfessionalInfo', { registrationData });
+    } else {
+      alert.error('Error', 'Failed to save progress. Please try again.');
+    }
   };
 
   return (
@@ -73,6 +107,7 @@ const PersonalInfoScreenSimple = ({ route, navigation }) => {
             placeholderTextColor={colors.placeholder}
             value={fullName}
             onChangeText={setFullName}
+            editable={!loading}
           />
         </View>
 
@@ -86,6 +121,7 @@ const PersonalInfoScreenSimple = ({ route, navigation }) => {
             onChangeText={setPhoneNumber}
             keyboardType="phone-pad"
             maxLength={11}
+            editable={!loading}
           />
         </View>
 
@@ -99,22 +135,22 @@ const PersonalInfoScreenSimple = ({ route, navigation }) => {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            editable={!loading}
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: colors.text }]}>Password *</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Date of Birth (Optional)</Text>
           <TextInput
             style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-            placeholder="Minimum 6 characters"
+            placeholder="YYYY-MM-DD"
             placeholderTextColor={colors.placeholder}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
+            value={dateOfBirth}
+            onChangeText={setDateOfBirth}
+            editable={!loading}
           />
           <Text style={[styles.hint, { color: colors.textSecondary }]}>
-            This will be your login password
+            Format: YYYY-MM-DD (e.g., 1990-01-15)
           </Text>
         </View>
 
@@ -126,6 +162,21 @@ const PersonalInfoScreenSimple = ({ route, navigation }) => {
             placeholderTextColor={colors.placeholder}
             value={city}
             onChangeText={setCity}
+            editable={!loading}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.text }]}>Residential Address *</Text>
+          <TextInput
+            style={[styles.input, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+            placeholder="House/Flat no, Street, Area"
+            placeholderTextColor={colors.placeholder}
+            value={residentialAddress}
+            onChangeText={setResidentialAddress}
+            multiline
+            numberOfLines={3}
+            editable={!loading}
           />
         </View>
 
@@ -134,12 +185,27 @@ const PersonalInfoScreenSimple = ({ route, navigation }) => {
 
       <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.continueButton, { backgroundColor: colors.primary }]}
+          style={[styles.continueButton, { backgroundColor: colors.primary }, loading && { opacity: 0.6 }]}
           onPress={handleContinue}
+          disabled={loading}
         >
-          <Text style={styles.continueButtonText}>Continue</Text>
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.continueButtonText}>Continue</Text>
+          )}
         </TouchableOpacity>
       </View>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
     </SafeAreaView>
   );
 };
@@ -204,6 +270,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
+  },
+  textArea: {
+    height: 80,
+    paddingTop: 12,
+    textAlignVertical: 'top',
   },
   hint: {
     fontSize: 12,

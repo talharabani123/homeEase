@@ -1,57 +1,54 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useTheme } from '../../context/ThemeContext';
-import { getVerificationStatus } from '../../services/providerRegistrationService';
-import { updateUserRole, switchUserMode } from '../../services/roleManagementService';
+import { getProviderProfile } from '../../services/providerRegistrationService';
 import { useAuth } from '../../context/AuthContext';
+import { db } from '../../config/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const SubmissionStatusScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
-  const { switchMode } = useAuth();
+  const alert = useAlert();
+  const { user, switchMode } = useAuth();
   const { profile } = route.params || {};
   
   const [status, setStatus] = useState(profile?.verificationStatus || 'pending');
   const [isVerified, setIsVerified] = useState(profile?.isVerified || false);
-  const [hasUpdatedRole, setHasUpdatedRole] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState(null);
 
   useEffect(() => {
-    const checkStatus = setInterval(async () => {
-      const result = await getVerificationStatus();
-      if (result.success) {
-        setStatus(result.status);
-        setIsVerified(result.isVerified);
-        
-        // When approved, update user role and switch to provider mode
-        if (result.isVerified && !hasUpdatedRole) {
-          setHasUpdatedRole(true);
-          clearInterval(checkStatus);
-          
-          // Update user role to provider (or both if they were customer)
-          await updateUserRole('provider');
-          
-          // Switch to provider mode
-          await switchMode('provider');
-          
-          // Show success message
-          setTimeout(() => {
-            Alert.alert(
-              'Congratulations! 🎉',
-              'Your provider application has been approved! You can now start receiving job requests.',
-              [
-                {
-                  text: 'Go to Dashboard',
-                  onPress: () => navigation.replace('ProviderDashboard')
-                }
-              ]
-            );
-          }, 500);
+    if (!user) return;
+
+    // Real-time Firestore listener
+    const providerRef = doc(db, 'providers', user.uid);
+    const unsubscribe = onSnapshot(providerRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setStatus(data.verificationStatus || 'pending');
+        setIsVerified(data.isVerified || false);
+        setRejectionReason(data.rejectionReason || null);
+
+        // Show alert when approved
+        if (data.isVerified && data.verificationStatus === 'approved') {
+          alert.success(
+            'Congratulations! 🎉',
+            'Your provider application has been approved! You can now start receiving job requests.',
+            async () => {
+              await switchMode('provider');
+              navigation.replace('ProviderDashboard');
+            }
+          );
         }
       }
-    }, 2000);
+    }, (error) => {
+      console.error('Error listening to provider status:', error);
+    });
 
-    return () => clearInterval(checkStatus);
-  }, [hasUpdatedRole]);
+    return () => unsubscribe();
+  }, [user]);
 
   const getStatusConfig = () => {
     switch (status) {
@@ -69,7 +66,7 @@ const SubmissionStatusScreen = ({ route, navigation }) => {
         return {
           icon: '❌',
           title: 'Application Not Approved',
-          subtitle: 'Please review the feedback and reapply',
+          subtitle: rejectionReason || 'Please review the feedback and reapply',
           color: '#EF4444',
           bgColor: '#FEE2E2',
           action: 'Back to Home',
@@ -193,6 +190,16 @@ const SubmissionStatusScreen = ({ route, navigation }) => {
           <Text style={styles.actionButtonText}>{config.action}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
     </SafeAreaView>
   );
 };

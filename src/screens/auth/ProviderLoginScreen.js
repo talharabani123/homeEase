@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError } from '../../utils/validation';
+import { signInWithEmail } from '../../services/firebaseAuthService';
+import { sendEmailOTP } from '../../services/emailOTPService';
+import { useAuth } from '../../context/AuthContext';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -19,24 +24,23 @@ const Logo = () => (
 );
 
 const ProviderLoginScreen = ({ navigation }) => {
+  const { signIn } = useAuth();
+  const alert = useAlert();
+  
   const [loginMethod, setLoginMethod] = useState('password'); // 'password' or 'otp'
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
-
-  const handlePhoneChange = (value) => {
-    const formatted = formatPakistaniPhone(value);
-    setPhoneNumber(formatted);
-    if (errors.phoneNumber) {
-      setErrors({ ...errors, phoneNumber: null });
-    }
-  };
+  const [loading, setLoading] = useState(false);
 
   const validateForm = () => {
     const newErrors = {};
     
-    const phoneError = getPhoneError(phoneNumber);
-    if (phoneError) newErrors.phoneNumber = phoneError;
+    if (!email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = 'Invalid email format';
+    }
     
     if (loginMethod === 'password' && !password) {
       newErrors.password = 'Password is required';
@@ -46,21 +50,102 @@ const ProviderLoginScreen = ({ navigation }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleLogin = () => {
-    if (validateForm()) {
-      if (loginMethod === 'otp') {
-        // Navigate to OTP verification
-        navigation.navigate('OTPVerification', {
-          phoneNumber: cleanPhoneNumber(phoneNumber),
-          verificationType: 'provider_login',
-          role: 'service_provider',
+  const handlePasswordLogin = async () => {
+    if (!validateForm()) return;
+
+    setLoading(true);
+    
+    try {
+      const result = await signInWithEmail(email.trim(), password);
+      
+      if (result.success) {
+        // Check if user is a provider
+        if (result.userData?.role !== 'provider') {
+          setLoading(false);
+          alert.error('Invalid Account', 'This account is not registered as a service provider');
+          return;
+        }
+
+        // Sign in to context
+        await signIn(result.user, result.userData);
+        
+        setLoading(false);
+        
+        // Navigate based on provider status
+        if (result.userData.isVerified) {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'ProviderDashboard' }],
+          });
+        } else {
+          // Provider needs to complete registration
+          navigation.navigate('ProviderRegistrationIntro');
+        }
+      } else {
+        setLoading(false);
+        alert.error('Login Failed', result.error || 'Invalid email or password');
+      }
+    } catch (error) {
+      setLoading(false);
+      console.error('❌ Login error:', error);
+      
+      // Show user-friendly error message
+      let errorTitle = 'Login Failed';
+      let errorMessage = 'Unable to sign in. Please try again.';
+      
+      if (error.code === 'auth/invalid-credential' || 
+          error.code === 'auth/wrong-password' || 
+          error.code === 'auth/user-not-found') {
+        errorTitle = 'Invalid Credentials';
+        errorMessage = 'The email or password you entered is incorrect. Please check and try again.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorTitle = 'Too Many Attempts';
+        errorMessage = 'Too many failed login attempts. Please try again later or reset your password.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorTitle = 'Network Error';
+        errorMessage = 'Please check your internet connection and try again.';
+      } else if (error.code === 'auth/user-disabled') {
+        errorTitle = 'Account Disabled';
+        errorMessage = 'This account has been disabled. Please contact support.';
+      }
+      
+      alert.error(errorTitle, errorMessage);
+    }
+  };
+
+  const handleOTPLogin = async () => {
+    if (!validateForm()) return;
+
+    setLoading(true);
+    
+    try {
+      const result = await sendEmailOTP(email.trim());
+      
+      setLoading(false);
+      
+      if (result.success) {
+        alert.success('OTP Sent', 'Check your email for the verification code', () => {
+          navigation.navigate('EmailOTPVerification', {
+            email: email.trim(),
+            verificationType: 'provider_login',
+            role: 'provider',
+          });
         });
       } else {
-        // TODO: Implement password login API call
-        console.log('Provider Login with password:', { phoneNumber: cleanPhoneNumber(phoneNumber), password });
-        // Check account status and navigate accordingly
-        // navigation.navigate('ProviderDashboard') or navigation.navigate('PendingVerification')
+        alert.error('Failed', result.error || 'Could not send OTP');
       }
+    } catch (error) {
+      setLoading(false);
+      console.error('OTP error:', error);
+      alert.error('Error', 'Something went wrong. Please try again.');
+    }
+  };
+
+  const handleLogin = () => {
+    if (loginMethod === 'otp') {
+      handleOTPLogin();
+    } else {
+      handlePasswordLogin();
     }
   };
 
@@ -96,18 +181,23 @@ const ProviderLoginScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Phone Number */}
+        {/* Email Address */}
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Phone Number</Text>
+          <Text style={styles.label}>Email Address</Text>
           <TextInput
-            style={[styles.input, errors.phoneNumber && styles.inputError]}
-            placeholder="+92 300 1234 567"
+            style={[styles.input, errors.email && styles.inputError]}
+            placeholder="your.email@example.com"
             placeholderTextColor={COLORS.textGrey}
-            value={phoneNumber}
-            onChangeText={handlePhoneChange}
-            keyboardType="phone-pad"
+            value={email}
+            onChangeText={(value) => {
+              setEmail(value);
+              if (errors.email) setErrors({ ...errors, email: null });
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!loading}
           />
-          {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
+          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
         </View>
 
         {/* Password (only if password method selected) */}
@@ -124,6 +214,7 @@ const ProviderLoginScreen = ({ navigation }) => {
                 if (errors.password) setErrors({ ...errors, password: null });
               }}
               secureTextEntry
+              editable={!loading}
             />
             {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
           </View>
@@ -140,10 +231,18 @@ const ProviderLoginScreen = ({ navigation }) => {
         )}
 
         {/* Login Button */}
-        <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>
-          <Text style={styles.primaryButtonText}>
-            {loginMethod === 'otp' ? 'Send OTP' : 'Sign In'}
-          </Text>
+        <TouchableOpacity 
+          style={[styles.primaryButton, loading && styles.primaryButtonDisabled]} 
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color={COLORS.white} />
+          ) : (
+            <Text style={styles.primaryButtonText}>
+              {loginMethod === 'otp' ? 'Send OTP' : 'Sign In'}
+            </Text>
+          )}
         </TouchableOpacity>
 
         {/* Signup Link */}
@@ -154,6 +253,16 @@ const ProviderLoginScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -287,6 +396,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: TYPOGRAPHY.buttonWeight,
     color: COLORS.white,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.6,
   },
   toggleContainer: {
     flexDirection: 'row',

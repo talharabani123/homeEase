@@ -1,358 +1,444 @@
 /**
- * In-App Chat Service
- * Real-time messaging between customer and provider using Firebase Realtime Database
- * 
- * COMMENTED OUT FOR EXPO GO - Firebase doesn't work in Expo Go
+ * Chat Service - Firebase Real-time Messaging
+ * Handles real-time chat between customers and service providers
  */
 
-/*
-import database from '@react-native-firebase/database';
-import auth from '@react-native-firebase/auth';
-*/
+import { firestore as db } from '../config/firebase';
+import {
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  serverTimestamp,
+  updateDoc,
+  increment,
+  writeBatch,
+  Timestamp
+} from 'firebase/firestore';
+import { getCurrentUser } from './firebaseAuthService';
 
-// Mock exports for Expo Go
-export const sendMessage = async () => ({ success: true });
-export const listenToMessages = (requestId, callback) => { callback([]); return () => {}; };
-export const markMessagesAsRead = async () => ({ success: true });
+// ==================== CONVERSATION MANAGEMENT ====================
 
 /**
- * Send a message
- * @param {string} requestId - Request ID (used as chat room ID)
- * @param {string} message - Message text
- * @param {string} senderType - 'customer' or 'provider'
- * @returns {Promise<object>} - { success, messageId, error }
+ * Create or get existing conversation between customer and provider
+ * @param {string} customerId - Customer user ID
+ * @param {string} providerId - Provider user ID
+ * @param {string} requestId - Service request ID (optional)
+ * @param {object} metadata - Additional metadata (service type, etc.)
+ * @returns {Promise<{success: boolean, conversationId?: string, error?: string}>}
  */
-export const sendMessage = async (requestId, message, senderType) => {
+export const createConversation = async (customerId, providerId, requestId = null, metadata = {}) => {
   try {
-    const currentUser = auth().currentUser;
-    
-    if (!currentUser) {
-      return { success: false, error: 'User not authenticated' };
+    console.log('📝 Creating conversation:', { customerId, providerId, requestId });
+
+    // Create conversation ID (consistent regardless of who initiates)
+    const conversationId = [customerId, providerId].sort().join('_');
+
+    const conversationRef = doc(db, 'conversations', conversationId);
+    const conversationSnap = await getDoc(conversationRef);
+
+    if (conversationSnap.exists()) {
+      console.log('✅ Conversation already exists');
+      return { success: true, conversationId };
     }
 
-    if (!message.trim()) {
-      return { success: false, error: 'Message cannot be empty' };
-    }
-
-    const messageRef = database().ref(`chats/${requestId}/messages`).push();
-    const messageId = messageRef.key;
-
-    const messageData = {
-      messageId,
-      senderId: currentUser.uid,
-      senderType, // 'customer' or 'provider'
-      message: message.trim(),
-      timestamp: database.ServerValue.TIMESTAMP,
-      read: false,
-    };
-
-    await messageRef.set(messageData);
-
-    // Update last message in chat metadata
-    await database().ref(`chats/${requestId}/metadata`).update({
-      lastMessage: message.trim(),
-      lastMessageTime: database.ServerValue.TIMESTAMP,
-      lastMessageSender: senderType,
-    });
-
-    return {
-      success: true,
-      messageId,
-    };
-  } catch (error) {
-    console.error('Send message error:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to send message'
-    };
-  }
-};
-
-/**
- * Listen to messages in real-time
- * @param {string} requestId - Request ID (chat room ID)
- * @param {function} callback - Callback function (messages) => {}
- * @returns {function} - Unsubscribe function
- */
-export const listenToMessages = (requestId, callback) => {
-  const messagesRef = database()
-    .ref(`chats/${requestId}/messages`)
-    .orderByChild('timestamp');
-
-  const onValueChange = messagesRef.on('value', (snapshot) => {
-    const messages = [];
-    snapshot.forEach((childSnapshot) => {
-      messages.push({
-        ...childSnapshot.val(),
-        key: childSnapshot.key
-      });
-    });
-
-    callback(messages);
-  });
-
-  return () => messagesRef.off('value', onValueChange);
-};
-
-/**
- * Mark messages as read
- * @param {string} requestId - Request ID
- * @param {string} userType - 'customer' or 'provider'
- * @returns {Promise<object>} - { success, error }
- */
-export const markMessagesAsRead = async (requestId, userType) => {
-  try {
-    const currentUser = auth().currentUser;
-    
-    if (!currentUser) {
-      return { success: false, error: 'User not authenticated' };
-    }
-
-    const snapshot = await database()
-      .ref(`chats/${requestId}/messages`)
-      .once('value');
-
-    const updates = {};
-    snapshot.forEach((childSnapshot) => {
-      const message = childSnapshot.val();
-      // Mark messages from the other party as read
-      if (message.senderType !== userType && !message.read) {
-        updates[`chats/${requestId}/messages/${childSnapshot.key}/read`] = true;
-      }
-    });
-
-    if (Object.keys(updates).length > 0) {
-      await database().ref().update(updates);
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error('Mark as read error:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to mark messages as read'
-    };
-  }
-};
-
-/**
- * Get unread message count
- * @param {string} requestId - Request ID
- * @param {string} userType - 'customer' or 'provider'
- * @returns {Promise<number>} - Unread count
- */
-export const getUnreadCount = async (requestId, userType) => {
-  try {
-    const snapshot = await database()
-      .ref(`chats/${requestId}/messages`)
-      .once('value');
-
-    let unreadCount = 0;
-    snapshot.forEach((childSnapshot) => {
-      const message = childSnapshot.val();
-      // Count unread messages from the other party
-      if (message.senderType !== userType && !message.read) {
-        unreadCount++;
-      }
-    });
-
-    return unreadCount;
-  } catch (error) {
-    console.error('Get unread count error:', error);
-    return 0;
-  }
-};
-
-/**
- * Initialize chat room
- * @param {string} requestId - Request ID
- * @param {object} participants - { customerId, customerName, providerId, providerName }
- * @returns {Promise<object>} - { success, error }
- */
-export const initializeChatRoom = async (requestId, participants) => {
-  try {
-    await database().ref(`chats/${requestId}/metadata`).set({
-      requestId,
-      customerId: participants.customerId,
-      customerName: participants.customerName,
-      providerId: participants.providerId,
-      providerName: participants.providerName,
-      createdAt: database.ServerValue.TIMESTAMP,
+    // Create new conversation
+    const conversationData = {
+      conversationId,
+      participants: {
+        customer: customerId,
+        provider: providerId
+      },
+      participantIds: [customerId, providerId],
+      requestId: requestId || null,
+      serviceType: metadata.serviceType || null,
+      serviceIcon: metadata.serviceIcon || null,
       lastMessage: null,
-      lastMessageTime: null,
+      lastMessageTime: serverTimestamp(),
       lastMessageSender: null,
-    });
-
-    return { success: true };
-  } catch (error) {
-    console.error('Initialize chat error:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to initialize chat'
+      unreadCount: {
+        [customerId]: 0,
+        [providerId]: 0
+      },
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     };
-  }
-};
 
-/**
- * Delete chat (when request is completed/cancelled)
- * @param {string} requestId - Request ID
- * @returns {Promise<object>} - { success, error }
- */
-export const deleteChat = async (requestId) => {
-  try {
-    await database().ref(`chats/${requestId}`).remove();
-    return { success: true };
+    await setDoc(conversationRef, conversationData);
+
+    console.log('✅ Conversation created successfully');
+    return { success: true, conversationId };
   } catch (error) {
-    console.error('Delete chat error:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to delete chat'
-    };
+    console.error('❌ Create conversation error:', error);
+    return { success: false, error: error.message };
   }
-};
-
-export default {
-  sendMessage,
-  listenToMessages,
-  markMessagesAsRead,
-  getUnreadCount,
-  initializeChatRoom,
-  deleteChat,
 };
 
 /**
  * Get all conversations for a user
- * Returns list of conversations with last message info
- * @param {string} userId - Current user ID
- * @param {string} userType - 'customer' or 'provider'
- * @returns {Promise<object>} - { success, conversations, error }
+ * @param {string} userId - User ID
+ * @returns {Promise<{success: boolean, conversations?: array, error?: string}>}
  */
-export const getUserConversations = async (userId, userType = 'customer') => {
+export const getUserConversations = async (userId) => {
   try {
-    // Mock implementation for Expo Go
-    // In production with Firebase:
-    /*
-    const chatsRef = database().ref('chats');
-    const snapshot = await chatsRef.once('value');
+    console.log('📂 Getting conversations for user:', userId);
+
+    const conversationsRef = collection(db, 'conversations');
+    const q = query(
+      conversationsRef,
+      where('participantIds', 'array-contains', userId),
+      orderBy('lastMessageTime', 'desc')
+    );
+
+    const querySnapshot = await getDocs(q);
     const conversations = [];
-    
-    snapshot.forEach((childSnapshot) => {
-      const chat = childSnapshot.val();
-      const metadata = chat.metadata;
+
+    for (const docSnap of querySnapshot.docs) {
+      const data = docSnap.data();
       
-      // Filter conversations for this user
-      if (userType === 'customer' && metadata.customerId === userId) {
-        conversations.push({
-          id: childSnapshot.key,
-          requestId: metadata.requestId,
-          providerId: metadata.providerId,
-          providerName: metadata.providerName,
-          lastMessage: metadata.lastMessage,
-          lastMessageSender: metadata.lastMessageSender,
-          lastMessageTime: metadata.lastMessageTime,
-          // Count unread messages
-          unreadCount: 0, // Calculate from messages
-        });
-      } else if (userType === 'provider' && metadata.providerId === userId) {
-        conversations.push({
-          id: childSnapshot.key,
-          requestId: metadata.requestId,
-          customerId: metadata.customerId,
-          customerName: metadata.customerName,
-          lastMessage: metadata.lastMessage,
-          lastMessageSender: metadata.lastMessageSender,
-          lastMessageTime: metadata.lastMessageTime,
-          unreadCount: 0,
-        });
-      }
-    });
-    
-    // Sort by last message time
-    conversations.sort((a, b) => (b.lastMessageTime || 0) - (a.lastMessageTime || 0));
-    
+      // Get participant info
+      const otherUserId = data.participantIds.find(id => id !== userId);
+      const userDoc = await getDoc(doc(db, 'users', otherUserId));
+      const userData = userDoc.exists() ? userDoc.data() : {};
+
+      conversations.push({
+        id: docSnap.id,
+        ...data,
+        otherUser: {
+          id: otherUserId,
+          name: userData.fullName || 'Unknown User',
+          isOnline: userData.isOnline || false
+        },
+        unreadCount: data.unreadCount?.[userId] || 0,
+        lastMessageTime: data.lastMessageTime?.toMillis() || Date.now()
+      });
+    }
+
+    console.log(`✅ Found ${conversations.length} conversations`);
     return { success: true, conversations };
-    */
-    
-    // Mock data for Expo Go
-    return {
-      success: true,
-      conversations: [],
-    };
   } catch (error) {
-    console.error('Error getting conversations:', error);
+    console.error('❌ Get conversations error:', error);
     return { success: false, error: error.message, conversations: [] };
   }
 };
 
 /**
- * Listen to conversations in real-time
- * @param {string} userId - Current user ID
- * @param {string} userType - 'customer' or 'provider'
- * @param {function} callback - Callback function (conversations) => {}
- * @returns {function} - Unsubscribe function
+ * Listen to user conversations in real-time
+ * @param {string} userId - User ID
+ * @param {function} callback - Callback function to receive updates
+ * @returns {function} Unsubscribe function
  */
-export const listenToConversations = (userId, userType, callback) => {
-  // Mock implementation for Expo Go
-  // In production with Firebase:
-  /*
-  const chatsRef = database().ref('chats');
-  
-  const onValueChange = chatsRef.on('value', (snapshot) => {
-    const conversations = [];
-    
-    snapshot.forEach((childSnapshot) => {
-      const chat = childSnapshot.val();
-      const metadata = chat.metadata;
-      
-      if (userType === 'customer' && metadata.customerId === userId) {
+export const listenToConversations = (userId, callback) => {
+  try {
+    console.log('👂 Listening to conversations for user:', userId);
+
+    const conversationsRef = collection(db, 'conversations');
+    const q = query(
+      conversationsRef,
+      where('participantIds', 'array-contains', userId),
+      orderBy('lastMessageTime', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+      const conversations = [];
+
+      for (const docSnap of querySnapshot.docs) {
+        const data = docSnap.data();
+        
+        // Get participant info
+        const otherUserId = data.participantIds.find(id => id !== userId);
+        const userDoc = await getDoc(doc(db, 'users', otherUserId));
+        const userData = userDoc.exists() ? userDoc.data() : {};
+
         conversations.push({
-          id: childSnapshot.key,
-          requestId: metadata.requestId,
-          providerId: metadata.providerId,
-          providerName: metadata.providerName,
-          lastMessage: metadata.lastMessage,
-          lastMessageSender: metadata.lastMessageSender,
-          lastMessageTime: metadata.lastMessageTime,
-        });
-      } else if (userType === 'provider' && metadata.providerId === userId) {
-        conversations.push({
-          id: childSnapshot.key,
-          requestId: metadata.requestId,
-          customerId: metadata.customerId,
-          customerName: metadata.customerName,
-          lastMessage: metadata.lastMessage,
-          lastMessageSender: metadata.lastMessageSender,
-          lastMessageTime: metadata.lastMessageTime,
+          id: docSnap.id,
+          ...data,
+          otherUser: {
+            id: otherUserId,
+            name: userData.fullName || 'Unknown User',
+            isOnline: userData.isOnline || false
+          },
+          unreadCount: data.unreadCount?.[userId] || 0,
+          lastMessageTime: data.lastMessageTime?.toMillis() || Date.now()
         });
       }
+
+      callback(conversations);
+    }, (error) => {
+      console.error('❌ Listen to conversations error:', error);
+      callback([]);
     });
+
+    return unsubscribe;
+  } catch (error) {
+    console.error('❌ Listen to conversations setup error:', error);
+    return () => {};
+  }
+};
+
+// ==================== MESSAGE MANAGEMENT ====================
+
+/**
+ * Send a message in a conversation
+ * @param {string} conversationId - Conversation ID
+ * @param {string} senderId - Sender user ID
+ * @param {string} senderType - 'customer' or 'provider'
+ * @param {string} messageText - Message content
+ * @param {object} metadata - Additional metadata (images, etc.)
+ * @returns {Promise<{success: boolean, messageId?: string, error?: string}>}
+ */
+export const sendMessage = async (conversationId, senderId, senderType, messageText, metadata = {}) => {
+  try {
+    console.log('📤 Sending message:', { conversationId, senderId, senderType });
+
+    // Create message document
+    const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+    const messageRef = doc(messagesRef);
+
+    const messageData = {
+      messageId: messageRef.id,
+      senderId,
+      senderType,
+      message: messageText.trim(),
+      timestamp: serverTimestamp(),
+      read: false,
+      readAt: null,
+      type: metadata.type || 'text', // text, image, location, etc.
+      metadata: metadata || {},
+      createdAt: serverTimestamp()
+    };
+
+    await setDoc(messageRef, messageData);
+
+    // Update conversation with last message
+    const conversationRef = doc(db, 'conversations', conversationId);
+    const conversationSnap = await getDoc(conversationRef);
     
-    conversations.sort((a, b) => (b.lastMessageTime || 0) - (a.lastMessageTime || 0));
-    callback(conversations);
-  });
-  
-  return () => chatsRef.off('value', onValueChange);
-  */
-  
-  // Mock for Expo Go - return empty unsubscribe
-  return () => {};
+    if (conversationSnap.exists()) {
+      const conversationData = conversationSnap.data();
+      const receiverId = conversationData.participantIds.find(id => id !== senderId);
+
+      await updateDoc(conversationRef, {
+        lastMessage: messageText.trim(),
+        lastMessageTime: serverTimestamp(),
+        lastMessageSender: senderId,
+        [`unreadCount.${receiverId}`]: increment(1),
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    console.log('✅ Message sent successfully');
+    return { success: true, messageId: messageRef.id };
+  } catch (error) {
+    console.error('❌ Send message error:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 /**
- * Mark conversation as read
- * @param {string} requestId - Request ID
- * @param {string} userType - 'customer' or 'provider'
- * @returns {Promise<object>} - { success, error }
+ * Get messages for a conversation
+ * @param {string} conversationId - Conversation ID
+ * @param {number} limitCount - Number of messages to fetch
+ * @returns {Promise<{success: boolean, messages?: array, error?: string}>}
  */
-export const markConversationAsRead = async (requestId, userType) => {
-  return await markMessagesAsRead(requestId, userType);
+export const getMessages = async (conversationId, limitCount = 50) => {
+  try {
+    console.log('📂 Getting messages for conversation:', conversationId);
+
+    const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+    const q = query(
+      messagesRef,
+      orderBy('timestamp', 'asc'),
+      limit(limitCount)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const messages = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      timestamp: doc.data().timestamp?.toMillis() || Date.now()
+    }));
+
+    console.log(`✅ Found ${messages.length} messages`);
+    return { success: true, messages };
+  } catch (error) {
+    console.error('❌ Get messages error:', error);
+    return { success: false, error: error.message, messages: [] };
+  }
 };
 
 /**
- * Delete conversation
- * @param {string} requestId - Request ID
- * @returns {Promise<object>} - { success, error }
+ * Listen to messages in real-time
+ * @param {string} conversationId - Conversation ID
+ * @param {function} callback - Callback function to receive updates
+ * @returns {function} Unsubscribe function
  */
-export const deleteConversation = async (requestId) => {
-  return await deleteChat(requestId);
+export const listenToMessages = (conversationId, callback) => {
+  try {
+    console.log('👂 Listening to messages for conversation:', conversationId);
+
+    const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+    const q = query(messagesRef, orderBy('timestamp', 'asc'));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const messages = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp?.toMillis() || Date.now()
+      }));
+
+      callback(messages);
+    }, (error) => {
+      console.error('❌ Listen to messages error:', error);
+      callback([]);
+    });
+
+    return unsubscribe;
+  } catch (error) {
+    console.error('❌ Listen to messages setup error:', error);
+    return () => {};
+  }
+};
+
+/**
+ * Mark messages as read
+ * @param {string} conversationId - Conversation ID
+ * @param {string} userId - User ID marking messages as read
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export const markMessagesAsRead = async (conversationId, userId) => {
+  try {
+    console.log('✅ Marking messages as read:', { conversationId, userId });
+
+    const batch = writeBatch(db);
+
+    // Get unread messages
+    const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+    const q = query(
+      messagesRef,
+      where('read', '==', false),
+      where('senderId', '!=', userId)
+    );
+
+    const querySnapshot = await getDocs(q);
+
+    // Mark each message as read
+    querySnapshot.docs.forEach(docSnap => {
+      batch.update(docSnap.ref, {
+        read: true,
+        readAt: serverTimestamp()
+      });
+    });
+
+    // Reset unread count for this user
+    const conversationRef = doc(db, 'conversations', conversationId);
+    batch.update(conversationRef, {
+      [`unreadCount.${userId}`]: 0
+    });
+
+    await batch.commit();
+
+    console.log('✅ Messages marked as read');
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Mark messages as read error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Delete a conversation
+ * @param {string} conversationId - Conversation ID
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export const deleteConversation = async (conversationId) => {
+  try {
+    console.log('🗑️ Deleting conversation:', conversationId);
+
+    // Note: In production, you might want to soft-delete or archive instead
+    const conversationRef = doc(db, 'conversations', conversationId);
+    
+    // Mark as deleted instead of actually deleting
+    await updateDoc(conversationRef, {
+      deleted: true,
+      deletedAt: serverTimestamp()
+    });
+
+    console.log('✅ Conversation deleted');
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Delete conversation error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ==================== TYPING INDICATORS ====================
+
+/**
+ * Set typing status
+ * @param {string} conversationId - Conversation ID
+ * @param {string} userId - User ID
+ * @param {boolean} isTyping - Typing status
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export const setTypingStatus = async (conversationId, userId, isTyping) => {
+  try {
+    const conversationRef = doc(db, 'conversations', conversationId);
+    await updateDoc(conversationRef, {
+      [`typing.${userId}`]: isTyping,
+      [`typingTimestamp.${userId}`]: serverTimestamp()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Set typing status error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Listen to typing status
+ * @param {string} conversationId - Conversation ID
+ * @param {string} otherUserId - Other user ID to watch
+ * @param {function} callback - Callback function
+ * @returns {function} Unsubscribe function
+ */
+export const listenToTypingStatus = (conversationId, otherUserId, callback) => {
+  try {
+    const conversationRef = doc(db, 'conversations', conversationId);
+    
+    const unsubscribe = onSnapshot(conversationRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const isTyping = data.typing?.[otherUserId] || false;
+        callback(isTyping);
+      }
+    });
+
+    return unsubscribe;
+  } catch (error) {
+    console.error('❌ Listen to typing status error:', error);
+    return () => {};
+  }
+};
+
+// ==================== EXPORTS ====================
+
+export default {
+  createConversation,
+  getUserConversations,
+  listenToConversations,
+  sendMessage,
+  getMessages,
+  listenToMessages,
+  markMessagesAsRead,
+  deleteConversation,
+  setTypingStatus,
+  listenToTypingStatus
 };

@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, SafeAreaView, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, SafeAreaView, Image, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../context/ThemeContext';
 import { saveDraft, loadDraft, validateCNIC, formatCNIC, checkCNICExists } from '../../services/providerRegistrationService';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const CNICVerificationScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
+  const alert = useAlert();
   const { registrationData } = route.params;
   
   const [cnicNumber, setCnicNumber] = useState('');
   const [cnicFrontImage, setCnicFrontImage] = useState(null);
   const [cnicBackImage, setCnicBackImage] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadSavedDraft();
@@ -35,7 +39,7 @@ const CNICVerificationScreen = ({ route, navigation }) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Camera roll permission is required');
+      alert.error('Permission Denied', 'Camera roll permission is required');
       return;
     }
 
@@ -59,7 +63,7 @@ const CNICVerificationScreen = ({ route, navigation }) => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     
     if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Camera permission is required');
+      alert.error('Permission Denied', 'Camera permission is required');
       return;
     }
 
@@ -81,23 +85,23 @@ const CNICVerificationScreen = ({ route, navigation }) => {
   const validate = async () => {
     const cnicValidation = validateCNIC(cnicNumber);
     if (!cnicValidation.valid) {
-      Alert.alert('Invalid CNIC', cnicValidation.error);
+      alert.error('Invalid CNIC', cnicValidation.error);
       return false;
     }
 
     const exists = await checkCNICExists(cnicNumber);
     if (exists.exists) {
-      Alert.alert('CNIC Already Registered', 'This CNIC is already registered with another account');
+      alert.error('CNIC Already Registered', 'This CNIC is already registered with another account');
       return false;
     }
 
     if (!cnicFrontImage) {
-      Alert.alert('Front Image Required', 'Please upload CNIC front image');
+      alert.error('Front Image Required', 'Please upload CNIC front image');
       return false;
     }
 
     if (!cnicBackImage) {
-      Alert.alert('Back Image Required', 'Please upload CNIC back image');
+      alert.error('Back Image Required', 'Please upload CNIC back image');
       return false;
     }
 
@@ -107,6 +111,8 @@ const CNICVerificationScreen = ({ route, navigation }) => {
   const handleContinue = async () => {
     if (!await validate()) return;
 
+    setLoading(true);
+
     const data = {
       ...registrationData,
       cnicNumber,
@@ -115,8 +121,15 @@ const CNICVerificationScreen = ({ route, navigation }) => {
       currentStep: 4
     };
 
-    await saveDraft(data);
-    navigation.navigate('SelfieVerification', { registrationData: data });
+    const saveResult = await saveDraft(data);
+    
+    setLoading(false);
+
+    if (saveResult.success) {
+      navigation.navigate('SelfieVerification', { registrationData: data });
+    } else {
+      alert.error('Error', 'Failed to save progress. Please try again.');
+    }
   };
 
   return (
@@ -245,10 +258,28 @@ const CNICVerificationScreen = ({ route, navigation }) => {
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-        <TouchableOpacity style={[styles.continueButton, { backgroundColor: colors.primary }]} onPress={handleContinue}>
-          <Text style={styles.continueButtonText}>Continue</Text>
+        <TouchableOpacity 
+          style={[styles.continueButton, { backgroundColor: colors.primary }, loading && { opacity: 0.6 }]} 
+          onPress={handleContinue}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.continueButtonText}>Continue</Text>
+          )}
         </TouchableOpacity>
       </View>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
     </SafeAreaView>
   );
 };

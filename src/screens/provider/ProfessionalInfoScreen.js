@@ -1,24 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, SafeAreaView, ActivityIndicator } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../context/ThemeContext';
 import { saveDraft, loadDraft } from '../../services/providerRegistrationService';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const ProfessionalInfoScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
+  const alert = useAlert();
   const { registrationData } = route.params;
   
   const [yearsOfExperience, setYearsOfExperience] = useState('');
   const [skillsDescription, setSkillsDescription] = useState('');
   const [serviceRadius, setServiceRadius] = useState('10');
   const [basePrice, setBasePrice] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadSavedDraft();
   }, []);
 
   const loadSavedDraft = async () => {
+    setLoading(true);
     const result = await loadDraft();
+    setLoading(false);
+    
     if (result.success && result.data) {
       setYearsOfExperience(result.data.yearsOfExperience?.toString() || '');
       setSkillsDescription(result.data.skillsDescription || '');
@@ -29,22 +36,22 @@ const ProfessionalInfoScreen = ({ route, navigation }) => {
 
   const validate = () => {
     if (!yearsOfExperience || parseInt(yearsOfExperience) < 0 || parseInt(yearsOfExperience) > 50) {
-      Alert.alert('Invalid Experience', 'Please enter experience between 0-50 years');
+      alert.error('Invalid Experience', 'Please enter experience between 0-50 years');
       return false;
     }
 
     if (!skillsDescription || skillsDescription.trim().length < 50) {
-      Alert.alert('Skills Description Required', 'Please describe your skills (minimum 50 characters)');
+      alert.error('Skills Description Required', 'Please describe your skills (minimum 50 characters)');
       return false;
     }
 
     if (!serviceRadius || parseInt(serviceRadius) < 5 || parseInt(serviceRadius) > 50) {
-      Alert.alert('Invalid Service Radius', 'Please select radius between 5-50 km');
+      alert.error('Invalid Service Radius', 'Please select radius between 5-50 km');
       return false;
     }
 
     if (basePrice && (parseInt(basePrice) < 100 || parseInt(basePrice) > 10000)) {
-      Alert.alert('Invalid Base Price', 'Base price should be between Rs. 100-10,000');
+      alert.error('Invalid Base Price', 'Base price should be between Rs. 100-10,000');
       return false;
     }
 
@@ -53,6 +60,8 @@ const ProfessionalInfoScreen = ({ route, navigation }) => {
 
   const handleContinue = async () => {
     if (!validate()) return;
+
+    setLoading(true);
 
     const data = {
       ...registrationData,
@@ -63,8 +72,15 @@ const ProfessionalInfoScreen = ({ route, navigation }) => {
       currentStep: 3
     };
 
-    await saveDraft(data);
-    navigation.navigate('CNICVerification', { registrationData: data });
+    const saveResult = await saveDraft(data);
+    
+    setLoading(false);
+
+    if (saveResult.success) {
+      navigation.navigate('CNICVerification', { registrationData: data });
+    } else {
+      alert.error('Error', 'Failed to save progress. Please try again.');
+    }
   };
 
   const radiusOptions = [5, 10, 15, 20, 30, 50];
@@ -106,6 +122,7 @@ const ProfessionalInfoScreen = ({ route, navigation }) => {
             onChangeText={setYearsOfExperience}
             keyboardType="numeric"
             maxLength={2}
+            editable={!loading}
           />
           <Text style={[styles.hint, { color: colors.textSecondary }]}>Enter 0 if you're just starting</Text>
         </View>
@@ -125,6 +142,7 @@ const ProfessionalInfoScreen = ({ route, navigation }) => {
             numberOfLines={6}
             maxLength={500}
             textAlignVertical="top"
+            editable={!loading}
           />
           <Text style={[styles.charCount, { color: colors.textSecondary }]}>
             {skillsDescription.length}/500 (minimum 50)
@@ -149,6 +167,7 @@ const ProfessionalInfoScreen = ({ route, navigation }) => {
                   serviceRadius === radius.toString() && { borderColor: colors.primary, backgroundColor: colors.primaryLight }
                 ]}
                 onPress={() => setServiceRadius(radius.toString())}
+                disabled={loading}
               >
                 <Text style={[styles.radiusText, { color: serviceRadius === radius.toString() ? colors.primary : colors.text }]}>
                   {radius} km
@@ -176,6 +195,7 @@ const ProfessionalInfoScreen = ({ route, navigation }) => {
               onChangeText={setBasePrice}
               keyboardType="numeric"
               maxLength={5}
+              editable={!loading}
             />
           </View>
         </View>
@@ -184,12 +204,27 @@ const ProfessionalInfoScreen = ({ route, navigation }) => {
       {/* Continue Button */}
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.continueButton, { backgroundColor: colors.primary }]}
+          style={[styles.continueButton, { backgroundColor: colors.primary }, loading && { opacity: 0.6 }]}
           onPress={handleContinue}
+          disabled={loading}
         >
-          <Text style={styles.continueButtonText}>Continue</Text>
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.continueButtonText}>Continue</Text>
+          )}
         </TouchableOpacity>
       </View>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
     </SafeAreaView>
   );
 };

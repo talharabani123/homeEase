@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useTheme } from '../../context/ThemeContext';
-import { getVerificationStatus, loadDraft } from '../../services/providerRegistrationService';
+import { getProviderProfile, loadDraft } from '../../services/providerRegistrationService';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const ProviderRegistrationIntroScreen = ({ navigation }) => {
   const { colors } = useTheme();
+  const alert = useAlert();
   const [hasDraft, setHasDraft] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState(null);
 
@@ -14,15 +17,29 @@ const ProviderRegistrationIntroScreen = ({ navigation }) => {
   }, []);
 
   const checkStatus = async () => {
-    // Check for existing draft
+    // Check for existing provider profile in Firestore
+    const profileResult = await getProviderProfile();
+    
+    if (profileResult.success && profileResult.data) {
+      const providerData = profileResult.data;
+      setVerificationStatus(providerData.verificationStatus);
+      
+      // If already approved, go to dashboard
+      if (providerData.isVerified && providerData.verificationStatus === 'approved') {
+        navigation.replace('ProviderDashboard');
+        return;
+      }
+      
+      // If pending, go to status screen
+      if (providerData.verificationStatus === 'pending') {
+        navigation.replace('SubmissionStatus', { profile: providerData });
+        return;
+      }
+    }
+
+    // Check for existing draft in Firestore
     const draftResult = await loadDraft();
     setHasDraft(draftResult.success);
-
-    // Check verification status
-    const statusResult = await getVerificationStatus();
-    if (statusResult.success) {
-      setVerificationStatus(statusResult.status);
-    }
   };
 
   const handleStart = () => {
@@ -36,13 +53,11 @@ const ProviderRegistrationIntroScreen = ({ navigation }) => {
   };
 
   const handleResumeDraft = () => {
-    Alert.alert(
+    alert.confirm(
       'Resume Application',
       'Continue from where you left off?',
-      [
-        { text: 'Start Fresh', onPress: () => navigation.navigate('ServiceSelection') },
-        { text: 'Resume', onPress: () => navigation.navigate('ServiceSelection', { resumeDraft: true }) }
-      ]
+      () => navigation.navigate('ServiceSelection', { resumeDraft: true }),
+      () => navigation.navigate('ServiceSelection')
     );
   };
 
@@ -240,6 +255,16 @@ const ProviderRegistrationIntroScreen = ({ navigation }) => {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
+      />
     </SafeAreaView>
   );
 };

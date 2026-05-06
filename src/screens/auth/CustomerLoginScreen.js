@@ -80,8 +80,29 @@ const CustomerLoginScreen = ({ navigation }) => {
         }
       } catch (error) {
         setLoading(false);
-        alert.error('Error', 'Something went wrong. Please try again.');
-        console.error('Login error:', error);
+        console.error('❌ Login error:', error);
+        
+        // Show user-friendly error message
+        let errorTitle = 'Login Failed';
+        let errorMessage = 'Unable to sign in. Please try again.';
+        
+        if (error.code === 'auth/invalid-credential' || 
+            error.code === 'auth/wrong-password' || 
+            error.code === 'auth/user-not-found') {
+          errorTitle = 'Invalid Credentials';
+          errorMessage = 'The email or password you entered is incorrect. Please check and try again.';
+        } else if (error.code === 'auth/too-many-requests') {
+          errorTitle = 'Too Many Attempts';
+          errorMessage = 'Too many failed login attempts. Please try again later or reset your password.';
+        } else if (error.code === 'auth/network-request-failed') {
+          errorTitle = 'Network Error';
+          errorMessage = 'Please check your internet connection and try again.';
+        } else if (error.code === 'auth/user-disabled') {
+          errorTitle = 'Account Disabled';
+          errorMessage = 'This account has been disabled. Please contact support.';
+        }
+        
+        alert.error(errorTitle, errorMessage);
       }
     }
   };

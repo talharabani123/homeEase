@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { formatPakistaniPhone, formatCNIC, cleanPhoneNumber, getCNICError, getPhoneError, getPasswordError } from '../../utils/validation';
 import RegistrationSuccessModal from '../../components/RegistrationSuccessModal';
+import { signUpWithEmail } from '../../services/firebaseAuthService';
+import { sendEmailOTP } from '../../services/emailOTPService';
+import { useAuth } from '../../context/AuthContext';
+import CustomAlert from '../../components/CustomAlert';
+import { useAlert } from '../../hooks/useAlert';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -29,89 +34,50 @@ const serviceCategories = [
 ];
 
 const ProviderSignupScreen = ({ navigation }) => {
+  const { signIn } = useAuth();
+  const alert = useAlert();
+  
   const [currentStep, setCurrentStep] = useState(1);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    // Step 1: Personal Info
+    // Step 1: Basic Account Info
     fullName: '',
+    email: '',
     phoneNumber: '',
     password: '',
     confirmPassword: '',
-    // Step 2: Identity Verification
-    cnicNumber: '',
-    cnicFront: null,
-    cnicBack: null,
-    // Step 3: Facial Verification
-    faceImage: null,
-    // Step 4: Service Details
-    serviceCategory: '',
-    experienceYears: '',
-    skillsDescription: '',
-    toolsAvailable: '',
-    // Step 5: Address & Location
-    fullAddress: '',
-    city: '',
-    postalCode: '',
-    gpsLocation: null,
-    // Step 6: Work Proof
-    workProofImages: [],
-    certificates: [],
   });
   const [errors, setErrors] = useState({});
 
-  const totalSteps = 6;
+  const totalSteps = 1; // Simplified to just account creation, then navigate to full registration
 
   const handlePhoneChange = (value) => {
     const formatted = formatPakistaniPhone(value);
     updateField('phoneNumber', formatted);
   };
 
-  const handleCNICChange = (value) => {
-    const formatted = formatCNIC(value);
-    updateField('cnicNumber', formatted);
-  };
-
   const validateStep = (step) => {
     const newErrors = {};
     
-    switch (step) {
-      case 1:
-        if (!formData.fullName.trim()) newErrors.fullName = 'Full name is required';
-        
-        const phoneError = getPhoneError(formData.phoneNumber);
-        if (phoneError) newErrors.phoneNumber = phoneError;
-        
-        const passwordError = getPasswordError(formData.password);
-        if (passwordError) newErrors.password = passwordError;
-        
-        if (formData.password !== formData.confirmPassword) {
-          newErrors.confirmPassword = 'Passwords do not match';
-        }
-        break;
-        
-      case 2:
-        const cnicError = getCNICError(formData.cnicNumber);
-        if (cnicError) newErrors.cnicNumber = cnicError;
-        
-        if (!formData.cnicFront) newErrors.cnicFront = 'CNIC front image is required';
-        if (!formData.cnicBack) newErrors.cnicBack = 'CNIC back image is required';
-        break;
-        
-      case 3:
-        if (!formData.faceImage) newErrors.faceImage = 'Facial verification is required';
-        break;
-        
-      case 4:
-        if (!formData.serviceCategory) newErrors.serviceCategory = 'Service category is required';
-        if (!formData.experienceYears) newErrors.experienceYears = 'Experience is required';
-        if (!formData.skillsDescription.trim()) newErrors.skillsDescription = 'Skills description is required';
-        break;
-        
-      case 5:
-        if (!formData.fullAddress.trim()) newErrors.fullAddress = 'Full address is required';
-        if (!formData.city.trim()) newErrors.city = 'City is required';
-        if (!formData.gpsLocation) newErrors.gpsLocation = 'GPS location is required';
-        break;
+    if (step === 1) {
+      if (!formData.fullName.trim()) newErrors.fullName = 'Full name is required';
+      
+      if (!formData.email.trim()) {
+        newErrors.email = 'Email is required';
+      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        newErrors.email = 'Invalid email format';
+      }
+      
+      const phoneError = getPhoneError(formData.phoneNumber);
+      if (phoneError) newErrors.phoneNumber = phoneError;
+      
+      const passwordError = getPasswordError(formData.password);
+      if (passwordError) newErrors.password = passwordError;
+      
+      if (formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = 'Passwords do not match';
+      }
     }
     
     setErrors(newErrors);
@@ -120,33 +86,61 @@ const ProviderSignupScreen = ({ navigation }) => {
 
   const handleNext = () => {
     if (validateStep(currentStep)) {
-      if (currentStep < totalSteps) {
-        setCurrentStep(currentStep + 1);
-      } else {
-        handleSubmit();
+      handleSubmit();
+    }
+  };
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    
+    try {
+      // Create Firebase Auth account
+      const signUpResult = await signUpWithEmail(
+        formData.email.trim(),
+        formData.password,
+        {
+          fullName: formData.fullName.trim(),
+          phone: cleanPhoneNumber(formData.phoneNumber),
+          role: 'provider',
+          isVerified: false, // Provider needs to complete registration
+        }
+      );
+
+      if (!signUpResult.success) {
+        setLoading(false);
+        alert.error('Signup Failed', signUpResult.error || 'Could not create account');
+        return;
       }
-    }
-  };
 
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
+      // Send email OTP for verification
+      const otpResult = await sendEmailOTP(formData.email.trim());
+      
+      setLoading(false);
 
-  const handleSubmit = () => {
-    // Navigate to OTP verification
-    navigation.navigate('OTPVerification', {
-      phoneNumber: cleanPhoneNumber(formData.phoneNumber),
-      userData: {
-        ...formData,
-        phoneNumber: cleanPhoneNumber(formData.phoneNumber),
-        role: 'service_provider',
-        accountStatus: 'pending_verification',
-      },
-      verificationType: 'provider_signup',
-      onSuccess: () => setShowSuccessModal(true),
-    });
+      if (otpResult.success) {
+        alert.success(
+          'Account Created!',
+          'Please verify your email to continue',
+          () => {
+            navigation.navigate('EmailOTPVerification', {
+              email: formData.email.trim(),
+              verificationType: 'provider_signup',
+              role: 'provider',
+              userData: {
+                fullName: formData.fullName.trim(),
+                phone: cleanPhoneNumber(formData.phoneNumber),
+              },
+            });
+          }
+        );
+      } else {
+        alert.error('Error', 'Account created but could not send verification email. Please try logging in.');
+      }
+    } catch (error) {
+      setLoading(false);
+      console.error('Signup error:', error);
+      alert.error('Error', 'Something went wrong. Please try again.');
+    }
   };
 
   const handleSuccessModalClose = (action) => {
@@ -163,308 +157,85 @@ const ProviderSignupScreen = ({ navigation }) => {
     }
   };
 
-  const handleImageUpload = (field) => {
-    // TODO: Implement image picker
-    Alert.alert('Image Upload', 'Image picker will be implemented with expo-image-picker');
-    updateField(field, { uri: 'placeholder' });
-  };
-
-  const handleLocationPick = () => {
-    // TODO: Implement location picker
-    Alert.alert('Location Picker', 'GPS location picker will be implemented');
-    updateField('gpsLocation', { latitude: 0, longitude: 0 });
-  };
-
   const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <>
-            <Text style={styles.stepTitle}>Personal Information</Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Full Name</Text>
-              <TextInput
-                style={[styles.input, errors.fullName && styles.inputError]}
-                placeholder="Enter your full name"
-                placeholderTextColor={COLORS.textGrey}
-                value={formData.fullName}
-                onChangeText={(value) => updateField('fullName', value)}
-              />
-              {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
-            </View>
+    return (
+      <>
+        <Text style={styles.stepTitle}>Create Provider Account</Text>
+        <Text style={styles.stepDescription}>
+          Fill in your details to get started as a service provider
+        </Text>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Phone Number</Text>
-              <TextInput
-                style={[styles.input, errors.phoneNumber && styles.inputError]}
-                placeholder="+92 300 1234 567"
-                placeholderTextColor={COLORS.textGrey}
-                value={formData.phoneNumber}
-                onChangeText={handlePhoneChange}
-                keyboardType="phone-pad"
-              />
-              {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
-            </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Full Name</Text>
+          <TextInput
+            style={[styles.input, errors.fullName && styles.inputError]}
+            placeholder="Enter your full name"
+            placeholderTextColor={COLORS.textGrey}
+            value={formData.fullName}
+            onChangeText={(value) => updateField('fullName', value)}
+            editable={!loading}
+          />
+          {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
+        </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={[styles.input, errors.password && styles.inputError]}
-                placeholder="Minimum 6 characters"
-                placeholderTextColor={COLORS.textGrey}
-                value={formData.password}
-                onChangeText={(value) => updateField('password', value)}
-                secureTextEntry
-              />
-              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-            </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Email Address</Text>
+          <TextInput
+            style={[styles.input, errors.email && styles.inputError]}
+            placeholder="your.email@example.com"
+            placeholderTextColor={COLORS.textGrey}
+            value={formData.email}
+            onChangeText={(value) => updateField('email', value)}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!loading}
+          />
+          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+        </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Confirm Password</Text>
-              <TextInput
-                style={[styles.input, errors.confirmPassword && styles.inputError]}
-                placeholder="Re-enter your password"
-                placeholderTextColor={COLORS.textGrey}
-                value={formData.confirmPassword}
-                onChangeText={(value) => updateField('confirmPassword', value)}
-                secureTextEntry
-              />
-              {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
-            </View>
-          </>
-        );
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Phone Number</Text>
+          <TextInput
+            style={[styles.input, errors.phoneNumber && styles.inputError]}
+            placeholder="+92 300 1234 567"
+            placeholderTextColor={COLORS.textGrey}
+            value={formData.phoneNumber}
+            onChangeText={handlePhoneChange}
+            keyboardType="phone-pad"
+            editable={!loading}
+          />
+          {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
+        </View>
 
-      case 2:
-        return (
-          <>
-            <Text style={styles.stepTitle}>Identity Verification</Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>CNIC Number</Text>
-              <TextInput
-                style={[styles.input, errors.cnicNumber && styles.inputError]}
-                placeholder="35202-1234567-1"
-                placeholderTextColor={COLORS.textGrey}
-                value={formData.cnicNumber}
-                onChangeText={handleCNICChange}
-                keyboardType="number-pad"
-              />
-              {errors.cnicNumber && <Text style={styles.errorText}>{errors.cnicNumber}</Text>}
-            </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Password</Text>
+          <TextInput
+            style={[styles.input, errors.password && styles.inputError]}
+            placeholder="Minimum 6 characters"
+            placeholderTextColor={COLORS.textGrey}
+            value={formData.password}
+            onChangeText={(value) => updateField('password', value)}
+            secureTextEntry
+            editable={!loading}
+          />
+          {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+        </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>CNIC Front Image</Text>
-              <TouchableOpacity
-                style={[styles.uploadButton, formData.cnicFront && styles.uploadButtonSuccess]}
-                onPress={() => handleImageUpload('cnicFront')}
-              >
-                <Text style={styles.uploadButtonText}>
-                  {formData.cnicFront ? '✓ Image Uploaded' : '📷 Upload CNIC Front'}
-                </Text>
-              </TouchableOpacity>
-              {errors.cnicFront && <Text style={styles.errorText}>{errors.cnicFront}</Text>}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>CNIC Back Image</Text>
-              <TouchableOpacity
-                style={[styles.uploadButton, formData.cnicBack && styles.uploadButtonSuccess]}
-                onPress={() => handleImageUpload('cnicBack')}
-              >
-                <Text style={styles.uploadButtonText}>
-                  {formData.cnicBack ? '✓ Image Uploaded' : '📷 Upload CNIC Back'}
-                </Text>
-              </TouchableOpacity>
-              {errors.cnicBack && <Text style={styles.errorText}>{errors.cnicBack}</Text>}
-            </View>
-          </>
-        );
-
-      case 3:
-        return (
-          <>
-            <Text style={styles.stepTitle}>Facial Verification</Text>
-            <Text style={styles.stepDescription}>
-              Take a clear selfie for identity verification
-            </Text>
-            <View style={styles.inputContainer}>
-              <TouchableOpacity
-                style={[styles.uploadButton, styles.uploadButtonLarge, formData.faceImage && styles.uploadButtonSuccess]}
-                onPress={() => handleImageUpload('faceImage')}
-              >
-                <Text style={[styles.uploadButtonText, styles.uploadButtonTextLarge]}>
-                  {formData.faceImage ? '✓ Selfie Captured' : '🤳 Capture Selfie'}
-                </Text>
-              </TouchableOpacity>
-              {errors.faceImage && <Text style={styles.errorText}>{errors.faceImage}</Text>}
-            </View>
-          </>
-        );
-
-      case 4:
-        return (
-          <>
-            <Text style={styles.stepTitle}>Service Details</Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Service Category</Text>
-              <View style={styles.categoryGrid}>
-                {serviceCategories.map((category) => (
-                  <TouchableOpacity
-                    key={category}
-                    style={[
-                      styles.categoryButton,
-                      formData.serviceCategory === category && styles.categoryButtonActive,
-                    ]}
-                    onPress={() => updateField('serviceCategory', category)}
-                  >
-                    <Text
-                      style={[
-                        styles.categoryButtonText,
-                        formData.serviceCategory === category && styles.categoryButtonTextActive,
-                      ]}
-                    >
-                      {category}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {errors.serviceCategory && <Text style={styles.errorText}>{errors.serviceCategory}</Text>}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Years of Experience</Text>
-              <TextInput
-                style={[styles.input, errors.experienceYears && styles.inputError]}
-                placeholder="e.g., 5"
-                placeholderTextColor={COLORS.textGrey}
-                value={formData.experienceYears}
-                onChangeText={(value) => updateField('experienceYears', value)}
-                keyboardType="number-pad"
-              />
-              {errors.experienceYears && <Text style={styles.errorText}>{errors.experienceYears}</Text>}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Skills Description</Text>
-              <TextInput
-                style={[styles.input, styles.textArea, errors.skillsDescription && styles.inputError]}
-                placeholder="Describe your skills and expertise"
-                placeholderTextColor={COLORS.textGrey}
-                value={formData.skillsDescription}
-                onChangeText={(value) => updateField('skillsDescription', value)}
-                multiline
-                numberOfLines={4}
-              />
-              {errors.skillsDescription && <Text style={styles.errorText}>{errors.skillsDescription}</Text>}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Tools Available (Optional)</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="List tools you have"
-                placeholderTextColor={COLORS.textGrey}
-                value={formData.toolsAvailable}
-                onChangeText={(value) => updateField('toolsAvailable', value)}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-          </>
-        );
-
-      case 5:
-        return (
-          <>
-            <Text style={styles.stepTitle}>Address & Location</Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Full Address</Text>
-              <TextInput
-                style={[styles.input, styles.textArea, errors.fullAddress && styles.inputError]}
-                placeholder="House/Flat no, Street, Area"
-                placeholderTextColor={COLORS.textGrey}
-                value={formData.fullAddress}
-                onChangeText={(value) => updateField('fullAddress', value)}
-                multiline
-                numberOfLines={3}
-              />
-              {errors.fullAddress && <Text style={styles.errorText}>{errors.fullAddress}</Text>}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>City</Text>
-              <TextInput
-                style={[styles.input, errors.city && styles.inputError]}
-                placeholder="Enter your city"
-                placeholderTextColor={COLORS.textGrey}
-                value={formData.city}
-                onChangeText={(value) => updateField('city', value)}
-              />
-              {errors.city && <Text style={styles.errorText}>{errors.city}</Text>}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Postal Code (Optional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter postal code"
-                placeholderTextColor={COLORS.textGrey}
-                value={formData.postalCode}
-                onChangeText={(value) => updateField('postalCode', value)}
-                keyboardType="number-pad"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>GPS Location</Text>
-              <TouchableOpacity
-                style={[styles.uploadButton, formData.gpsLocation && styles.uploadButtonSuccess]}
-                onPress={handleLocationPick}
-              >
-                <Text style={styles.uploadButtonText}>
-                  {formData.gpsLocation ? '✓ Location Set' : '📍 Pick Location on Map'}
-                </Text>
-              </TouchableOpacity>
-              {errors.gpsLocation && <Text style={styles.errorText}>{errors.gpsLocation}</Text>}
-            </View>
-          </>
-        );
-
-      case 6:
-        return (
-          <>
-            <Text style={styles.stepTitle}>Work Proof (Optional)</Text>
-            <Text style={styles.stepDescription}>
-              Upload images of your previous work and certificates to build trust
-            </Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Previous Work Images</Text>
-              <TouchableOpacity
-                style={styles.uploadButton}
-                onPress={() => Alert.alert('Work Images', 'Multiple image picker will be implemented')}
-              >
-                <Text style={styles.uploadButtonText}>
-                  📸 Upload Work Images ({formData.workProofImages.length})
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Certificates</Text>
-              <TouchableOpacity
-                style={styles.uploadButton}
-                onPress={() => Alert.alert('Certificates', 'Document picker will be implemented')}
-              >
-                <Text style={styles.uploadButtonText}>
-                  📄 Upload Certificates ({formData.certificates.length})
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        );
-
-      default:
-        return null;
-    }
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Confirm Password</Text>
+          <TextInput
+            style={[styles.input, errors.confirmPassword && styles.inputError]}
+            placeholder="Re-enter your password"
+            placeholderTextColor={COLORS.textGrey}
+            value={formData.confirmPassword}
+            onChangeText={(value) => updateField('confirmPassword', value)}
+            secureTextEntry
+            editable={!loading}
+          />
+          {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+        </View>
+      </>
+    );
   };
 
   return (
@@ -482,9 +253,9 @@ const ProviderSignupScreen = ({ navigation }) => {
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${(currentStep / totalSteps) * 100}%` }]} />
+            <View style={[styles.progressFill, { width: '100%' }]} />
           </View>
-          <Text style={styles.progressText}>Step {currentStep} of {totalSteps}</Text>
+          <Text style={styles.progressText}>Account Creation</Text>
         </View>
 
         {/* Step Content */}
@@ -492,38 +263,36 @@ const ProviderSignupScreen = ({ navigation }) => {
 
         {/* Navigation Buttons */}
         <View style={styles.buttonRow}>
-          {currentStep > 1 && (
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleBack}>
-              <Text style={styles.secondaryButtonText}>Back</Text>
-            </TouchableOpacity>
-          )}
           <TouchableOpacity
-            style={[styles.primaryButton, currentStep === 1 && styles.primaryButtonFull]}
+            style={[styles.primaryButton, styles.primaryButtonFull, loading && styles.primaryButtonDisabled]}
             onPress={handleNext}
+            disabled={loading}
           >
-            <Text style={styles.primaryButtonText}>
-              {currentStep === totalSteps ? 'Submit' : 'Next'}
-            </Text>
+            {loading ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <Text style={styles.primaryButtonText}>Create Account</Text>
+            )}
           </TouchableOpacity>
         </View>
 
         {/* Login Link */}
-        {currentStep === 1 && (
-          <View style={styles.toggleContainer}>
-            <Text style={styles.toggleText}>Already registered?</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('ProviderLogin')}>
-              <Text style={styles.toggleLink}> Sign In</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        <View style={styles.toggleContainer}>
+          <Text style={styles.toggleText}>Already registered?</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('ProviderLogin')}>
+            <Text style={styles.toggleLink}> Sign In</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
-      {/* Success Modal */}
-      <RegistrationSuccessModal
-        visible={showSuccessModal}
-        onClose={handleSuccessModalClose}
-        userRole="service_provider"
-        userName={formData.fullName}
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onDismiss={alert.hide}
       />
     </KeyboardAvoidingView>
   );
@@ -704,6 +473,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: TYPOGRAPHY.buttonWeight,
     color: COLORS.white,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.6,
   },
   secondaryButton: {
     flex: 1,

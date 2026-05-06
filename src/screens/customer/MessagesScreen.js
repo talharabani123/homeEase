@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   StatusBar, ActivityIndicator, RefreshControl, Alert,
@@ -7,7 +7,9 @@ import {
 import Svg, { Path, Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import ScreenWrapper from '../../components/ScreenWrapper';
+import { listenToConversations, deleteConversation } from '../../services/chatService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const DELETE_THRESHOLD = -80; // how far left to reveal delete
@@ -83,36 +85,69 @@ const swipeStyles = StyleSheet.create({
 // ─── Main screen ──────────────────────────────────────────────────────────────
 const MessagesScreen = ({ navigation }) => {
   const { colors } = useTheme();
-  const [conversations, setConversations] = useState(MOCK_CONVERSATIONS);
-  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    console.log('👂 Setting up conversations listener for user:', user.uid);
+
+    // Real-time listener for conversations
+    const unsubscribe = listenToConversations(user.uid, (convos) => {
+      console.log('📬 Received conversations:', convos.length);
+      setConversations(convos);
+      setLoading(false);
+      setRefreshing(false);
+    });
+
+    return () => {
+      console.log('🔌 Unsubscribing from conversations');
+      unsubscribe();
+    };
+  }, [user]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    // The real-time listener will automatically update the data
     setTimeout(() => {
-      setConversations(MOCK_CONVERSATIONS);
       setRefreshing(false);
-    }, 800);
+    }, 1000);
   };
 
   const handleConversationPress = (conv) => {
     navigation.navigate('Chat', {
-      requestId: conv.requestId,
-      providerId: conv.providerId,
-      providerName: conv.providerName,
-      customerName: 'You',
+      conversationId: conv.id,
+      otherUserId: conv.otherUser.id,
+      otherUserName: conv.otherUser.name,
+      serviceType: conv.serviceType,
+      serviceIcon: conv.serviceIcon
     });
   };
 
-  const handleDelete = (conv) => {
+  const handleDelete = async (conv) => {
     Alert.alert(
       'Delete Conversation',
-      `Delete conversation with ${conv.providerName}?`,
+      `Delete conversation with ${conv.otherUser.name}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete', style: 'destructive',
-          onPress: () => setConversations(prev => prev.filter(c => c.id !== conv.id)),
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            const result = await deleteConversation(conv.id);
+            if (result.success) {
+              // Conversation will be removed by real-time listener
+              console.log('✅ Conversation deleted');
+            } else {
+              Alert.alert('Error', 'Failed to delete conversation');
+            }
+          },
         },
       ]
     );
@@ -131,7 +166,7 @@ const MessagesScreen = ({ navigation }) => {
   };
 
   const renderItem = ({ item }) => {
-    const initials = item.providerName.split(' ').map(n => n[0]).join('').toUpperCase();
+    const initials = item.otherUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
     return (
       <SwipeableRow onDelete={() => handleDelete(item)}>
         <TouchableOpacity
@@ -145,13 +180,13 @@ const MessagesScreen = ({ navigation }) => {
             <View style={[styles.avatar, { backgroundColor: COLORS.primaryGreen }]}>
               <Text style={styles.avatarText}>{initials}</Text>
             </View>
-            {item.isOnline && <View style={styles.onlineDot} />}
+            {item.otherUser.isOnline && <View style={styles.onlineDot} />}
           </View>
 
           {/* Content */}
           <View style={styles.content}>
             <View style={styles.topRow}>
-              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{item.providerName}</Text>
+              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{item.otherUser.name}</Text>
               <Text style={[styles.time, { color: colors.textSecondary }]}>{formatTime(item.lastMessageTime)}</Text>
             </View>
             <View style={styles.bottomRow}>
@@ -163,7 +198,7 @@ const MessagesScreen = ({ navigation }) => {
                 ]}
                 numberOfLines={1}
               >
-                {item.lastMessageSender === 'you' ? 'You: ' : ''}{item.lastMessage}
+                {item.lastMessageSender === user?.uid ? 'You: ' : ''}{item.lastMessage || 'No messages yet'}
               </Text>
               {item.unreadCount > 0 && (
                 <View style={styles.badge}>
@@ -171,9 +206,11 @@ const MessagesScreen = ({ navigation }) => {
                 </View>
               )}
             </View>
-            <View style={[styles.tag, { backgroundColor: colors.primaryLight }]}>
-              <Text style={styles.tagText}>{item.serviceIcon} {item.serviceType}</Text>
-            </View>
+            {item.serviceType && (
+              <View style={[styles.tag, { backgroundColor: colors.primaryLight }]}>
+                <Text style={styles.tagText}>{item.serviceIcon} {item.serviceType}</Text>
+              </View>
+            )}
           </View>
         </TouchableOpacity>
       </SwipeableRow>
@@ -233,13 +270,7 @@ const MessagesScreen = ({ navigation }) => {
   );
 };
 
-const MOCK_CONVERSATIONS = [
-  { id: 'c1', requestId: 'r1', providerId: 'p1', providerName: 'Ahmed Khan',   serviceType: 'Plumber',     serviceIcon: '🔧', lastMessage: 'I will arrive in 10 minutes',       lastMessageSender: 'provider', lastMessageTime: Date.now() - 300000,   unreadCount: 2, isOnline: true  },
-  { id: 'c2', requestId: 'r2', providerId: 'p2', providerName: 'Ali Raza',     serviceType: 'Electrician', serviceIcon: '⚡', lastMessage: 'Thank you for your service!',       lastMessageSender: 'you',      lastMessageTime: Date.now() - 3600000,  unreadCount: 0, isOnline: false },
-  { id: 'c3', requestId: 'r3', providerId: 'p3', providerName: 'Hassan Ali',   serviceType: 'Carpenter',   serviceIcon: '🪚', lastMessage: 'What time works best for you?',     lastMessageSender: 'provider', lastMessageTime: Date.now() - 7200000,  unreadCount: 1, isOnline: true  },
-  { id: 'c4', requestId: 'r4', providerId: 'p4', providerName: 'Usman Sheikh', serviceType: 'Painter',     serviceIcon: '🎨', lastMessage: 'Job completed successfully',         lastMessageSender: 'provider', lastMessageTime: Date.now() - 86400000, unreadCount: 0, isOnline: false },
-  { id: 'c5', requestId: 'r5', providerId: 'p5', providerName: 'Bilal Ahmed',  serviceType: 'AC Repair',   serviceIcon: '❄️', lastMessage: 'Can you send me your location?',    lastMessageSender: 'you',      lastMessageTime: Date.now() - 172800000,unreadCount: 0, isOnline: false },
-];
+// Remove mock data - now using Firebase real-time data
 
 const styles = StyleSheet.create({
   header: {
