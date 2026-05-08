@@ -4,7 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { useAuth } from '../../context/AuthContext';
 import ScreenWrapper from '../../components/ScreenWrapper';
-import { listenToMessages, sendMessage, markMessagesAsRead, setTypingStatus, listenToTypingStatus } from '../../services/chatService';
+import { subscribeToMessages, sendMessage, markAllMessagesAsRead, setTypingIndicator, subscribeToTypingIndicators, getMessages } from '../../services/supabaseChatService';
 
 const ChatScreen = ({ navigation, route }) => {
   const { conversationId, otherUserId, otherUserName, serviceType, serviceIcon } = route.params;
@@ -22,27 +22,38 @@ const ChatScreen = ({ navigation, route }) => {
 
     console.log('👂 Setting up message listener for conversation:', conversationId);
 
+    // Fetch initial messages
+    const loadMessages = async () => {
+      const result = await getMessages(conversationId);
+      if (result.success) {
+        setMessages(result.messages);
+      }
+    };
+    loadMessages();
+
     // Listen to messages in real-time
-    const unsubscribeMessages = listenToMessages(conversationId, (msgs) => {
-      console.log('📬 Received messages:', msgs.length);
-      setMessages(msgs);
+    const unsubscribeMessages = subscribeToMessages(conversationId, (msg) => {
+      console.log('📬 Received new message:', msg);
+      setMessages(prev => [...prev, msg]);
     });
 
     // Mark messages as read
-    markMessagesAsRead(conversationId, user.uid);
+    markAllMessagesAsRead(conversationId);
 
     // Listen to typing status
-    const unsubscribeTyping = listenToTypingStatus(conversationId, otherUserId, (isTyping) => {
-      setIsOtherUserTyping(isTyping);
+    const unsubscribeTyping = subscribeToTypingIndicators(conversationId, (indicator) => {
+      if (indicator.user_id === otherUserId) {
+        setIsOtherUserTyping(indicator.is_typing);
+      }
     });
 
     return () => {
       console.log('🔌 Unsubscribing from messages and typing');
-      unsubscribeMessages();
-      unsubscribeTyping();
+      if (unsubscribeMessages) unsubscribeMessages.unsubscribe();
+      if (unsubscribeTyping) unsubscribeTyping.unsubscribe();
       
       // Clear typing status on unmount
-      setTypingStatus(conversationId, user.uid, false);
+      setTypingIndicator(conversationId, false);
     };
   }, [conversationId, user, otherUserId]);
 
@@ -65,14 +76,14 @@ const ChatScreen = ({ navigation, route }) => {
 
     // Set typing status
     if (text.length > 0) {
-      setTypingStatus(conversationId, user.uid, true);
+      setTypingIndicator(conversationId, true);
 
       // Clear typing status after 2 seconds of no typing
       typingTimeoutRef.current = setTimeout(() => {
-        setTypingStatus(conversationId, user.uid, false);
+        setTypingIndicator(conversationId, false);
       }, 2000);
     } else {
-      setTypingStatus(conversationId, user.uid, false);
+      setTypingIndicator(conversationId, false);
     }
   };
 
@@ -84,7 +95,7 @@ const ChatScreen = ({ navigation, route }) => {
     setSending(true);
 
     // Clear typing status
-    setTypingStatus(conversationId, user.uid, false);
+    setTypingIndicator(conversationId, false);
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
@@ -94,8 +105,6 @@ const ChatScreen = ({ navigation, route }) => {
       
       const result = await sendMessage(
         conversationId,
-        user.uid,
-        user.role || 'customer',
         messageText
       );
 
@@ -161,16 +170,16 @@ const ChatScreen = ({ navigation, route }) => {
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
       >
         {messages.map((message, index) => {
-          const isCustomer = message.senderType === 'customer' || message.senderId === user?.uid;
+          const isCustomer = message.sender_id === user?.id;
           const showTime = index === 0 || 
             (messages[index - 1] && 
-             new Date(message.timestamp).getMinutes() !== new Date(messages[index - 1].timestamp).getMinutes());
+             new Date(message.created_at).getMinutes() !== new Date(messages[index - 1].created_at).getMinutes());
 
           return (
-            <View key={message.messageId || message.id || index}>
+            <View key={message.id || index}>
               {showTime && (
                 <View style={styles.timeContainer}>
-                  <Text style={styles.timeText}>{formatTime(message.timestamp)}</Text>
+                  <Text style={styles.timeText}>{formatTime(message.created_at)}</Text>
                 </View>
               )}
               <View style={[
@@ -181,7 +190,7 @@ const ChatScreen = ({ navigation, route }) => {
                   styles.messageText,
                   isCustomer ? styles.customerText : styles.providerText
                 ]}>
-                  {message.message}
+                  {message.message_text}
                 </Text>
               </View>
             </View>

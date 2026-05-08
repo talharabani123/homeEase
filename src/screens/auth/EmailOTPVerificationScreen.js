@@ -3,8 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, Activit
 import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
-import { verifyEmailOTP, resendEmailOTP } from '../../services/emailOTPService';
-import { signUpWithEmail, markEmailAsVerified } from '../../services/firebaseAuthService';
+import { verifyEmailOTP, resendOTP, markEmailAsVerified } from '../../services/supabaseAuthService';
 import CustomAlert from '../../components/CustomAlert';
 import { useAlert } from '../../hooks/useAlert';
 
@@ -95,8 +94,8 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
     setLoading(true);
 
     try {
-      // Verify OTP
-      const verifyResult = await verifyEmailOTP(currentOtpId, email, otpCode);
+      // Verify OTP with Supabase
+      const verifyResult = await verifyEmailOTP(email, otpCode);
       
       if (!verifyResult.success) {
         setLoading(false);
@@ -104,41 +103,17 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
         return;
       }
 
-      // OTP verified successfully
-      if (isReVerification) {
-        // Just mark email as verified for existing user
-        // Note: We need the user's UID for this
-        // For now, just navigate back to login
-        setLoading(false);
-        alert.success(
-          'Email Verified!',
-          'Your email has been verified. Please sign in again.',
-          () => navigation.navigate('CustomerLogin')
-        );
-      } else {
-        // Create new Firebase account
-        const signupResult = await signUpWithEmail(userData);
-        
-        if (!signupResult.success) {
-          setLoading(false);
-          alert.error('Error', signupResult.error || 'Failed to create account');
-          return;
-        }
-
-        // Mark email as verified in Firestore
-        await markEmailAsVerified(signupResult.uid);
-        
-        setLoading(false);
-        
-        alert.success(
-          'Success!',
-          'Your account has been created successfully.',
-          () => navigation.reset({
-            index: 0,
-            routes: [{ name: 'CustomerLogin' }],
-          })
-        );
-      }
+      // OTP verified successfully - user is now logged in!
+      setLoading(false);
+      
+      alert.success(
+        'Success!',
+        'Your email has been verified. Welcome to HomeEase!',
+        () => navigation.reset({
+          index: 0,
+          routes: [{ name: 'CustomerDashboard' }], // Go directly to dashboard
+        })
+      );
     } catch (error) {
       setLoading(false);
       alert.error('Error', 'Something went wrong. Please try again.');
@@ -150,21 +125,16 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
     setResending(true);
 
     try {
-      const result = await resendEmailOTP(email, 'signup');
+      const result = await resendOTP(email);
       
       setResending(false);
 
       if (result.success) {
-        setCurrentOtpId(result.otpId);
         setTimer(60);
         setCanResend(false);
         setOtp(['', '', '', '', '', '']);
         
-        if (result.devOTP && __DEV__) {
-          alert.info('OTP Resent', `New OTP: ${result.devOTP}\n\nCheck your email.`);
-        } else {
-          alert.success('OTP Resent', 'A new OTP has been sent to your email.');
-        }
+        alert.success('OTP Resent', 'A new OTP has been sent to your email.');
       } else {
         alert.error('Error', result.error || 'Failed to resend OTP');
       }
@@ -243,6 +213,24 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
         >
           <Text style={styles.backButtonText}>← Change Email</Text>
         </TouchableOpacity>
+
+        {/* Development Skip Button */}
+        {__DEV__ && (
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={() => {
+              alert.info(
+                'Skip Verification',
+                'Email confirmation is disabled. Please go back and login with your credentials.',
+                () => {
+                  navigation.navigate('CustomerLogin');
+                }
+              );
+            }}
+          >
+            <Text style={styles.skipButtonText}>Skip (Dev Only - Go to Login)</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Custom Alert */}
@@ -361,6 +349,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: COLORS.textGrey,
+  },
+  skipButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 8,
+    backgroundColor: '#FFF3CD',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFC107',
+  },
+  skipButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#856404',
   },
 });
 

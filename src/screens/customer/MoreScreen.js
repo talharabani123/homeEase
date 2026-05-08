@@ -7,7 +7,7 @@ import { TYPOGRAPHY } from '../../constants/typography';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { getUserRole, canSwitchToProvider } from '../../services/roleManagementService';
-import { getProviderProfile } from '../../services/providerRegistrationService';
+import { getProviderProfile } from '../../services/supabaseProviderService';
 import CustomAlert from '../../components/CustomAlert';
 import { useAlert } from '../../hooks/useAlert';
 

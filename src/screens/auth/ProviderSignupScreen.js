@@ -5,8 +5,7 @@ import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { formatPakistaniPhone, formatCNIC, cleanPhoneNumber, getCNICError, getPhoneError, getPasswordError } from '../../utils/validation';
 import RegistrationSuccessModal from '../../components/RegistrationSuccessModal';
-import { signUpWithEmail } from '../../services/firebaseAuthService';
-import { sendEmailOTP } from '../../services/emailOTPService';
+import { signUpWithEmail } from '../../services/supabaseAuthService';
 import { useAuth } from '../../context/AuthContext';
 import CustomAlert from '../../components/CustomAlert';
 import { useAlert } from '../../hooks/useAlert';
@@ -94,51 +93,40 @@ const ProviderSignupScreen = ({ navigation }) => {
     setLoading(true);
     
     try {
-      // Create Firebase Auth account
-      const signUpResult = await signUpWithEmail(
+      // Sign up with Supabase (will send OTP email automatically)
+      const signupResult = await signUpWithEmail(
         formData.email.trim(),
         formData.password,
-        {
-          fullName: formData.fullName.trim(),
-          phone: cleanPhoneNumber(formData.phoneNumber),
-          role: 'provider',
-          isVerified: false, // Provider needs to complete registration
-        }
+        formData.fullName.trim(),
+        'provider',
+        cleanPhoneNumber(formData.phoneNumber)
       );
-
-      if (!signUpResult.success) {
-        setLoading(false);
-        alert.error('Signup Failed', signUpResult.error || 'Could not create account');
-        return;
-      }
-
-      // Send email OTP for verification
-      const otpResult = await sendEmailOTP(formData.email.trim());
       
       setLoading(false);
-
-      if (otpResult.success) {
-        alert.success(
-          'Account Created!',
-          'Please verify your email to continue',
-          () => {
-            navigation.navigate('EmailOTPVerification', {
-              email: formData.email.trim(),
-              verificationType: 'provider_signup',
-              role: 'provider',
-              userData: {
-                fullName: formData.fullName.trim(),
-                phone: cleanPhoneNumber(formData.phoneNumber),
-              },
-            });
-          }
-        );
+      
+      if (signupResult.success) {
+        // Check if user has a session (email confirmation disabled)
+        if (signupResult.session) {
+          // User is already logged in, no email verification needed
+          alert.success(
+            'Account Created!',
+            'Welcome! Please complete your provider registration.',
+            () => {
+              // AuthContext will handle navigation automatically
+            }
+          );
+        } else {
+          // Email confirmation enabled, navigate to OTP verification
+          navigation.navigate('EmailOTPVerification', {
+            email: formData.email.trim(),
+          });
+        }
       } else {
-        alert.error('Error', 'Account created but could not send verification email. Please try logging in.');
+        alert.error('Error', signupResult.error || 'Failed to create account');
       }
     } catch (error) {
       setLoading(false);
-      console.error('Signup error:', error);
+      console.error('❌ Sign up error:', error);
       alert.error('Error', 'Something went wrong. Please try again.');
     }
   };

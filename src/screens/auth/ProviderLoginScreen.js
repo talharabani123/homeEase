@@ -4,7 +4,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError } from '../../utils/validation';
-import { signInWithEmail } from '../../services/firebaseAuthService';
+import { signInWithEmail } from '../../services/supabaseAuthService';
 import { sendEmailOTP } from '../../services/emailOTPService';
 import { useAuth } from '../../context/AuthContext';
 import CustomAlert from '../../components/CustomAlert';

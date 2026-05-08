@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler';
-// import './src/config/firebase'; // Initialize Firebase - COMMENTED OUT FOR EXPO GO
+// import './src/config/firebase'; // Initialize Firebase - REMOVED (using Supabase now)
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -15,8 +15,8 @@ import LoginScreen from './src/screens/auth/LoginScreen';
 import CustomerLoginScreen from './src/screens/auth/CustomerLoginScreen';
 import CustomerSignupScreen from './src/screens/auth/CustomerSignupScreen';
 import EnhancedLoginScreen from './src/screens/auth/EnhancedLoginScreen';
-import EmailAuthScreen from './src/screens/auth/EmailAuthScreen';
-import EmailVerificationHandler from './src/screens/auth/EmailVerificationHandler';
+// import EmailAuthScreen from './src/screens/auth/EmailAuthScreen'; // OLD Firebase auth - not needed
+// import EmailVerificationHandler from './src/screens/auth/EmailVerificationHandler'; // OLD Firebase auth - not needed
 import EmailOTPVerificationScreen from './src/screens/auth/EmailOTPVerificationScreen';
 import ProviderLoginScreen from './src/screens/auth/ProviderLoginScreen';
 import ProviderSignupScreen from './src/screens/auth/ProviderSignupScreen';
@@ -101,8 +101,9 @@ export default function App() {
             <Stack.Screen name="Onboarding3" component={OnboardingScreen3} />
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />
             <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
-            <Stack.Screen name="EmailAuth" component={EmailAuthScreen} />
-            <Stack.Screen name="EmailVerification" component={EmailVerificationHandler} />
+            {/* OLD Firebase auth screens - commented out */}
+            {/* <Stack.Screen name="EmailAuth" component={EmailAuthScreen} /> */}
+            {/* <Stack.Screen name="EmailVerification" component={EmailVerificationHandler} /> */}
             <Stack.Screen name="EnhancedLogin" component={EnhancedLoginScreen} />
             <Stack.Screen name="Login" component={CustomerLoginScreen} />
             <Stack.Screen name="CustomerLogin" component={CustomerLoginScreen} />

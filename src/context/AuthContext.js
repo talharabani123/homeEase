@@ -1,10 +1,10 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import {
-  onAuthStateChanged,
+  onAuthStateChange,
   getCurrentUser,
   getUserProfile,
-  signOut as firebaseSignOut,
-} from '../services/firebaseAuthService';
+  signOut as supabaseSignOut,
+} from '../services/supabaseAuthService';
 import { getCurrentMode, switchUserMode } from '../services/roleManagementService';
 
 const AuthContext = createContext();
@@ -24,16 +24,16 @@ export const AuthProvider = ({ children }) => {
   const [currentMode, setCurrentMode] = useState('customer'); // 'customer' or 'provider'
 
   useEffect(() => {
-    // Listen to Firebase auth state changes
-    const unsubscribe = onAuthStateChanged(async (firebaseUser) => {
-      if (firebaseUser) {
+    // Listen to Supabase auth state changes
+    const subscription = onAuthStateChange(async (session, event) => {
+      if (session?.user) {
         // User is signed in
-        setUser(firebaseUser);
+        setUser(session.user);
         
-        // Fetch user profile from Firestore
-        const profileResult = await getUserProfile(firebaseUser.uid);
+        // Fetch user profile from Supabase
+        const profileResult = await getUserProfile(session.user.id);
         if (profileResult.success) {
-          setUserData(profileResult.userData);
+          setUserData(profileResult.data);
           
           // Load user mode
           const modeResult = await getCurrentMode();
@@ -51,7 +51,9 @@ export const AuthProvider = ({ children }) => {
     });
 
     // Cleanup subscription
-    return () => unsubscribe();
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const switchMode = async (newMode) => {
@@ -69,10 +71,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const signIn = async (firebaseUser, firestoreUserData) => {
+  const signIn = async (supabaseUser, supabaseUserData) => {
     try {
-      setUser(firebaseUser);
-      setUserData(firestoreUserData);
+      setUser(supabaseUser);
+      setUserData(supabaseUserData);
       return { success: true };
     } catch (error) {
       console.error('Error signing in:', error);
@@ -82,7 +84,7 @@ export const AuthProvider = ({ children }) => {
 
   const signOut = async () => {
     try {
-      await firebaseSignOut();
+      await supabaseSignOut();
       setUser(null);
       setUserData(null);
       return { success: true };
@@ -105,11 +107,11 @@ export const AuthProvider = ({ children }) => {
 
   const refreshUserData = async () => {
     try {
-      const currentUser = getCurrentUser();
+      const currentUser = await getCurrentUser();
       if (currentUser) {
-        const profileResult = await getUserProfile(currentUser.uid);
+        const profileResult = await getUserProfile(currentUser.id);
         if (profileResult.success) {
-          setUserData(profileResult.userData);
+          setUserData(profileResult.data);
           return { success: true };
         }
       }
@@ -121,8 +123,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const value = {
-    user, // Firebase user object
-    userData, // Firestore user profile
+    user, // Supabase user object
+    userData, // Supabase user profile
     loading,
     currentMode,
     signIn,

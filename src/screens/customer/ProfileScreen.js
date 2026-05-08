@@ -4,7 +4,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
-import { updateUserProfile } from '../../services/firebaseAuthService';
+import { updateUserProfile } from '../../services/supabaseAuthService';
 import CustomAlert from '../../components/CustomAlert';
 import { useAlert } from '../../hooks/useAlert';
 import * as ImagePicker from 'expo-image-picker';

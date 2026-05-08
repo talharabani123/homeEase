@@ -179,7 +179,7 @@ const mockJobs = {
 export const getProviderJobs = async () => {
   try {
     // Get provider profile to check their services
-    const { getProviderProfile } = require('./providerRegistrationService');
+    const { getProviderProfile } = require('./supabaseProviderService');
     const profileResult = await getProviderProfile();
     
     if (!profileResult.success || !profileResult.data) {

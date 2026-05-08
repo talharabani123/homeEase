@@ -7,7 +7,7 @@ import { TYPOGRAPHY } from '../../constants/typography';
 import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError, getPasswordError, getAddressError, getEmailError } from '../../utils/validation';
 import RegistrationSuccessModal from '../../components/RegistrationSuccessModal';
 import { KeyboardDismissView } from '../../components/KeyboardDismissView';
-import { sendEmailOTP } from '../../services/emailOTPService';
+import { signUpWithEmail } from '../../services/supabaseAuthService';
 import CustomAlert from '../../components/CustomAlert';
 import { useAlert } from '../../hooks/useAlert';
 
@@ -145,32 +145,36 @@ const CustomerSignupScreen = ({ navigation }) => {
       Keyboard.dismiss();
       
       try {
-        // Send OTP to email first
-        const otpResult = await sendEmailOTP(formData.email.trim(), 'signup');
+        // Sign up with Supabase (will send OTP email automatically)
+        const signupResult = await signUpWithEmail(
+          formData.email.trim(),
+          formData.password,
+          formData.fullName.trim(),
+          'customer',
+          cleanPhoneNumber(formData.phoneNumber)
+        );
         
         setLoading(false);
         
-        if (otpResult.success) {
-          // Prepare user data for account creation after OTP verification
-          const userData = {
-            email: formData.email.trim(),
-            password: formData.password,
-            fullName: formData.fullName.trim(),
-            phone: cleanPhoneNumber(formData.phoneNumber),
-            address: formData.address.trim(),
-            role: 'customer',
-            profileImage: formData.profileImage,
-          };
-
-          // Navigate to OTP verification screen
-          navigation.navigate('EmailOTPVerification', {
-            email: formData.email.trim(),
-            userData: userData,
-            otpId: otpResult.otpId,
-            devOTP: otpResult.devOTP, // Only for development
-          });
+        if (signupResult.success) {
+          // Check if user has a session (email confirmation disabled)
+          if (signupResult.session) {
+            // User is already logged in, no email verification needed
+            alert.success(
+              'Account Created!',
+              'Welcome to HomeEase',
+              () => {
+                // AuthContext will handle navigation automatically
+              }
+            );
+          } else {
+            // Email confirmation enabled, navigate to OTP verification
+            navigation.navigate('EmailOTPVerification', {
+              email: formData.email.trim(),
+            });
+          }
         } else {
-          alert.error('Error', otpResult.error || 'Failed to send OTP');
+          alert.error('Error', signupResult.error || 'Failed to create account');
         }
       } catch (error) {
         setLoading(false);

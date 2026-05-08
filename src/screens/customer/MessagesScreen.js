@@ -9,7 +9,7 @@ import { COLORS } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import ScreenWrapper from '../../components/ScreenWrapper';
-import { listenToConversations, deleteConversation } from '../../services/chatService';
+import { getUserConversations, deleteConversation, subscribeToConversations } from '../../services/supabaseChatService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const DELETE_THRESHOLD = -80; // how far left to reveal delete
@@ -96,28 +96,39 @@ const MessagesScreen = ({ navigation }) => {
       return;
     }
 
-    console.log('👂 Setting up conversations listener for user:', user.uid);
+    console.log('👂 Setting up conversations listener for user:', user.id);
 
-    // Real-time listener for conversations
-    const unsubscribe = listenToConversations(user.uid, (convos) => {
-      console.log('📬 Received conversations:', convos.length);
-      setConversations(convos);
-      setLoading(false);
-      setRefreshing(false);
+    // Fetch initial conversations
+    loadConversations();
+
+    // Real-time listener for conversation updates
+    const subscription = subscribeToConversations((payload) => {
+      console.log('📬 Conversation update:', payload);
+      // Reload conversations on any change
+      loadConversations();
     });
 
     return () => {
       console.log('🔌 Unsubscribing from conversations');
-      unsubscribe();
+      if (subscription) subscription.unsubscribe();
     };
   }, [user]);
 
+  const loadConversations = async () => {
+    if (!user) return;
+    
+    const result = await getUserConversations();
+    if (result.success) {
+      console.log('📬 Received conversations:', result.conversations.length);
+      setConversations(result.conversations);
+    }
+    setLoading(false);
+    setRefreshing(false);
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    // The real-time listener will automatically update the data
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    await loadConversations();
   };
 
   const handleConversationPress = (conv) => {
@@ -198,7 +209,7 @@ const MessagesScreen = ({ navigation }) => {
                 ]}
                 numberOfLines={1}
               >
-                {item.lastMessageSender === user?.uid ? 'You: ' : ''}{item.lastMessage || 'No messages yet'}
+                {item.lastMessageSender === user?.id ? 'You: ' : ''}{item.lastMessage || 'No messages yet'}
               </Text>
               {item.unreadCount > 0 && (
                 <View style={styles.badge}>

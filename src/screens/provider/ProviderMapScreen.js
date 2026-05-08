@@ -18,7 +18,7 @@ import { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import MapComponent from '../../components/MapComponent';
-import { updateProviderLocation, removeProviderLocation } from '../../services/realtimeLocationService';
+// import { updateProviderLocation, removeProviderLocation } from '../../services/realtimeLocationService'; // TODO: Migrate to Supabase
 import { getUserData } from '../../services/userStorageService';
 import { useTheme } from '../../context/ThemeContext';
 import { COLORS } from '../../constants/colors';

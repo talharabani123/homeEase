@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Status
 import Svg, { Path, Circle } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../context/ThemeContext';
-import { saveDraft, loadDraft, validateCNIC, formatCNIC, checkCNICExists } from '../../services/providerRegistrationService';
+import { saveDraft, loadDraft, validateCNIC, formatCNIC, checkCNICExists } from '../../services/supabaseProviderService';
 import CustomAlert from '../../components/CustomAlert';
 import { useAlert } from '../../hooks/useAlert';
 

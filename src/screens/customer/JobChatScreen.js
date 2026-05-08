@@ -4,7 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import ScreenWrapper from '../../components/ScreenWrapper';
-import { listenToMessages, sendMessage, markMessagesAsRead, createConversation } from '../../services/chatService';
+import { subscribeToMessages, sendMessage, markAllMessagesAsRead, createOrGetConversation, getMessages } from '../../services/supabaseChatService';
 
 const JobChatScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
@@ -31,15 +31,13 @@ const JobChatScreen = ({ route, navigation }) => {
     console.log('🔄 Initializing conversation for job:', jobId);
 
     // Determine customer and provider IDs based on user role
-    const customerId = user.role === 'customer' ? user.uid : otherUserId;
-    const providerId = user.role === 'provider' ? user.uid : otherUserId;
+    const customerId = user.role === 'customer' ? user.id : otherUserId;
+    const providerId = user.role === 'provider' ? user.id : otherUserId;
 
     // Create or get existing conversation
-    const result = await createConversation(
-      customerId,
-      providerId,
-      jobId,
-      { serviceType, serviceIcon }
+    const result = await createOrGetConversation(
+      [customerId, providerId],
+      jobId
     );
 
     if (result.success) {
@@ -56,19 +54,28 @@ const JobChatScreen = ({ route, navigation }) => {
 
     console.log('👂 Setting up message listener for conversation:', conversationId);
 
-    // Listen to messages in real-time
-    const unsubscribe = listenToMessages(conversationId, (msgs) => {
-      console.log('📬 Received messages:', msgs.length);
-      setMessages(msgs);
+    // Fetch initial messages
+    const loadMessages = async () => {
+      const result = await getMessages(conversationId);
+      if (result.success) {
+        setMessages(result.messages);
+      }
       setLoading(false);
+    };
+    loadMessages();
+
+    // Listen to messages in real-time
+    const unsubscribe = subscribeToMessages(conversationId, (msg) => {
+      console.log('📬 Received new message:', msg);
+      setMessages(prev => [...prev, msg]);
     });
 
     // Mark messages as read
-    markMessagesAsRead(conversationId, user.uid);
+    markAllMessagesAsRead(conversationId);
 
     return () => {
       console.log('🔌 Unsubscribing from messages');
-      unsubscribe();
+      if (unsubscribe) unsubscribe.unsubscribe();
     };
   }, [conversationId, user]);
 
@@ -84,8 +91,6 @@ const JobChatScreen = ({ route, navigation }) => {
       
       const result = await sendMessage(
         conversationId,
-        user.uid,
-        user.role || 'customer',
         messageText
       );
       
@@ -117,8 +122,8 @@ const JobChatScreen = ({ route, navigation }) => {
   };
 
   const renderMessage = ({ item }) => {
-    const isMyMessage = item.senderId === user?.uid;
-    const time = new Date(item.timestamp).toLocaleTimeString('en-US', { 
+    const isMyMessage = item.sender_id === user?.id;
+    const time = new Date(item.created_at).toLocaleTimeString('en-US', { 
       hour: '2-digit', 
       minute: '2-digit' 
     });
@@ -134,7 +139,7 @@ const JobChatScreen = ({ route, navigation }) => {
             styles.messageText,
             { color: isMyMessage ? '#FFFFFF' : colors.text }
           ]}>
-            {item.message}
+            {item.message_text}
           </Text>
           <Text style={[
             styles.messageTime,

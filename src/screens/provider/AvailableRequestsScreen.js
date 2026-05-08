@@ -5,7 +5,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { useTheme } from '../../context/ThemeContext';
 import { getAvailableRequests, acceptServiceRequest, calculateTravelFee } from '../../services/marketplaceService';
-import { getProviderProfile } from '../../services/providerRegistrationService';
+import { getProviderProfile } from '../../services/supabaseProviderService';
 
 const AvailableRequestsScreen = ({ navigation }) => {
   const { colors } = useTheme();

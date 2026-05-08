@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAr
 import Svg, { Path, Circle } from 'react-native-svg';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { useTheme } from '../../context/ThemeContext';
-import { getProviderProfile, updateOnlineStatus } from '../../services/providerRegistrationService';
+import { getProviderProfile } from '../../services/supabaseProviderService';
+// updateOnlineStatus not yet implemented in Supabase - TODO
 
 const ProviderDashboardScreen = ({ navigation }) => {
   const { colors } = useTheme();

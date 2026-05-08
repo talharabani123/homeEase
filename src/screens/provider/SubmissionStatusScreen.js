@@ -2,10 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAreaView } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useTheme } from '../../context/ThemeContext';
-import { getProviderProfile } from '../../services/providerRegistrationService';
+import { getProviderProfile, subscribeToProviderProfile } from '../../services/supabaseProviderService';
 import { useAuth } from '../../context/AuthContext';
-import { db } from '../../config/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
 import CustomAlert from '../../components/CustomAlert';
 import { useAlert } from '../../hooks/useAlert';
 
@@ -22,17 +20,16 @@ const SubmissionStatusScreen = ({ route, navigation }) => {
   useEffect(() => {
     if (!user) return;
 
-    // Real-time Firestore listener
-    const providerRef = doc(db, 'providers', user.uid);
-    const unsubscribe = onSnapshot(providerRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setStatus(data.verificationStatus || 'pending');
-        setIsVerified(data.isVerified || false);
-        setRejectionReason(data.rejectionReason || null);
+    // Real-time Supabase listener
+    const subscription = subscribeToProviderProfile(user.id, (payload) => {
+      if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+        const data = payload.new;
+        setStatus(data.status || 'pending');
+        setIsVerified(data.status === 'approved');
+        setRejectionReason(data.rejection_reason || null);
 
         // Show alert when approved
-        if (data.isVerified && data.verificationStatus === 'approved') {
+        if (data.status === 'approved') {
           alert.success(
             'Congratulations! 🎉',
             'Your provider application has been approved! You can now start receiving job requests.',
@@ -43,11 +40,11 @@ const SubmissionStatusScreen = ({ route, navigation }) => {
           );
         }
       }
-    }, (error) => {
-      console.error('Error listening to provider status:', error);
     });
 
-    return () => unsubscribe();
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, [user]);
 
   const getStatusConfig = () => {

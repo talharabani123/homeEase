@@ -5,7 +5,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getProviderProfile } from './providerRegistrationService';
+import { getProviderProfile } from './supabaseProviderService';
 
 // Storage Keys
 const STORAGE_KEYS = {

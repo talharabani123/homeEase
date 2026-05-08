@@ -1,32 +1,21 @@
 /**
  * Email OTP Service
- * Handles email-based OTP verification using Firestore
+ * Handles email-based OTP verification using Supabase
  * 
  * Features:
  * - Generate and send 6-digit OTP
- * - Store OTP in Firestore with expiration
+ * - Store OTP in Supabase with expiration
  * - Verify OTP with attempt limiting
  * - Resend OTP with rate limiting
  * - Auto-cleanup expired OTPs
  * 
  * Free Tier Optimizations:
- * - Uses Firestore (free tier: 50K reads, 20K writes per day)
+ * - Uses Supabase PostgreSQL (free tier: unlimited API requests)
  * - No email sending service (logs OTP to console in dev)
  * - Efficient queries with proper indexing
  */
 
-import {
-  collection,
-  addDoc,
-  query,
-  where,
-  getDocs,
-  updateDoc,
-  doc,
-  serverTimestamp,
-  deleteDoc,
-} from 'firebase/firestore';
-import { firestore } from '../config/firebase';
+import { supabase } from '../config/supabase';
 
 // Configuration
 const OTP_LENGTH = 6;
@@ -57,50 +46,56 @@ export const sendEmailOTP = async (email, purpose = 'signup') => {
     const normalizedEmail = email.toLowerCase().trim();
     
     // Check for recent OTP requests (rate limiting)
-    const recentOTPQuery = query(
-      collection(firestore, 'email_otps'),
-      where('email', '==', normalizedEmail),
-      where('purpose', '==', purpose)
-    );
+    const { data: recentOTPs, error: queryError } = await supabase
+      .from('email_otps')
+      .select('*')
+      .eq('email', normalizedEmail)
+      .eq('purpose', purpose);
     
-    const recentOTPs = await getDocs(recentOTPQuery);
+    if (queryError) throw queryError;
     
     // Check if there's a recent OTP that's still in cooldown
     const now = new Date();
-    for (const otpDoc of recentOTPs.docs) {
-      const otpData = otpDoc.data();
-      const createdAt = otpData.createdAt?.toDate();
+    for (const otpData of recentOTPs || []) {
+      const createdAt = new Date(otpData.created_at);
+      const secondsSinceCreation = (now - createdAt) / 1000;
       
-      if (createdAt) {
-        const secondsSinceCreation = (now - createdAt) / 1000;
-        if (secondsSinceCreation < RESEND_COOLDOWN_SECONDS) {
-          return {
-            success: false,
-            error: `Please wait ${Math.ceil(RESEND_COOLDOWN_SECONDS - secondsSinceCreation)} seconds before requesting a new OTP.`,
-          };
-        }
+      if (secondsSinceCreation < RESEND_COOLDOWN_SECONDS) {
+        return {
+          success: false,
+          error: `Please wait ${Math.ceil(RESEND_COOLDOWN_SECONDS - secondsSinceCreation)} seconds before requesting a new OTP.`,
+        };
       }
     }
     
     // Delete old OTPs for this email and purpose
-    for (const otpDoc of recentOTPs.docs) {
-      await deleteDoc(doc(firestore, 'email_otps', otpDoc.id));
+    if (recentOTPs && recentOTPs.length > 0) {
+      const otpIds = recentOTPs.map(otp => otp.id);
+      await supabase
+        .from('email_otps')
+        .delete()
+        .in('id', otpIds);
     }
     
     // Generate new OTP
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
     
-    // Store OTP in Firestore
-    const otpDoc = await addDoc(collection(firestore, 'email_otps'), {
-      email: normalizedEmail,
-      otp: otp,
-      purpose: purpose,
-      verified: false,
-      attempts: 0,
-      createdAt: serverTimestamp(),
-      expiresAt: expiresAt,
-    });
+    // Store OTP in Supabase
+    const { data: otpDoc, error: insertError } = await supabase
+      .from('email_otps')
+      .insert({
+        email: normalizedEmail,
+        otp: otp,
+        purpose: purpose,
+        verified: false,
+        attempts: 0,
+        expires_at: expiresAt.toISOString(),
+      })
+      .select()
+      .single();
+    
+    if (insertError) throw insertError;
     
     // In production, send email here
     // Example: await sendEmail(email, otp, purpose);
@@ -146,23 +141,22 @@ export const verifyEmailOTP = async (otpId, email, otpCode) => {
     const normalizedEmail = email.toLowerCase().trim();
     
     // Get OTP document
-    const otpDocRef = doc(firestore, 'email_otps', otpId);
-    const otpSnapshot = await getDocs(
-      query(
-        collection(firestore, 'email_otps'),
-        where('email', '==', normalizedEmail)
-      )
-    );
+    const { data: otpDocs, error: queryError } = await supabase
+      .from('email_otps')
+      .select('*')
+      .eq('email', normalizedEmail)
+      .limit(1);
     
-    if (otpSnapshot.empty) {
+    if (queryError) throw queryError;
+    
+    if (!otpDocs || otpDocs.length === 0) {
       return {
         success: false,
         error: 'OTP not found. Please request a new one.',
       };
     }
     
-    const otpDoc = otpSnapshot.docs[0];
-    const otpData = otpDoc.data();
+    const otpData = otpDocs[0];
     
     // Check if already verified
     if (otpData.verified) {
@@ -174,10 +168,14 @@ export const verifyEmailOTP = async (otpId, email, otpCode) => {
     
     // Check if expired
     const now = new Date();
-    const expiresAt = otpData.expiresAt?.toDate();
+    const expiresAt = new Date(otpData.expires_at);
     
-    if (expiresAt && now > expiresAt) {
-      await deleteDoc(doc(firestore, 'email_otps', otpDoc.id));
+    if (now > expiresAt) {
+      await supabase
+        .from('email_otps')
+        .delete()
+        .eq('id', otpData.id);
+      
       return {
         success: false,
         error: 'OTP has expired. Please request a new one.',
@@ -186,7 +184,11 @@ export const verifyEmailOTP = async (otpId, email, otpCode) => {
     
     // Check max attempts
     if (otpData.attempts >= MAX_ATTEMPTS) {
-      await deleteDoc(doc(firestore, 'email_otps', otpDoc.id));
+      await supabase
+        .from('email_otps')
+        .delete()
+        .eq('id', otpData.id);
+      
       return {
         success: false,
         error: 'Too many failed attempts. Please request a new OTP.',
@@ -196,9 +198,10 @@ export const verifyEmailOTP = async (otpId, email, otpCode) => {
     // Verify OTP code
     if (otpData.otp !== otpCode) {
       // Increment attempts
-      await updateDoc(doc(firestore, 'email_otps', otpDoc.id), {
-        attempts: otpData.attempts + 1,
-      });
+      await supabase
+        .from('email_otps')
+        .update({ attempts: otpData.attempts + 1 })
+        .eq('id', otpData.id);
       
       const remainingAttempts = MAX_ATTEMPTS - (otpData.attempts + 1);
       
@@ -209,17 +212,23 @@ export const verifyEmailOTP = async (otpId, email, otpCode) => {
     }
     
     // OTP is valid - mark as verified
-    await updateDoc(doc(firestore, 'email_otps', otpDoc.id), {
-      verified: true,
-      verifiedAt: serverTimestamp(),
-    });
+    await supabase
+      .from('email_otps')
+      .update({
+        verified: true,
+        verified_at: new Date().toISOString(),
+      })
+      .eq('id', otpData.id);
     
     console.log('✅ OTP verified successfully');
     
     // Clean up after successful verification (optional)
     setTimeout(async () => {
       try {
-        await deleteDoc(doc(firestore, 'email_otps', otpDoc.id));
+        await supabase
+          .from('email_otps')
+          .delete()
+          .eq('id', otpData.id);
       } catch (error) {
         console.error('Error cleaning up OTP:', error);
       }
@@ -253,17 +262,11 @@ export const resendEmailOTP = async (email, purpose = 'signup') => {
     const normalizedEmail = email.toLowerCase().trim();
     
     // Delete all existing OTPs for this email and purpose
-    const existingOTPsQuery = query(
-      collection(firestore, 'email_otps'),
-      where('email', '==', normalizedEmail),
-      where('purpose', '==', purpose)
-    );
-    
-    const existingOTPs = await getDocs(existingOTPsQuery);
-    
-    for (const otpDoc of existingOTPs.docs) {
-      await deleteDoc(doc(firestore, 'email_otps', otpDoc.id));
-    }
+    await supabase
+      .from('email_otps')
+      .delete()
+      .eq('email', normalizedEmail)
+      .eq('purpose', purpose);
     
     // Send new OTP
     return await sendEmailOTP(email, purpose);
@@ -286,23 +289,18 @@ export const resendEmailOTP = async (email, purpose = 'signup') => {
  */
 export const cleanupExpiredOTPs = async () => {
   try {
-    const now = new Date();
+    const now = new Date().toISOString();
     
-    // Query all OTPs
-    const allOTPsQuery = query(collection(firestore, 'email_otps'));
-    const allOTPs = await getDocs(allOTPsQuery);
+    // Delete all expired OTPs
+    const { data, error } = await supabase
+      .from('email_otps')
+      .delete()
+      .lt('expires_at', now)
+      .select();
     
-    let deletedCount = 0;
+    if (error) throw error;
     
-    for (const otpDoc of allOTPs.docs) {
-      const otpData = otpDoc.data();
-      const expiresAt = otpData.expiresAt?.toDate();
-      
-      if (expiresAt && now > expiresAt) {
-        await deleteDoc(doc(firestore, 'email_otps', otpDoc.id));
-        deletedCount++;
-      }
-    }
+    const deletedCount = data?.length || 0;
     
     console.log(`✅ Cleaned up ${deletedCount} expired OTPs`);
     

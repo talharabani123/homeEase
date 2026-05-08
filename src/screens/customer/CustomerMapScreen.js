@@ -19,7 +19,7 @@ import { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import MapComponent from '../../components/MapComponent';
-import { listenToProviders } from '../../services/realtimeLocationService';
+// import { listenToProviders } from '../../services/realtimeLocationService'; // TODO: Migrate to Supabase
 import { filterNearbyProviders, formatDistance } from '../../utils/distanceCalculator';
 import { useTheme } from '../../context/ThemeContext';
 import { COLORS } from '../../constants/colors';
