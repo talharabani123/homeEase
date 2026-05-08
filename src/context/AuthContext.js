@@ -24,8 +24,46 @@ export const AuthProvider = ({ children }) => {
   const [currentMode, setCurrentMode] = useState('customer'); // 'customer' or 'provider'
 
   useEffect(() => {
+    let isInitialLoad = true;
+
+    // Check for existing session on mount
+    const checkSession = async () => {
+      try {
+        const currentUser = await getCurrentUser();
+        if (currentUser) {
+          setUser(currentUser);
+          
+          // Fetch user profile
+          const profileResult = await getUserProfile(currentUser.id);
+          if (profileResult.success) {
+            setUserData(profileResult.data);
+            
+            // Load user mode
+            const modeResult = await getCurrentMode();
+            if (modeResult.success && modeResult.mode) {
+              setCurrentMode(modeResult.mode);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking session:', error);
+      } finally {
+        setLoading(false);
+        isInitialLoad = false;
+      }
+    };
+
+    checkSession();
+
     // Listen to Supabase auth state changes
     const subscription = onAuthStateChange(async (session, event) => {
+      console.log('🔄 Auth state changed:', event);
+      
+      // Skip if this is the initial load (already handled by checkSession)
+      if (isInitialLoad) {
+        return;
+      }
+      
       if (session?.user) {
         // User is signed in
         setUser(session.user);

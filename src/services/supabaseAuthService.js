@@ -209,7 +209,10 @@ export const getCurrentUser = async () => {
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error) {
-      console.error('❌ Get user error:', error);
+      // Don't log "Auth session missing" as an error - it's expected when not logged in
+      if (error.message !== 'Auth session missing!') {
+        console.error('❌ Get user error:', error);
+      }
       return null;
     }
 
@@ -247,6 +250,7 @@ export const getCurrentSession = async () => {
 
 /**
  * Get user profile from database
+ * Creates profile if it doesn't exist (fallback for trigger failure)
  * 
  * @param {string} userId - User ID
  * @returns {Promise<object>} - { success, data, error }
@@ -262,6 +266,45 @@ export const getUserProfile = async (userId) => {
       .single();
 
     if (error) {
+      // PGRST116 = no rows found
+      if (error.code === 'PGRST116') {
+        console.warn('⚠️ User profile not found, creating one...');
+        
+        // Get user data from auth
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          // Create profile
+          const { data: newProfile, error: createError } = await supabase
+            .from('users')
+            .insert({
+              id: userId,
+              email: user.email,
+              full_name: user.user_metadata?.full_name || '',
+              user_type: user.user_metadata?.user_type || 'customer',
+              phone_number: user.user_metadata?.phone_number || '',
+              is_active: true,
+              is_email_verified: user.email_confirmed_at ? true : false,
+            })
+            .select()
+            .single();
+          
+          if (createError) {
+            console.error('❌ Failed to create profile:', createError);
+            return {
+              success: false,
+              error: 'Profile not found and could not be created',
+            };
+          }
+          
+          console.log('✅ User profile created successfully');
+          return {
+            success: true,
+            data: newProfile,
+          };
+        }
+      }
+      
       console.error('❌ Get profile error:', error);
       return {
         success: false,

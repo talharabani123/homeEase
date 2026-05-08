@@ -5,7 +5,7 @@ import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { getEmailError } from '../../utils/validation';
 import { KeyboardDismissView } from '../../components/KeyboardDismissView';
-import { signInWithEmail } from '../../services/supabaseAuthService';
+import { signInWithEmail, signOut } from '../../services/supabaseAuthService';
 import { useAuth } from '../../context/AuthContext';
 import CustomAlert from '../../components/CustomAlert';
 import { useAlert } from '../../hooks/useAlert';
@@ -54,6 +54,13 @@ const CustomerLoginScreen = ({ navigation }) => {
         setLoading(false);
         
         if (result.success) {
+          // Check if user is a customer
+          if (result.userData?.user_type !== 'customer') {
+            alert.error('Invalid Account', 'This account is registered as a service provider. Please use the provider login.');
+            await signOut(); // Sign out to prevent confusion
+            return;
+          }
+
           // Update auth context
           await signIn(result.user, result.userData);
           

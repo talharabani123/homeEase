@@ -342,12 +342,39 @@ const RoleSelectionScreen = ({ navigation }) => {
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <>
-                      <Text style={styles.continueButtonText}>Continue</Text>
+                      <Text style={styles.continueButtonText}>
+                        {selectedRole === 'customer' ? 'Continue as Customer' : 'Register as Provider'}
+                      </Text>
                       <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
                     </>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
+
+              {/* Login Links */}
+              {selectedRole && (
+                <TouchableOpacity
+                  style={styles.loginLink}
+                  onPress={() => {
+                    if (selectedRole === 'customer') {
+                      navigation.replace('CustomerLogin');
+                    } else {
+                      navigation.replace('ProviderLogin');
+                    }
+                  }}
+                  disabled={loading}
+                >
+                  <Text style={[styles.loginLinkText, { color: colors.textSecondary }]}>
+                    Already have an account?{' '}
+                    <Text style={[
+                      styles.loginLinkBold, 
+                      { color: selectedRole === 'customer' ? '#4CAF50' : '#FF9800' }
+                    ]}>
+                      Login
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <Text style={[styles.footerText, { color: colors.textSecondary }]}>
                 You can switch roles anytime in settings
@@ -562,6 +589,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     letterSpacing: 0.5,
+  },
+  loginLink: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  loginLinkText: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  loginLinkBold: {
+    fontWeight: '700',
+    fontSize: 15,
   },
   footerText: {
     fontSize: 13,

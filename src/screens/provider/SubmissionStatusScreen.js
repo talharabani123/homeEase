@@ -13,9 +13,10 @@ const SubmissionStatusScreen = ({ route, navigation }) => {
   const { user, switchMode } = useAuth();
   const { profile } = route.params || {};
   
-  const [status, setStatus] = useState(profile?.verificationStatus || 'pending');
-  const [isVerified, setIsVerified] = useState(profile?.isVerified || false);
+  const [status, setStatus] = useState(profile?.status || 'pending');
+  const [isVerified, setIsVerified] = useState(profile?.status === 'approved');
   const [rejectionReason, setRejectionReason] = useState(null);
+  const [showTestingOptions, setShowTestingOptions] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -57,7 +58,10 @@ const SubmissionStatusScreen = ({ route, navigation }) => {
           color: '#10B981',
           bgColor: '#ECFDF5',
           action: 'Go to Dashboard',
-          onAction: () => navigation.replace('ProviderDashboard')
+          onAction: async () => {
+            await switchMode('provider');
+            navigation.replace('ProviderDashboard');
+          }
         };
       case 'rejected':
         return {
@@ -66,8 +70,8 @@ const SubmissionStatusScreen = ({ route, navigation }) => {
           subtitle: rejectionReason || 'Please review the feedback and reapply',
           color: '#EF4444',
           bgColor: '#FEE2E2',
-          action: 'Back to Home',
-          onAction: () => navigation.navigate('CustomerDashboard')
+          action: 'Reapply',
+          onAction: () => navigation.replace('ServiceSelection')
         };
       case 'documents_required':
         return {
@@ -86,10 +90,53 @@ const SubmissionStatusScreen = ({ route, navigation }) => {
           subtitle: 'Our team is verifying your documents',
           color: '#3B82F6',
           bgColor: '#EFF6FF',
-          action: 'Back to Home',
-          onAction: () => navigation.navigate('CustomerDashboard')
+          action: 'Continue as Customer',
+          onAction: async () => {
+            await switchMode('customer');
+            navigation.replace('CustomerDashboard');
+          }
         };
     }
+  };
+
+  const handleTestingBypass = async () => {
+    alert.confirm(
+      'Testing Mode',
+      'Approve application for testing? This will update the database.',
+      async () => {
+        try {
+          // Update the provider profile status in database
+          const { supabase } = require('../../config/supabase');
+          const { error } = await supabase
+            .from('provider_profiles')
+            .update({ status: 'approved' })
+            .eq('user_id', user.id);
+
+          if (error) {
+            console.error('❌ Failed to update status:', error);
+            alert.error('Error', 'Failed to approve application. Please try again.');
+            return;
+          }
+
+          // Update status locally
+          setStatus('approved');
+          setIsVerified(true);
+          
+          // Show success and navigate
+          alert.success(
+            'Approved for Testing',
+            'You can now access the provider dashboard',
+            async () => {
+              await switchMode('provider');
+              navigation.replace('ProviderDashboard');
+            }
+          );
+        } catch (error) {
+          console.error('❌ Testing bypass error:', error);
+          alert.error('Error', 'Something went wrong. Please try again.');
+        }
+      }
+    );
   };
 
   const config = getStatusConfig();
@@ -99,6 +146,28 @@ const SubmissionStatusScreen = ({ route, navigation }) => {
       <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Testing Bypass Button - Hidden by default */}
+        <TouchableOpacity
+          style={styles.testingButton}
+          onPress={() => setShowTestingOptions(!showTestingOptions)}
+          onLongPress={handleTestingBypass}
+        >
+          <Text style={styles.testingButtonText}>🧪</Text>
+        </TouchableOpacity>
+
+        {showTestingOptions && (
+          <View style={[styles.testingCard, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
+            <Text style={styles.testingTitle}>🧪 Testing Mode</Text>
+            <Text style={styles.testingText}>Long press the 🧪 icon to bypass review</Text>
+            <TouchableOpacity
+              style={[styles.testingBypassButton, { backgroundColor: '#F59E0B' }]}
+              onPress={handleTestingBypass}
+            >
+              <Text style={styles.testingBypassText}>Approve for Testing</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={[styles.statusCard, { backgroundColor: config.bgColor }]}>
           <Text style={styles.statusIcon}>{config.icon}</Text>
           <Text style={[styles.statusTitle, { color: config.color }]}>{config.title}</Text>
@@ -180,6 +249,16 @@ const SubmissionStatusScreen = ({ route, navigation }) => {
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+        {/* Testing Bypass Button */}
+        {status === 'pending' && (
+          <TouchableOpacity 
+            style={[styles.testingBypassButtonFooter, { backgroundColor: '#F59E0B', marginBottom: 12 }]} 
+            onPress={handleTestingBypass}
+          >
+            <Text style={styles.testingBypassText}>🧪 Approve for Testing</Text>
+          </TouchableOpacity>
+        )}
+        
         <TouchableOpacity 
           style={[styles.actionButton, { backgroundColor: colors.primary }]} 
           onPress={config.onAction}
@@ -205,6 +284,51 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 40 },
+  testingButton: {
+    position: 'absolute',
+    top: 10,
+    right: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  testingButtonText: {
+    fontSize: 24,
+  },
+  testingCard: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginBottom: 20,
+  },
+  testingTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 8,
+  },
+  testingText: {
+    fontSize: 13,
+    color: '#78350F',
+    marginBottom: 12,
+  },
+  testingBypassButton: {
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  testingBypassText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  testingBypassButtonFooter: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
   statusCard: { padding: 32, borderRadius: 16, alignItems: 'center', marginBottom: 24 },
   statusIcon: { fontSize: 64, marginBottom: 16 },
   statusTitle: { fontSize: 24, fontWeight: '700', textAlign: 'center', marginBottom: 8 },

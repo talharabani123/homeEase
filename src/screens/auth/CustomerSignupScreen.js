@@ -174,7 +174,26 @@ const CustomerSignupScreen = ({ navigation }) => {
             });
           }
         } else {
-          alert.error('Error', signupResult.error || 'Failed to create account');
+          // Handle specific error cases
+          if (signupResult.error && signupResult.error.includes('already registered')) {
+            alert.error(
+              'Email Already Registered',
+              'This email is already registered. If you registered as a service provider, please use a different email for your customer account, or login as a provider.',
+              [
+                {
+                  text: 'Try Different Email',
+                  onPress: () => {},
+                },
+                {
+                  text: 'Go to Login',
+                  onPress: () => navigation.navigate('CustomerLogin'),
+                  style: 'primary',
+                },
+              ]
+            );
+          } else {
+            alert.error('Error', signupResult.error || 'Failed to create account');
+          }
         }
       } catch (error) {
         setLoading(false);

@@ -32,9 +32,12 @@ const serviceCategories = [
   'Other',
 ];
 
-const ProviderSignupScreen = ({ navigation }) => {
+const ProviderSignupScreen = ({ navigation, route }) => {
   const { signIn } = useAuth();
   const alert = useAlert();
+  
+  // Check if this is part of registration flow
+  const { selectedServices, isRegistration } = route.params || {};
   
   const [currentStep, setCurrentStep] = useState(1);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -108,21 +111,58 @@ const ProviderSignupScreen = ({ navigation }) => {
         // Check if user has a session (email confirmation disabled)
         if (signupResult.session) {
           // User is already logged in, no email verification needed
-          alert.success(
-            'Account Created!',
-            'Welcome! Please complete your provider registration.',
-            () => {
-              // AuthContext will handle navigation automatically
-            }
-          );
+          if (isRegistration && selectedServices) {
+            // Part of registration flow - continue to PersonalInfo
+            alert.success(
+              'Account Created!',
+              'Welcome! Now let\'s complete your provider profile.',
+              () => {
+                navigation.navigate('PersonalInfo', { 
+                  selectedServices,
+                  userEmail: formData.email.trim(),
+                  userId: signupResult.user.id
+                });
+              }
+            );
+          } else {
+            // Standalone signup - let AuthContext handle navigation
+            alert.success(
+              'Account Created!',
+              'Welcome! Please complete your provider registration.',
+              () => {
+                // AuthContext will handle navigation automatically
+              }
+            );
+          }
         } else {
           // Email confirmation enabled, navigate to OTP verification
           navigation.navigate('EmailOTPVerification', {
             email: formData.email.trim(),
+            isRegistration,
+            selectedServices,
           });
         }
       } else {
-        alert.error('Error', signupResult.error || 'Failed to create account');
+        // Handle specific error cases
+        if (signupResult.error && signupResult.error.includes('already registered')) {
+          alert.error(
+            'Email Already Registered',
+            'This email is already registered. If you registered as a customer, please use a different email for your provider account, or login as a customer.',
+            [
+              {
+                text: 'Try Different Email',
+                onPress: () => {},
+              },
+              {
+                text: 'Go to Login',
+                onPress: () => navigation.navigate('ProviderLogin'),
+                style: 'primary',
+              },
+            ]
+          );
+        } else {
+          alert.error('Error', signupResult.error || 'Failed to create account');
+        }
       }
     } catch (error) {
       setLoading(false);
@@ -235,8 +275,14 @@ const ProviderSignupScreen = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Logo />
 
-        <Text style={styles.title}>Become a Service Provider</Text>
-        <Text style={styles.subtitle}>Complete verification to start offering services</Text>
+        <Text style={styles.title}>
+          {isRegistration ? 'Create Your Account' : 'Become a Service Provider'}
+        </Text>
+        <Text style={styles.subtitle}>
+          {isRegistration 
+            ? 'First, let\'s create your account to continue registration' 
+            : 'Complete verification to start offering services'}
+        </Text>
 
         {/* Progress Bar */}
         <View style={styles.progressContainer}>

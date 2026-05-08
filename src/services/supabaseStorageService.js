@@ -9,8 +9,26 @@
  */
 
 import { supabase } from '../config/supabase';
-import { decode } from 'base64-arraybuffer';
-import * as FileSystem from 'expo-file-system';
+// Use legacy API for expo-file-system (v54+)
+import * as FileSystem from 'expo-file-system/legacy';
+
+// Try to import decode, but have a fallback
+let decode;
+try {
+  const base64Module = require('base64-arraybuffer');
+  decode = base64Module.decode;
+} catch (error) {
+  console.warn('⚠️ base64-arraybuffer not available, using fallback');
+  // Fallback: convert base64 to Uint8Array
+  decode = (base64) => {
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+  };
+}
 
 // ============================================
 // FILE UPLOAD
@@ -28,6 +46,23 @@ import * as FileSystem from 'expo-file-system';
 export const uploadFile = async (bucket, filePath, userId, fileName = null) => {
   try {
     console.log('📤 Uploading file to', bucket);
+    console.log('📂 File path:', filePath);
+    console.log('👤 User ID:', userId);
+
+    // Validate inputs
+    if (!filePath) {
+      return {
+        success: false,
+        error: 'File path is required',
+      };
+    }
+
+    if (!userId) {
+      return {
+        success: false,
+        error: 'User ID is required',
+      };
+    }
 
     // Generate unique file name if not provided
     const timestamp = Date.now();
@@ -35,18 +70,45 @@ export const uploadFile = async (bucket, filePath, userId, fileName = null) => {
     const finalFileName = fileName || `${timestamp}.${fileExtension}`;
     const storagePath = `${userId}/${finalFileName}`;
 
+    console.log('📝 Storage path:', storagePath);
+
+    // Check if FileSystem is available
+    if (!FileSystem) {
+      console.error('❌ FileSystem module not available');
+      return {
+        success: false,
+        error: 'File system module not available. Please restart the app.',
+      };
+    }
+
+    // Check if file exists
+    const fileInfo = await FileSystem.getInfoAsync(filePath);
+    if (!fileInfo.exists) {
+      console.error('❌ File does not exist:', filePath);
+      return {
+        success: false,
+        error: 'File does not exist',
+      };
+    }
+
+    console.log('📊 File size:', (fileInfo.size / 1024).toFixed(2), 'KB');
+
     // Read file as base64
+    console.log('📖 Reading file as base64...');
     const base64 = await FileSystem.readAsStringAsync(filePath, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: FileSystem.EncodingType?.Base64 || 'base64',
     });
 
+    console.log('🔄 Converting to ArrayBuffer...');
     // Convert base64 to ArrayBuffer
     const arrayBuffer = decode(base64);
 
     // Determine content type
     const contentType = getContentType(fileExtension);
+    console.log('📄 Content type:', contentType);
 
     // Upload to Supabase Storage
+    console.log('⬆️ Uploading to Supabase...');
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(storagePath, arrayBuffer, {
@@ -68,6 +130,7 @@ export const uploadFile = async (bucket, filePath, userId, fileName = null) => {
       .getPublicUrl(storagePath);
 
     console.log('✅ File uploaded successfully');
+    console.log('🔗 URL:', urlData.publicUrl);
 
     return {
       success: true,
@@ -77,6 +140,11 @@ export const uploadFile = async (bucket, filePath, userId, fileName = null) => {
     };
   } catch (error) {
     console.error('❌ Upload File Error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
     return {
       success: false,
       error: error.message || 'Failed to upload file',

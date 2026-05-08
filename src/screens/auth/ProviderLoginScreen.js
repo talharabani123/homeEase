@@ -4,7 +4,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
 import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError } from '../../utils/validation';
-import { signInWithEmail } from '../../services/supabaseAuthService';
+import { signInWithEmail, signOut } from '../../services/supabaseAuthService';
 import { sendEmailOTP } from '../../services/emailOTPService';
 import { useAuth } from '../../context/AuthContext';
 import CustomAlert from '../../components/CustomAlert';
@@ -60,9 +60,10 @@ const ProviderLoginScreen = ({ navigation }) => {
       
       if (result.success) {
         // Check if user is a provider
-        if (result.userData?.role !== 'provider') {
+        if (result.userData?.user_type !== 'provider') {
           setLoading(false);
-          alert.error('Invalid Account', 'This account is not registered as a service provider');
+          alert.error('Invalid Account', 'This account is not registered as a service provider. Please use the customer login.');
+          await signOut(); // Sign out to prevent confusion
           return;
         }
 
@@ -71,16 +72,12 @@ const ProviderLoginScreen = ({ navigation }) => {
         
         setLoading(false);
         
-        // Navigate based on provider status
-        if (result.userData.isVerified) {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'ProviderDashboard' }],
-          });
-        } else {
-          // Provider needs to complete registration
-          navigation.navigate('ProviderRegistrationIntro');
-        }
+        // Check if provider has completed registration by checking for provider profile
+        // We'll navigate to ProviderRegistrationIntro which will handle the routing
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'ProviderRegistrationIntro' }],
+        });
       } else {
         setLoading(false);
         alert.error('Login Failed', result.error || 'Invalid email or password');

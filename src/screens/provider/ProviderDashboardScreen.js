@@ -18,9 +18,24 @@ const ProviderDashboardScreen = ({ navigation }) => {
 
   const loadProfile = async () => {
     const result = await getProviderProfile();
-    if (result.success) {
+    if (result.success && result.data) {
       setProfile(result.data);
-      setIsOnline(result.data.isOnline);
+      setIsOnline(result.data.isOnline || false);
+    } else if (result.success && !result.data) {
+      // No provider profile found - redirect to registration
+      setLoading(false);
+      Alert.alert(
+        'Complete Registration',
+        'Please complete your provider registration to access the dashboard.',
+        [
+          {
+            text: 'Complete Registration',
+            onPress: () => navigation.replace('ProviderRegistrationIntro'),
+          },
+        ],
+        { cancelable: false }
+      );
+      return;
     }
     setLoading(false);
   };
@@ -126,11 +141,17 @@ const ProviderDashboardScreen = ({ navigation }) => {
         <View style={[styles.servicesCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Services</Text>
           <View style={styles.servicesList}>
-            {profile?.services.map((service, index) => (
-              <View key={index} style={[styles.serviceChip, { backgroundColor: colors.primaryLight }]}>
-                <Text style={styles.serviceChipText}>{service.icon} {service.name}</Text>
-              </View>
-            ))}
+            {profile?.services && profile.services.length > 0 ? (
+              profile.services.map((service, index) => (
+                <View key={index} style={[styles.serviceChip, { backgroundColor: colors.primaryLight }]}>
+                  <Text style={styles.serviceChipText}>{service.icon} {service.name}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>
+                No services added yet
+              </Text>
+            )}
           </View>
         </View>
 

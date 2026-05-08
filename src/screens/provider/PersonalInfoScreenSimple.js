@@ -9,11 +9,11 @@ import { useAlert } from '../../hooks/useAlert';
 const PersonalInfoScreenSimple = ({ route, navigation }) => {
   const { colors } = useTheme();
   const alert = useAlert();
-  const { selectedServices } = route.params;
+  const { selectedServices, userEmail, userId } = route.params;
   
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(userEmail || ''); // Pre-fill from signup
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [city, setCity] = useState('');
   const [residentialAddress, setResidentialAddress] = useState('');
@@ -29,7 +29,8 @@ const PersonalInfoScreenSimple = ({ route, navigation }) => {
       const data = result.data;
       if (data.fullName) setFullName(data.fullName);
       if (data.phoneNumber) setPhoneNumber(data.phoneNumber);
-      if (data.email) setEmail(data.email);
+      // Only load email from draft if not provided from signup
+      if (data.email && !userEmail) setEmail(data.email);
       if (data.dateOfBirth) setDateOfBirth(data.dateOfBirth);
       if (data.city) setCity(data.city);
       if (data.residentialAddress) setResidentialAddress(data.residentialAddress);
@@ -128,15 +129,27 @@ const PersonalInfoScreenSimple = ({ route, navigation }) => {
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text }]}>Email Address *</Text>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+            style={[
+              styles.input, 
+              { 
+                backgroundColor: userEmail ? colors.disabled : colors.inputBackground, 
+                borderColor: colors.inputBorder, 
+                color: colors.text 
+              }
+            ]}
             placeholder="your.email@example.com"
             placeholderTextColor={colors.placeholder}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
-            editable={!loading}
+            editable={!loading && !userEmail} // Disable if email came from signup
           />
+          {userEmail && (
+            <Text style={[styles.hint, { color: colors.textSecondary }]}>
+              Email from your account (cannot be changed)
+            </Text>
+          )}
         </View>
 
         <View style={styles.inputGroup}>

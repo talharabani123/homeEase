@@ -10,6 +10,7 @@ const ProviderRegistrationIntroScreen = ({ navigation }) => {
   const { colors } = useTheme();
   const alert = useAlert();
   const [hasDraft, setHasDraft] = useState(false);
+  const [draftData, setDraftData] = useState(null);
   const [verificationStatus, setVerificationStatus] = useState(null);
 
   useEffect(() => {
@@ -17,29 +18,46 @@ const ProviderRegistrationIntroScreen = ({ navigation }) => {
   }, []);
 
   const checkStatus = async () => {
-    // Check for existing provider profile in Firestore
+    // Check for existing provider profile
     const profileResult = await getProviderProfile();
     
     if (profileResult.success && profileResult.data) {
       const providerData = profileResult.data;
-      setVerificationStatus(providerData.verificationStatus);
+      const status = providerData.status;
+      
+      console.log('📋 Provider profile status:', status);
       
       // If already approved, go to dashboard
-      if (providerData.isVerified && providerData.verificationStatus === 'approved') {
+      if (status === 'approved') {
         navigation.replace('ProviderDashboard');
         return;
       }
       
-      // If pending, go to status screen
-      if (providerData.verificationStatus === 'pending') {
+      // If pending or submitted, go to status screen
+      if (status === 'pending' || status === 'submitted') {
         navigation.replace('SubmissionStatus', { profile: providerData });
+        return;
+      }
+      
+      // If rejected, allow re-registration
+      if (status === 'rejected') {
+        setVerificationStatus(status);
+        // Show draft option if available
+        const draftResult = await loadDraft();
+        if (draftResult.success && draftResult.data) {
+          setHasDraft(true);
+          setDraftData(draftResult.data);
+        }
         return;
       }
     }
 
-    // Check for existing draft in Firestore
+    // No profile found - check for draft
     const draftResult = await loadDraft();
-    setHasDraft(draftResult.success);
+    if (draftResult.success && draftResult.data) {
+      setHasDraft(true);
+      setDraftData(draftResult.data);
+    }
   };
 
   const handleStart = () => {
@@ -53,10 +71,66 @@ const ProviderRegistrationIntroScreen = ({ navigation }) => {
   };
 
   const handleResumeDraft = () => {
+    if (!draftData) {
+      navigation.navigate('ServiceSelection');
+      return;
+    }
+
+    // Determine which screen to navigate to based on currentStep
+    const currentStep = draftData.currentStep || 1;
+    
+    let targetScreen = 'ServiceSelection';
+    let params = { resumeDraft: true };
+
+    switch (currentStep) {
+      case 1:
+        targetScreen = 'ServiceSelection';
+        break;
+      case 2:
+        targetScreen = 'PersonalInfo';
+        params = { 
+          selectedServices: draftData.selectedServices,
+          isRegistration: true
+        };
+        break;
+      case 3:
+        targetScreen = 'ProfessionalInfo';
+        params = { 
+          registrationData: draftData
+        };
+        break;
+      case 4:
+        targetScreen = 'CNICVerification';
+        params = { 
+          registrationData: draftData
+        };
+        break;
+      case 5:
+        targetScreen = 'ProofOfService';
+        params = { 
+          registrationData: draftData
+        };
+        break;
+      case 6:
+        targetScreen = 'SelfieVerification';
+        params = { 
+          registrationData: draftData
+        };
+        break;
+      case 7:
+        targetScreen = 'ProviderAgreement';
+        params = { 
+          registrationData: draftData
+        };
+        break;
+      default:
+        targetScreen = 'ServiceSelection';
+    }
+
     alert.confirm(
       'Resume Application',
-      'Continue from where you left off?',
-      () => navigation.navigate('ServiceSelection', { resumeDraft: true }),
+      `Continue from Step ${currentStep}?`,
+      () => navigation.navigate(targetScreen, params),
       () => navigation.navigate('ServiceSelection')
     );
   };

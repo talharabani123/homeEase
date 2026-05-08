@@ -50,18 +50,31 @@ const ServiceSelectionScreen = ({ route, navigation }) => {
 
     setLoading(true);
     
-    // Save draft to Firestore
+    // Try to save draft locally (non-blocking)
     const saveResult = await saveDraft({
       currentStep: 1,
       selectedServices
     });
 
+    if (!saveResult.success) {
+      console.warn('⚠️ Draft save failed, but continuing:', saveResult.error);
+    }
+
     setLoading(false);
 
-    if (saveResult.success) {
-      navigation.navigate('PersonalInfo', { selectedServices });
+    // Check if resuming from draft (user already has account)
+    if (resumeDraft) {
+      // User is already logged in, skip signup and go to PersonalInfo
+      navigation.navigate('PersonalInfo', { 
+        selectedServices,
+        isRegistration: true
+      });
     } else {
-      alert.error('Error', 'Failed to save progress. Please try again.');
+      // New registration - navigate to account creation first
+      navigation.navigate('ProviderSignup', { 
+        selectedServices,
+        isRegistration: true // flag to indicate this is part of registration flow
+      });
     }
   };
 

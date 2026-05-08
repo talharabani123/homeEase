@@ -17,8 +17,22 @@ import {
   deleteFileByUrl,
 } from './supabaseStorageService';
 
-// Service Categories (same as before)
-export const SERVICE_CATEGORIES = {
+// Service Categories (array format for UI components)
+export const SERVICE_CATEGORIES = [
+  { id: 'plumber', name: 'Plumber', icon: '🔧', description: 'Pipe repairs, leak fixing, bathroom & kitchen plumbing' },
+  { id: 'electrician', name: 'Electrician', icon: '💡', description: 'Wiring, switch repairs, appliance installation' },
+  { id: 'carpenter', name: 'Carpenter', icon: '🪚', description: 'Furniture repair, door & window fixing, woodwork' },
+  { id: 'painter', name: 'Painter', icon: '🎨', description: 'Interior & exterior painting, wall finishing' },
+  { id: 'cleaner', name: 'Cleaner', icon: '🧹', description: 'Home cleaning, deep cleaning, sanitization' },
+  { id: 'hvac', name: 'AC Technician', icon: '❄️', description: 'AC repair, installation, maintenance' },
+  { id: 'appliance', name: 'Appliance Repair', icon: '🔌', description: 'Washing machine, fridge, microwave repairs' },
+  { id: 'pest', name: 'Pest Control', icon: '🐛', description: 'Termite treatment, fumigation, pest removal' },
+  { id: 'gardener', name: 'Gardener', icon: '🌱', description: 'Lawn care, plant maintenance, landscaping' },
+  { id: 'mechanic', name: 'Mechanic', icon: '🔩', description: 'Vehicle repair, maintenance, diagnostics' },
+];
+
+// Service Categories Map (for easy lookup)
+export const SERVICE_CATEGORIES_MAP = {
   PLUMBING: 'Plumbing',
   ELECTRICAL: 'Electrical',
   CARPENTRY: 'Carpentry',
@@ -99,29 +113,63 @@ export const checkCNICExists = async (cnic) => {
  * @param {object} draftData - Registration form data
  * @returns {Promise<object>} - { success, error }
  */
-export const saveDraft = async (draftData) => {
+/**
+ * Save registration draft
+ * For provider registration, saves locally if user not authenticated yet
+ * 
+ * @param {object} draftData - Registration form data
+ * @param {string} userId - Optional user ID (if not logged in yet)
+ * @returns {Promise<object>} - { success, error }
+ */
+export const saveDraft = async (draftData, userId = null) => {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return {
-        success: false,
-        error: 'User not authenticated',
-      };
+    // Try to get current user, or use provided userId
+    let user = await getCurrentUser();
+    
+    if (!user && userId) {
+      // Use provided userId (for cases where user just signed up but session not established)
+      user = { id: userId };
+    }
+    
+    if (!user || !user.id) {
+      // User not authenticated yet - save locally instead
+      console.log('💾 User not authenticated, saving draft locally');
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        await AsyncStorage.setItem('provider_draft', JSON.stringify(draftData));
+        console.log('✅ Draft saved locally');
+        return {
+          success: true,
+          message: 'Progress saved locally',
+        };
+      } catch (localError) {
+        console.error('❌ Failed to save locally:', localError);
+        return {
+          success: false,
+          error: 'Failed to save progress',
+        };
+      }
     }
 
     console.log('💾 Saving registration draft for user:', user.id);
 
     // Check if draft exists
-    const { data: existingDraft } = await supabase
+    const { data: existingDraft, error: checkError } = await supabase
       .from('provider_drafts')
       .select('id')
       .eq('user_id', user.id)
       .single();
 
+    if (checkError && checkError.code !== 'PGRST116') {
+      // PGRST116 = no rows returned (which is fine for new drafts)
+      console.error('❌ Error checking existing draft:', checkError);
+    }
+
     let result;
 
     if (existingDraft) {
       // Update existing draft
+      console.log('🔄 Updating existing draft:', existingDraft.id);
       result = await supabase
         .from('provider_drafts')
         .update({
@@ -131,6 +179,7 @@ export const saveDraft = async (draftData) => {
         .eq('user_id', user.id);
     } else {
       // Insert new draft
+      console.log('➕ Creating new draft');
       result = await supabase
         .from('provider_drafts')
         .insert({
@@ -144,11 +193,11 @@ export const saveDraft = async (draftData) => {
       console.error('❌ Save draft error:', result.error);
       return {
         success: false,
-        error: result.error.message,
+        error: result.error.message || 'Failed to save draft',
       };
     }
 
-    console.log('✅ Draft saved successfully');
+    console.log('✅ Draft saved to database');
 
     return {
       success: true,
@@ -165,17 +214,42 @@ export const saveDraft = async (draftData) => {
 
 /**
  * Load registration draft
+ * Loads from local storage if user not authenticated yet
  * 
  * @returns {Promise<object>} - { success, data, error }
  */
 export const loadDraft = async () => {
   try {
     const user = await getCurrentUser();
+    
     if (!user) {
-      return {
-        success: false,
-        error: 'User not authenticated',
-      };
+      // User not authenticated yet - load from local storage
+      console.log('📂 User not authenticated, loading draft locally');
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const localDraft = await AsyncStorage.getItem('provider_draft');
+        if (localDraft) {
+          const draftData = JSON.parse(localDraft);
+          console.log('✅ Draft loaded from local storage');
+          return {
+            success: true,
+            data: draftData,
+            currentStep: draftData.currentStep || 1,
+          };
+        } else {
+          console.log('ℹ️ No local draft found');
+          return {
+            success: true,
+            data: null,
+          };
+        }
+      } catch (localError) {
+        console.error('❌ Failed to load locally:', localError);
+        return {
+          success: true,
+          data: null,
+        };
+      }
     }
 
     console.log('📂 Loading registration draft for user:', user.id);
@@ -202,7 +276,7 @@ export const loadDraft = async () => {
       };
     }
 
-    console.log('✅ Draft loaded successfully');
+    console.log('✅ Draft loaded from database');
 
     return {
       success: true,
@@ -220,17 +294,32 @@ export const loadDraft = async () => {
 
 /**
  * Clear registration draft
+ * Clears from local storage if user not authenticated yet
  * 
  * @returns {Promise<object>} - { success, error }
  */
 export const clearDraft = async () => {
   try {
     const user = await getCurrentUser();
+    
     if (!user) {
-      return {
-        success: false,
-        error: 'User not authenticated',
-      };
+      // User not authenticated yet - clear from local storage
+      console.log('🗑️ User not authenticated, clearing local draft');
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        await AsyncStorage.removeItem('provider_draft');
+        console.log('✅ Local draft cleared');
+        return {
+          success: true,
+          message: 'Draft cleared',
+        };
+      } catch (localError) {
+        console.error('❌ Failed to clear locally:', localError);
+        return {
+          success: false,
+          error: 'Failed to clear draft',
+        };
+      }
     }
 
     console.log('🗑️ Clearing registration draft for user:', user.id);
@@ -248,7 +337,7 @@ export const clearDraft = async () => {
       };
     }
 
-    console.log('✅ Draft cleared successfully');
+    console.log('✅ Draft cleared from database');
 
     return {
       success: true,
@@ -434,9 +523,21 @@ export const submitProviderRegistration = async (registrationData) => {
     }
 
     console.log('📝 Submitting provider registration for user:', user.id);
+    console.log('📋 Registration data:', JSON.stringify(registrationData, null, 2));
+
+    // Handle both field names: cnic and cnicNumber
+    const cnicValue = registrationData.cnic || registrationData.cnicNumber;
+
+    // Validate required fields
+    if (!cnicValue) {
+      return {
+        success: false,
+        error: 'CNIC is required',
+      };
+    }
 
     // Validate CNIC
-    const cnicValidation = validateCNIC(registrationData.cnic);
+    const cnicValidation = validateCNIC(cnicValue);
     if (!cnicValidation.valid) {
       return {
         success: false,
@@ -509,20 +610,20 @@ export const submitProviderRegistration = async (registrationData) => {
       .from('provider_profiles')
       .insert({
         user_id: user.id,
-        full_name: registrationData.fullName,
-        email: registrationData.email,
-        phone_number: registrationData.phoneNumber,
-        cnic: registrationData.cnic.replace(/[-\s]/g, ''),
-        address: registrationData.address,
-        city: registrationData.city,
-        selected_services: registrationData.selectedServices,
-        years_of_experience: registrationData.yearsOfExperience,
-        skills_description: registrationData.skillsDescription,
-        service_radius: registrationData.serviceRadius,
+        full_name: registrationData.fullName || '',
+        email: registrationData.email || user.email || '',
+        phone_number: registrationData.phoneNumber || '',
+        cnic: cnicValue.replace(/[-\s]/g, ''),
+        address: registrationData.address || registrationData.residentialAddress || '',
+        city: registrationData.city || '',
+        selected_services: registrationData.selectedServices || [],
+        years_of_experience: registrationData.yearsOfExperience || 0,
+        skills_description: registrationData.skillsDescription || '',
+        service_radius: registrationData.serviceRadius || 10,
         base_price: registrationData.basePrice || 0,
-        cnic_front_url: cnicFrontUrl,
-        cnic_back_url: cnicBackUrl,
-        selfie_url: selfieUrl,
+        cnic_front_url: cnicFrontUrl || '',
+        cnic_back_url: cnicBackUrl || '',
+        selfie_url: selfieUrl || '',
         proof_of_service_urls: proofUrls,
         status: 'pending',
         submitted_at: new Date().toISOString(),
@@ -546,10 +647,12 @@ export const submitProviderRegistration = async (registrationData) => {
     return {
       success: true,
       profileId: data.id,
+      data: data,
       message: 'Registration submitted successfully',
     };
   } catch (error) {
     console.error('❌ Submit Provider Registration Error:', error);
+    console.error('Error stack:', error.stack);
     return {
       success: false,
       error: error.message || 'Failed to submit registration',
@@ -688,6 +791,7 @@ export const subscribeToProviderProfile = (userId, callback) => {
 
 export default {
   SERVICE_CATEGORIES,
+  SERVICE_CATEGORIES_MAP,
   COMMISSION_RATES,
   formatCNIC,
   checkCNICExists,

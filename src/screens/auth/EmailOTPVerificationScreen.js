@@ -18,7 +18,7 @@ const Logo = () => (
 );
 
 const EmailOTPVerificationScreen = ({ route, navigation }) => {
-  const { email, userData, otpId, devOTP, isReVerification = false } = route.params;
+  const { email, userData, otpId, devOTP, isReVerification = false, isRegistration = false, selectedServices } = route.params;
   
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
@@ -106,14 +106,29 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
       // OTP verified successfully - user is now logged in!
       setLoading(false);
       
-      alert.success(
-        'Success!',
-        'Your email has been verified. Welcome to HomeEase!',
-        () => navigation.reset({
-          index: 0,
-          routes: [{ name: 'CustomerDashboard' }], // Go directly to dashboard
-        })
-      );
+      // Check if this is part of provider registration flow
+      if (isRegistration && selectedServices) {
+        alert.success(
+          'Email Verified!',
+          'Great! Now let\'s complete your provider profile.',
+          () => {
+            navigation.navigate('PersonalInfo', { 
+              selectedServices,
+              userEmail: email,
+            });
+          }
+        );
+      } else {
+        // Regular verification - go to dashboard
+        alert.success(
+          'Success!',
+          'Your email has been verified. Welcome to HomeEase!',
+          () => navigation.reset({
+            index: 0,
+            routes: [{ name: 'CustomerDashboard' }], // Go directly to dashboard
+          })
+        );
+      }
     } catch (error) {
       setLoading(false);
       alert.error('Error', 'Something went wrong. Please try again.');
