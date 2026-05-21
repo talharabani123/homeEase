@@ -10,22 +10,21 @@ jobs:
   lint:
     name: Lint Code
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
-          cache: 'npm'
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm install  # Use npm install instead of npm ci to regenerate lock file
+        run: bun install
 
       - name: Run ESLint
-        run: npm run lint --if-present || echo "No lint script found, skipping..."
+        run: bun run lint --if-present || echo "No lint script found, skipping..."
 
       - name: Check for console.logs
         run: |
@@ -39,53 +38,51 @@ jobs:
   check-dependencies:
     name: Check Dependencies
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
-          cache: 'npm'
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm install
+        run: bun install
 
       - name: Check for outdated packages
-        run: npm outdated || true
+        run: bun outdated || true
 
       - name: Check for security vulnerabilities
-        run: npm audit --audit-level=moderate || true
+        run: bun audit || true
 
   build-check:
     name: Build Check
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
-          cache: 'npm'
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm install
+        run: bun install
 
       - name: Check if app builds
         run: |
-          echo "Checking if Metro bundler can start..."
-          npx expo export --platform android --output-dir dist || echo "Build check completed"
+          echo "Checking if Expo build works..."
+          bunx expo export --platform android --output-dir dist || echo "Build check completed"
 
       - name: Validate app.json
         run: |
           if [ -f app.json ]; then
             echo "✅ app.json found"
-            node -e "JSON.parse(require('fs').readFileSync('app.json', 'utf8'))" && echo "✅ app.json is valid JSON"
+            bun -e "JSON.parse(require('fs').readFileSync('app.json', 'utf8'))" && echo "✅ app.json is valid JSON"
           else
             echo "❌ app.json not found"
             exit 1
@@ -93,4 +90,4 @@ jobs:
 
       - name: Validate package.json
         run: |
-          node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))" && echo "✅ package.json is valid JSON"
+          bun -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))" && echo "✅ package.json is valid JSON"

@@ -8,21 +8,20 @@ jobs:
   code-quality:
     name: Code Quality Analysis
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for better analysis
+          fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
-          cache: 'npm'
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm install
+        run: bun install
 
       - name: Check file sizes
         run: |
@@ -32,8 +31,8 @@ jobs:
       - name: Count lines of code
         run: |
           echo "📈 Lines of Code Statistics:"
-          echo "JavaScript/JSX files:"
-          find src -name "*.js" -o -name "*.jsx" | xargs wc -l | tail -1
+          echo "JavaScript/TypeScript files:"
+          find src \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) | xargs wc -l | tail -1
           echo ""
           echo "Total files:"
           find src -type f | wc -l
@@ -46,7 +45,7 @@ jobs:
       - name: Check for hardcoded secrets
         run: |
           echo "🔒 Checking for potential hardcoded secrets..."
-          if grep -r "api_key\|apiKey\|password\|secret\|token" src/ --exclude-dir=node_modules | grep -v "// " | grep -v "placeholder"; then
+          if grep -rEi "api_key|apiKey|password|secret|token" src/ --exclude-dir=node_modules | grep -v "// " | grep -v "placeholder"; then
             echo "⚠️ Warning: Potential hardcoded secrets found"
             echo "Please review and use environment variables instead"
           else
@@ -56,8 +55,11 @@ jobs:
       - name: Check import statements
         run: |
           echo "📦 Checking for unused imports..."
-          # This is a simple check - consider using eslint-plugin-unused-imports for better results
-          echo "Consider adding eslint-plugin-unused-imports to your project"
+          echo "Consider adding eslint-plugin-unused-imports"
+
+      - name: Run Type Check
+        run: |
+          bunx tsc --noEmit || echo "No TypeScript config found, skipping..."
 
       - name: Generate summary
         run: |
@@ -66,5 +68,5 @@ jobs:
           echo "✅ Code quality checks completed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Statistics" >> $GITHUB_STEP_SUMMARY
-          echo "- Total JS/JSX files: $(find src -name '*.js' -o -name '*.jsx' | wc -l)" >> $GITHUB_STEP_SUMMARY
-          echo "- Total lines of code: $(find src -name '*.js' -o -name '*.jsx' | xargs wc -l | tail -1 | awk '{print $1}')" >> $GITHUB_STEP_SUMMARY
+          echo "- Total JS/TS files: $(find src \( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \) | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "- Total lines of code: $(find src \( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \) | xargs wc -l | tail -1 | awk '{print $1}')" >> $GITHUB_STEP_SUMMARY
