@@ -17,10 +17,7 @@ dist/
 # Temporary files
 *.log
 *.tmp
-*.env
-*.sh
-*.bat
-*.plist
-*.md
 .env
-package-lock.json
+
+# Don't ignore package-lock.json - it should be committed!
+# Don't ignore README.md and other documentation
