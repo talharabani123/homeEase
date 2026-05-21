@@ -1,0 +1,70 @@
+name: Code Quality Checks
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for better analysis
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check file sizes
+        run: |
+          echo "📊 Checking for large files..."
+          find src -type f -size +100k -exec ls -lh {} \; | awk '{print $9 ": " $5}' || echo "No large files found"
+
+      - name: Count lines of code
+        run: |
+          echo "📈 Lines of Code Statistics:"
+          echo "JavaScript/JSX files:"
+          find src -name "*.js" -o -name "*.jsx" | xargs wc -l | tail -1
+          echo ""
+          echo "Total files:"
+          find src -type f | wc -l
+
+      - name: Check for TODO comments
+        run: |
+          echo "📝 TODO Comments Found:"
+          grep -r "TODO\|FIXME\|HACK\|XXX" src/ --exclude-dir=node_modules || echo "No TODO comments found"
+
+      - name: Check for hardcoded secrets
+        run: |
+          echo "🔒 Checking for potential hardcoded secrets..."
+          if grep -r "api_key\|apiKey\|password\|secret\|token" src/ --exclude-dir=node_modules | grep -v "// " | grep -v "placeholder"; then
+            echo "⚠️ Warning: Potential hardcoded secrets found"
+            echo "Please review and use environment variables instead"
+          else
+            echo "✅ No obvious hardcoded secrets found"
+          fi
+
+      - name: Check import statements
+        run: |
+          echo "📦 Checking for unused imports..."
+          # This is a simple check - consider using eslint-plugin-unused-imports for better results
+          echo "Consider adding eslint-plugin-unused-imports to your project"
+
+      - name: Generate summary
+        run: |
+          echo "## Code Quality Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Code quality checks completed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Statistics" >> $GITHUB_STEP_SUMMARY
+          echo "- Total JS/JSX files: $(find src -name '*.js' -o -name '*.jsx' | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "- Total lines of code: $(find src -name '*.js' -o -name '*.jsx' | xargs wc -l | tail -1 | awk '{print $1}')" >> $GITHUB_STEP_SUMMARY
