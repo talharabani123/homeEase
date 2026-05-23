@@ -67,11 +67,14 @@ export const createOrGetConversation = async (participantIds, jobId = null) => {
     }
 
     // Create new conversation
+    const isUuid = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+    const cleanJobId = jobId && isUuid(jobId) ? jobId : null;
+
     const { data: newConversation, error: createError } = await supabase
       .from('conversations')
       .insert({
         participant_ids: sortedIds,
-        job_id: jobId,
+        job_id: cleanJobId,
       })
       .select()
       .single();

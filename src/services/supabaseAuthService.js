@@ -9,6 +9,54 @@
  */
 
 import { supabase } from '../config/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// ============================================
+// DEMO ACCOUNTS (for presentation bypass)
+// ============================================
+const DEMO_SESSION_KEY = '@homeease_demo_session';
+
+const DEMO_ACCOUNTS = {
+  'customer@demo.com': {
+    id: 'demo_customer_user_id',
+    email: 'customer@demo.com',
+    email_confirmed_at: new Date().toISOString(),
+    user_metadata: { full_name: 'Demo Customer', user_type: 'customer', phone_number: '03001234567' },
+    app_metadata: {},
+    created_at: new Date().toISOString(),
+  },
+  'provider@demo.com': {
+    id: 'demo_provider_user_id',
+    email: 'provider@demo.com',
+    email_confirmed_at: new Date().toISOString(),
+    user_metadata: { full_name: 'Demo Provider', user_type: 'provider', phone_number: '03009876543' },
+    app_metadata: {},
+    created_at: new Date().toISOString(),
+  },
+};
+
+const DEMO_USER_PROFILES = {
+  'demo_customer_user_id': {
+    id: 'demo_customer_user_id',
+    email: 'customer@demo.com',
+    full_name: 'Demo Customer',
+    user_type: 'customer',
+    phone_number: '03001234567',
+    is_active: true,
+    is_email_verified: true,
+    created_at: new Date().toISOString(),
+  },
+  'demo_provider_user_id': {
+    id: 'demo_provider_user_id',
+    email: 'provider@demo.com',
+    full_name: 'Demo Provider',
+    user_type: 'provider',
+    phone_number: '03009876543',
+    is_active: true,
+    is_email_verified: true,
+    created_at: new Date().toISOString(),
+  },
+};
 
 // ============================================
 // AUTHENTICATION
@@ -25,6 +73,9 @@ import { supabase } from '../config/supabase';
  * @param {string} phoneNumber - Optional phone number
  * @returns {Promise<object>} - { success, user, error }
  */
+// In-memory store for development OTPs (mapped by email)
+const devOTPs = new Map();
+
 export const signUpWithEmail = async (email, password, fullName, userType, phoneNumber = '') => {
   try {
     console.log('📝 Signing up user:', email, 'as', userType);
@@ -64,12 +115,26 @@ export const signUpWithEmail = async (email, password, fullName, userType, phone
 
     console.log('✅ User signed up successfully. Email confirmation sent.');
 
+    // Generate a development OTP if in dev mode
+    let devOTP = null;
+    if (__DEV__) {
+      devOTP = Math.floor(100000 + Math.random() * 900000).toString();
+      devOTPs.set(email.trim().toLowerCase(), devOTP);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(`📧 DEVELOPMENT SIGNUP OTP GENERATED`);
+      console.log(`✉️ Email: ${email}`);
+      console.log(`🔢 Code: ${devOTP}`);
+      console.log(`⏰ Use this code to verify instantly!`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }
+
     return {
       success: true,
       user: authData.user,
       session: authData.session,
       message: 'Account created. Please check your email for the confirmation code.',
       needsEmailConfirmation: true,
+      devOTP: devOTP,
     };
   } catch (error) {
     console.error('❌ Sign Up Error:', error);
@@ -90,6 +155,26 @@ export const signUpWithEmail = async (email, password, fullName, userType, phone
 export const signInWithEmail = async (email, password) => {
   try {
     console.log('🔐 Signing in user:', email);
+
+    // ── DEMO BYPASS ──────────────────────────────────────────────────────────
+    const normalizedEmail = email.trim().toLowerCase();
+    if (DEMO_ACCOUNTS[normalizedEmail]) {
+      const demoUser = DEMO_ACCOUNTS[normalizedEmail];
+      const demoProfile = DEMO_USER_PROFILES[demoUser.id];
+      // Persist demo session so getCurrentUser works after restart
+      await AsyncStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({ user: demoUser, profile: demoProfile }));
+      console.log('✅ Demo account signed in:', normalizedEmail);
+      return {
+        success: true,
+        user: demoUser,
+        session: { user: demoUser },
+        userData: demoProfile,
+        isVerified: true,
+        isDemo: true,
+        message: 'Signed in successfully (demo)',
+      };
+    }
+    // ── END DEMO BYPASS ──────────────────────────────────────────────────────
 
     // Sign in with Supabase Auth
     const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
@@ -174,14 +259,20 @@ export const signOut = async () => {
   try {
     console.log('👋 Signing out user');
 
+    // Clear demo session if exists
+    await AsyncStorage.removeItem(DEMO_SESSION_KEY);
+
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      console.error('❌ Sign out error:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
+      // Ignore session not found errors during sign out
+      if (!error.message.includes('session')) {
+        console.error('❌ Sign out error:', error);
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
     }
 
     console.log('✅ User signed out successfully');
@@ -206,6 +297,13 @@ export const signOut = async () => {
  */
 export const getCurrentUser = async () => {
   try {
+    // Check demo session first
+    const demoSessionStr = await AsyncStorage.getItem(DEMO_SESSION_KEY);
+    if (demoSessionStr) {
+      const demoSession = JSON.parse(demoSessionStr);
+      return demoSession.user;
+    }
+
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error) {
@@ -258,6 +356,11 @@ export const getCurrentSession = async () => {
 export const getUserProfile = async (userId) => {
   try {
     console.log('👤 Fetching user profile:', userId);
+
+    // Return demo profile instantly if demo user
+    if (DEMO_USER_PROFILES[userId]) {
+      return { success: true, data: DEMO_USER_PROFILES[userId] };
+    }
 
     const { data, error } = await supabase
       .from('users')
@@ -378,7 +481,41 @@ export const updateUserProfile = async (userId, updates) => {
  */
 export const verifyEmailOTP = async (email, token) => {
   try {
-    console.log('✅ Verifying email OTP for:', email);
+    const normalizedEmail = email.trim().toLowerCase();
+    console.log('✅ Verifying email OTP for:', normalizedEmail);
+
+    // Development bypass check
+    if (__DEV__ && devOTPs.has(normalizedEmail) && devOTPs.get(normalizedEmail) === token) {
+      console.log('✨ Development OTP matched! Bypassing Supabase OTP verification...');
+      
+      // Get the user and session from current Auth state
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Update user profile to mark email as verified
+      const targetUserId = user?.id || (await supabase
+        .from('users')
+        .select('id')
+        .eq('email', normalizedEmail)
+        .single()
+      ).data?.id;
+
+      if (targetUserId) {
+        await supabase
+          .from('users')
+          .update({ is_email_verified: true })
+          .eq('id', targetUserId);
+      }
+
+      console.log('✅ Email verified successfully (dev bypass)');
+
+      return {
+        success: true,
+        user: user || { id: targetUserId, email: normalizedEmail },
+        session: session || { user: { id: targetUserId, email: normalizedEmail } },
+        message: 'Email verified successfully (dev bypass)',
+      };
+    }
 
     const { data, error } = await supabase.auth.verifyOtp({
       email,
@@ -427,7 +564,20 @@ export const verifyEmailOTP = async (email, token) => {
  */
 export const resendOTP = async (email) => {
   try {
-    console.log('📧 Resending OTP to:', email);
+    const normalizedEmail = email.trim().toLowerCase();
+    console.log('📧 Resending OTP to:', normalizedEmail);
+
+    let devOTP = null;
+    if (__DEV__) {
+      devOTP = Math.floor(100000 + Math.random() * 900000).toString();
+      devOTPs.set(normalizedEmail, devOTP);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(`📧 DEVELOPMENT OTP RESENT`);
+      console.log(`✉️ Email: ${normalizedEmail}`);
+      console.log(`🔢 Code: ${devOTP}`);
+      console.log(`⏰ Use this code to verify instantly!`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }
 
     const { error } = await supabase.auth.resend({
       type: 'signup',
@@ -447,6 +597,7 @@ export const resendOTP = async (email) => {
     return {
       success: true,
       message: 'OTP sent to your email',
+      devOTP: devOTP,
     };
   } catch (error) {
     console.error('❌ Resend OTP Error:', error);

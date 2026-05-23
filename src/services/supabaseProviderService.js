@@ -678,6 +678,34 @@ export const getProviderProfile = async (userId = null) => {
       };
     }
 
+    // ── DEMO BYPASS ──────────────────────────────────────────────────────
+    if (targetUserId === 'demo_provider_user_id') {
+      return {
+        success: true,
+        data: {
+          id: 'demo_provider_profile_id',
+          user_id: 'demo_provider_user_id',
+          full_name: 'Demo Provider',
+          email: 'provider@demo.com',
+          phone_number: '03009876543',
+          city: 'Karachi',
+          status: 'approved',
+          selected_services: [JSON.stringify({ id: 'plumber', icon: '🔧', name: 'Plumber', description: 'Pipe repairs, leak fixing' })],
+          years_of_experience: 5,
+          base_price: 1500,
+          service_radius: 15,
+          rating: 4.8,
+          totalJobs: 47,
+          earnings: 72500,
+          // Normalized camelCase fields expected by UI
+          isVerified: true,
+          isOnline: false,
+          services: [{ id: 'plumber', icon: '🔧', name: 'Plumber', description: 'Pipe repairs, leak fixing' }],
+        },
+      };
+    }
+    // ── END DEMO BYPASS ─────────────────────────────────────────────────────
+
     console.log('👤 Fetching provider profile for user:', targetUserId);
 
     const { data, error } = await supabase
@@ -688,7 +716,6 @@ export const getProviderProfile = async (userId = null) => {
 
     if (error) {
       if (error.code === 'PGRST116') {
-        // No profile found
         console.log('ℹ️ No provider profile found');
         return {
           success: true,
@@ -702,11 +729,47 @@ export const getProviderProfile = async (userId = null) => {
       };
     }
 
+    // Normalize selected_services – stored as stringified JSON array elements
+    let parsedServices = [];
+    try {
+      const raw = data.selected_services || [];
+      parsedServices = raw.map(s => {
+        if (typeof s === 'string') {
+          try { return JSON.parse(s); } catch { return { id: s, name: s, icon: '🔧' }; }
+        }
+        return s;
+      });
+    } catch (_) {
+      parsedServices = [];
+    }
+
+    // Shape data with camelCase fields the UI expects.
+    // Note: is_online column may not exist yet in older schema versions — fall back to
+    // the locally-persisted status in that case.
+    let cachedOnline = false;
+    if (data.is_online === undefined || data.is_online === null) {
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const stored = await AsyncStorage.getItem(`@provider_online_status_${targetUserId}`);
+        if (stored !== null) cachedOnline = JSON.parse(stored);
+      } catch (_) {}
+    }
+
+    const normalizedData = {
+      ...data,
+      isVerified: data.status === 'approved',
+      isOnline: data.is_online ?? cachedOnline,
+      services: parsedServices,
+      rating: data.rating || 0,
+      totalJobs: data.total_jobs || 0,
+      earnings: data.earnings || 0,
+    };
+
     console.log('✅ Provider profile fetched successfully');
 
     return {
       success: true,
-      data: data,
+      data: normalizedData,
     };
   } catch (error) {
     console.error('❌ Get Provider Profile Error:', error);
@@ -724,6 +787,62 @@ export const getProviderProfile = async (userId = null) => {
  * @param {object} updates - Profile updates
  * @returns {Promise<object>} - { success, data, error }
  */
+/**
+ * Update provider online status
+ *
+ * @param {boolean} isOnline - Online status
+ * @returns {Promise<object>} - { success, data, error }
+ */
+export const updateOnlineStatus = async (isOnline) => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+
+    // Demo bypass - just simulate success
+    if (user.id === 'demo_provider_user_id') {
+      return { success: true, data: { isOnline, is_online: isOnline } };
+    }
+
+    const { data, error } = await supabase
+      .from('provider_profiles')
+      .update({ is_online: isOnline, updated_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (error) {
+      // PGRST204 = column not found in schema cache.
+      // The 'is_online' column hasn't been added to provider_profiles yet.
+      // Fall back to local AsyncStorage so the UI toggle still works.
+      if (error.code === 'PGRST204') {
+        console.warn('⚠️ is_online column missing in DB. Storing online status locally until migration is run.');
+        try {
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          await AsyncStorage.setItem(`@provider_online_status_${user.id}`, JSON.stringify(isOnline));
+        } catch (_) {}
+        return {
+          success: true,
+          data: { isOnline, is_online: isOnline },
+          localOnly: true,
+        };
+      }
+      console.error('❌ Update online status error:', error);
+      return { success: false, error: error.message };
+    }
+
+    console.log('✅ Online status updated:', isOnline);
+    return {
+      success: true,
+      data: { ...data, isOnline: data.is_online ?? isOnline },
+    };
+  } catch (error) {
+    console.error('❌ Update Online Status Error:', error);
+    return { success: false, error: error.message || 'Failed to update online status' };
+  }
+};
+
 export const updateProviderProfile = async (profileId, updates) => {
   try {
     console.log('✏️ Updating provider profile:', profileId);
@@ -805,5 +924,6 @@ export default {
   submitProviderRegistration,
   getProviderProfile,
   updateProviderProfile,
+  updateOnlineStatus,
   subscribeToProviderProfile,
 };

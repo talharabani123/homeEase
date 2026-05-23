@@ -9,7 +9,7 @@ import { useAlert } from '../../hooks/useAlert';
 const ProviderAgreementScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
   const alert = useAlert();
-  const { registrationData } = route.params;
+  const { registrationData } = route.params || {};
   
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [backgroundCheckAccepted, setBackgroundCheckAccepted] = useState(false);

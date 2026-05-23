@@ -9,7 +9,7 @@ import { useAlert } from '../../hooks/useAlert';
 const ProfessionalInfoScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
   const alert = useAlert();
-  const { registrationData } = route.params;
+  const { registrationData } = route.params || {};
   
   const [yearsOfExperience, setYearsOfExperience] = useState('');
   const [skillsDescription, setSkillsDescription] = useState('');

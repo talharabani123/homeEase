@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 
 const ACTIVE_JOBS_KEY = '@homeease_active_jobs';
-const SERVICE_REQUESTS_KEY = '@homeease_service_requests'; // Marketplace requests
+const SERVICE_REQUESTS_KEY = '@marketplace_service_requests'; // Must match marketplaceService.js
 const JOB_MESSAGES_KEY = '@homeease_job_messages_';
 const JOB_LOCATIONS_KEY = '@homeease_job_locations_';
 
@@ -63,8 +63,37 @@ export const createJobRequest = async (jobData) => {
  */
 export const acceptJobRequest = async (jobId, providerId) => {
   try {
-    const jobs = await getActiveJobs();
-    const jobIndex = jobs.findIndex(j => j.id === jobId);
+    if (jobId && jobId.startsWith('req_')) {
+      const { getProviderProfile } = require('./supabaseProviderService');
+      const profileResult = await getProviderProfile();
+      const providerData = {
+        name: profileResult.success && profileResult.data ? (profileResult.data.fullName || profileResult.data.name || 'Provider') : 'Provider',
+        phone: profileResult.success && profileResult.data ? (profileResult.data.phone || '+92 300 0000000') : '+92 300 0000000',
+        currentLocation: null
+      };
+
+      const { acceptServiceRequest } = require('./marketplaceService');
+      const result = await acceptServiceRequest(jobId, providerId, providerData);
+      
+      if (result.success) {
+        // Start mock location tracking simulation
+        startLocationTracking(jobId);
+        return { success: true, job: result.request };
+      } else {
+        return { success: false, error: result.error || 'Failed to accept request' };
+      }
+    }
+
+    let jobs = await getActiveJobs();
+    let jobIndex = jobs.findIndex(j => j.id === jobId);
+    let isMarketplace = false;
+    
+    if (jobIndex === -1) {
+      const marketplaceData = await AsyncStorage.getItem(SERVICE_REQUESTS_KEY);
+      jobs = marketplaceData ? JSON.parse(marketplaceData) : [];
+      jobIndex = jobs.findIndex(j => j.id === jobId);
+      isMarketplace = true;
+    }
     
     if (jobIndex === -1) {
       return { success: false, error: 'Job not found' };
@@ -72,6 +101,7 @@ export const acceptJobRequest = async (jobId, providerId) => {
 
     jobs[jobIndex].status = 'accepted';
     jobs[jobIndex].providerId = providerId;
+    jobs[jobIndex].selectedProviderId = providerId;
     jobs[jobIndex].acceptedAt = new Date().toISOString();
     jobs[jobIndex].providerLocation = {
       latitude: 24.8615,
@@ -79,7 +109,28 @@ export const acceptJobRequest = async (jobId, providerId) => {
       address: 'Provider Location'
     };
 
-    await AsyncStorage.setItem(ACTIVE_JOBS_KEY, JSON.stringify(jobs));
+    // Fetch provider name/phone to populate request
+    const { getProviderProfile } = require('./supabaseProviderService');
+    const profileResult = await getProviderProfile();
+    if (profileResult.success && profileResult.data) {
+      jobs[jobIndex].providerName = profileResult.data.fullName || profileResult.data.name || 'Provider';
+      jobs[jobIndex].providerPhone = profileResult.data.phone || '+92 300 0000000';
+    }
+
+    // Calculate distance and travel fee Yango-style
+    const distance = calculateDistance(
+      jobs[jobIndex].providerLocation.latitude,
+      jobs[jobIndex].providerLocation.longitude,
+      jobs[jobIndex].latitude || jobs[jobIndex].customerLocation?.latitude || 24.8607,
+      jobs[jobIndex].longitude || jobs[jobIndex].customerLocation?.longitude || 67.0011
+    );
+    jobs[jobIndex].travelDistance = parseFloat(distance.toFixed(2));
+    jobs[jobIndex].travelFee = Math.round(150 + distance * 50); // Yango PK: 150 base + 50/km
+    jobs[jobIndex].serviceFee = jobs[jobIndex].serviceFee || 500;
+    jobs[jobIndex].totalAmount = jobs[jobIndex].travelFee + jobs[jobIndex].serviceFee;
+
+    const storageKey = isMarketplace ? SERVICE_REQUESTS_KEY : ACTIVE_JOBS_KEY;
+    await AsyncStorage.setItem(storageKey, JSON.stringify(jobs));
 
     // Notify customer
     sendMockNotification(
@@ -116,6 +167,15 @@ export const getActiveJobs = async () => {
  */
 export const getJobById = async (jobId) => {
   try {
+    if (jobId && jobId.startsWith('req_')) {
+      const { getRequestById } = require('./marketplaceService');
+      const result = await getRequestById(jobId);
+      if (result.success) {
+        return { success: true, job: result.request };
+      }
+      return { success: false, error: 'Job not found' };
+    }
+
     // Check active jobs first
     const jobs = await getActiveJobs();
     let job = jobs.find(j => j.id === jobId);
@@ -139,6 +199,22 @@ export const getJobById = async (jobId) => {
  */
 export const updateJobStatus = async (jobId, status) => {
   try {
+    if (jobId && jobId.startsWith('req_')) {
+      const { startJob, completeJob } = require('./marketplaceService');
+      if (status === 'in_progress') {
+        const res = await startJob(jobId);
+        if (res.success) {
+          return { success: true, job: res.request };
+        }
+      } else if (status === 'completed') {
+        const res = await completeJob(jobId);
+        if (res.success) {
+          return { success: true, job: res.request };
+        }
+      }
+      return { success: false, error: 'Failed to update status' };
+    }
+
     // Try active jobs first
     let jobs = await getActiveJobs();
     let jobIndex = jobs.findIndex(j => j.id === jobId);
@@ -200,8 +276,8 @@ export const startLocationTracking = (jobId) => {
       const job = result.job;
       const providerLat = job.providerLocation?.latitude || 24.8615;
       const providerLng = job.providerLocation?.longitude || 67.0025;
-      const customerLat = job.customerLocation.latitude;
-      const customerLng = job.customerLocation.longitude;
+      const customerLat = job.customerLocation?.latitude || job.latitude || 24.8607;
+      const customerLng = job.customerLocation?.longitude || job.longitude || 67.0011;
 
       // Move provider slightly towards customer
       const newLat = providerLat + (customerLat - providerLat) * 0.1;
@@ -220,16 +296,31 @@ export const startLocationTracking = (jobId) => {
         timestamp: new Date().toISOString()
       };
 
-      await AsyncStorage.setItem(`${JOB_LOCATIONS_KEY}${jobId}`, JSON.stringify(location));
+      if (jobId && jobId.startsWith('req_')) {
+        const { supabase } = require('../config/supabase');
+        await supabase
+          .from('service_requests')
+          .update({
+            provider_location: { latitude: newLat, longitude: newLng },
+            travel_distance: parseFloat(distance.toFixed(2)),
+          })
+          .eq('id', jobId);
+      } else {
+        await AsyncStorage.setItem(`${JOB_LOCATIONS_KEY}${jobId}`, JSON.stringify(location));
+      }
 
       // Notify when provider is close
       if (distance < 0.5 && !job.arrivedNotified) {
         sendMockNotification('Provider Nearby! 📍', 'Your provider is less than 500m away', { jobId });
-        const jobs = await getActiveJobs();
-        const idx = jobs.findIndex(j => j.id === jobId);
-        if (idx !== -1) {
-          jobs[idx].arrivedNotified = true;
-          await AsyncStorage.setItem(ACTIVE_JOBS_KEY, JSON.stringify(jobs));
+        if (jobId && jobId.startsWith('req_')) {
+          // If in database, we can update an arrived field if we want, or just trigger notification once
+        } else {
+          const jobs = await getActiveJobs();
+          const idx = jobs.findIndex(j => j.id === jobId);
+          if (idx !== -1) {
+            jobs[idx].arrivedNotified = true;
+            await AsyncStorage.setItem(ACTIVE_JOBS_KEY, JSON.stringify(jobs));
+          }
         }
       }
     } catch (error) {
@@ -250,6 +341,21 @@ export const stopLocationTracking = () => {
  */
 export const getJobLocation = async (jobId) => {
   try {
+    if (jobId && jobId.startsWith('req_')) {
+      const { getRequestById } = require('./marketplaceService');
+      const res = await getRequestById(jobId);
+      if (res.success && res.request && res.request.providerLocation) {
+        return {
+          latitude: res.request.providerLocation.latitude,
+          longitude: res.request.providerLocation.longitude,
+          distance: res.request.travelDistance || 0,
+          eta: Math.ceil((res.request.travelDistance || 0) * 3),
+          timestamp: res.request.acceptedAt || new Date().toISOString()
+        };
+      }
+      return null;
+    }
+
     // First check dedicated location storage
     const stored = await AsyncStorage.getItem(`${JOB_LOCATIONS_KEY}${jobId}`);
     if (stored) {

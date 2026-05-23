@@ -5,14 +5,15 @@ import { useTheme } from '../../context/ThemeContext';
 import { saveDraft, loadDraft } from '../../services/supabaseProviderService';
 import CustomAlert from '../../components/CustomAlert';
 import { useAlert } from '../../hooks/useAlert';
+import { supabase } from '../../config/supabase';
 
 const PersonalInfoScreenSimple = ({ route, navigation }) => {
   const { colors } = useTheme();
   const alert = useAlert();
-  const { selectedServices, userEmail, userId } = route.params;
+  const { selectedServices, userEmail, userId, providerFullName, providerPhone } = route.params || {};
   
-  const [fullName, setFullName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [fullName, setFullName] = useState(providerFullName || '');
+  const [phoneNumber, setPhoneNumber] = useState(providerPhone || '');
   const [email, setEmail] = useState(userEmail || ''); // Pre-fill from signup
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [city, setCity] = useState('');
@@ -24,13 +25,36 @@ const PersonalInfoScreenSimple = ({ route, navigation }) => {
   }, []);
 
   const loadSavedData = async () => {
+    // 1. Get logged in user metadata as a backup
+    let userMetaName = '';
+    let userMetaPhone = '';
+    let userMetaEmail = '';
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        userMetaName = user.user_metadata?.full_name || '';
+        userMetaPhone = user.user_metadata?.phone_number || '';
+        userMetaEmail = user.email || '';
+      }
+    } catch (err) {
+      console.warn('Failed to fetch user metadata in PersonalInfo:', err);
+    }
+
+    // 2. Load draft if exists
     const result = await loadDraft();
+    
+    // 3. Prioritize: params || draft || userMeta
+    const finalName = providerFullName || (result.success && result.data?.fullName) || userMetaName;
+    const finalPhone = providerPhone || (result.success && result.data?.phoneNumber) || userMetaPhone;
+    const finalEmail = userEmail || (result.success && result.data?.email) || userMetaEmail;
+
+    if (finalName) setFullName(finalName);
+    if (finalPhone) setPhoneNumber(finalPhone);
+    if (finalEmail) setEmail(finalEmail);
+
     if (result.success && result.data) {
       const data = result.data;
-      if (data.fullName) setFullName(data.fullName);
-      if (data.phoneNumber) setPhoneNumber(data.phoneNumber);
-      // Only load email from draft if not provided from signup
-      if (data.email && !userEmail) setEmail(data.email);
       if (data.dateOfBirth) setDateOfBirth(data.dateOfBirth);
       if (data.city) setCity(data.city);
       if (data.residentialAddress) setResidentialAddress(data.residentialAddress);

@@ -157,22 +157,12 @@ const CustomerSignupScreen = ({ navigation }) => {
         setLoading(false);
         
         if (signupResult.success) {
-          // Check if user has a session (email confirmation disabled)
-          if (signupResult.session) {
-            // User is already logged in, no email verification needed
-            alert.success(
-              'Account Created!',
-              'Welcome to HomeEase',
-              () => {
-                // AuthContext will handle navigation automatically
-              }
-            );
-          } else {
-            // Email confirmation enabled, navigate to OTP verification
-            navigation.navigate('EmailOTPVerification', {
-              email: formData.email.trim(),
-            });
-          }
+          // Always require OTP verification — Resend handles email delivery
+          navigation.navigate('EmailOTPVerification', {
+            email: formData.email.trim(),
+            role: 'customer',
+            devOTP: signupResult.devOTP,
+          });
         } else {
           // Handle specific error cases
           if (signupResult.error && signupResult.error.includes('already registered')) {

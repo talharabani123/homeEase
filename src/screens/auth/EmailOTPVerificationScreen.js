@@ -3,9 +3,11 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, Activit
 import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../constants/colors';
 import { TYPOGRAPHY } from '../../constants/typography';
-import { verifyEmailOTP, resendOTP, markEmailAsVerified } from '../../services/supabaseAuthService';
+import { verifyEmailOTP, resendOTP, getUserProfile } from '../../services/supabaseAuthService';
+import { getProviderProfile } from '../../services/supabaseProviderService';
 import CustomAlert from '../../components/CustomAlert';
 import { useAlert } from '../../hooks/useAlert';
+import { useAuth } from '../../context/AuthContext';
 
 const Logo = () => (
   <View style={styles.logoContainer}>
@@ -18,7 +20,8 @@ const Logo = () => (
 );
 
 const EmailOTPVerificationScreen = ({ route, navigation }) => {
-  const { email, userData, otpId, devOTP, isReVerification = false, isRegistration = false, selectedServices } = route.params;
+  const { email, userData, otpId, devOTP, isReVerification = false, isRegistration = false, selectedServices, role, providerFullName, providerPhone } = route.params || {};
+  const { signIn } = useAuth();
   
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
@@ -26,6 +29,7 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [currentOtpId, setCurrentOtpId] = useState(otpId);
+  const [currentDevOTP, setCurrentDevOTP] = useState(devOTP);
   const alert = useAlert();
   
   const inputRefs = useRef([]);
@@ -44,10 +48,10 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
 
   // Show dev OTP in development
   useEffect(() => {
-    if (devOTP && __DEV__) {
-      alert.info('Development Mode', `OTP: ${devOTP}\n\nThis will be removed in production.`);
+    if (currentDevOTP && __DEV__) {
+      alert.info('Development Mode', `OTP: ${currentDevOTP}\n\nThis will be removed in production.`);
     }
-  }, [devOTP]);
+  }, [currentDevOTP]);
 
   const handleOtpChange = (value, index) => {
     if (value.length > 1) {
@@ -104,30 +108,45 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
       }
 
       // OTP verified successfully - user is now logged in!
+      // Update AuthContext with verified user
+      if (verifyResult.user) {
+        const profileResult = await getUserProfile(verifyResult.user.id);
+        await signIn(verifyResult.user, profileResult.data);
+      }
+
       setLoading(false);
-      
-      // Check if this is part of provider registration flow
+
+      // Determine where to navigate based on the flow
+      let navigateTo = null;
+      let navigateParams = null;
+
       if (isRegistration && selectedServices) {
-        alert.success(
-          'Email Verified!',
-          'Great! Now let\'s complete your provider profile.',
-          () => {
-            navigation.navigate('PersonalInfo', { 
-              selectedServices,
-              userEmail: email,
-            });
-          }
-        );
+        navigateTo = 'PersonalInfo';
+        navigateParams = { selectedServices, userEmail: email, providerFullName, providerPhone };
+      } else if (role === 'provider' || isRegistration) {
+        navigateTo = 'ProviderRegistrationIntro';
       } else {
-        // Regular verification - go to dashboard
-        alert.success(
-          'Success!',
-          'Your email has been verified. Welcome to HomeEase!',
-          () => navigation.reset({
-            index: 0,
-            routes: [{ name: 'CustomerDashboard' }], // Go directly to dashboard
-          })
-        );
+        // Customer signup/login — go straight to dashboard
+        navigateTo = 'CustomerDashboard';
+      }
+
+      // Show success alert for feedback, but navigate immediately so that
+      // tapping the overlay (onDismiss) can never block the navigation.
+      alert.success(
+        'Email Verified! ✅',
+        role === 'provider' || isRegistration
+          ? 'Your email has been verified.'
+          : 'Welcome to HomeEase! You can now start booking services.',
+      );
+
+      // Navigate immediately — don't wait for alert OK button
+      if (navigateTo === 'PersonalInfo') {
+        navigation.navigate(navigateTo, navigateParams);
+      } else {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: navigateTo }],
+        });
       }
     } catch (error) {
       setLoading(false);
@@ -148,6 +167,10 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
         setTimer(60);
         setCanResend(false);
         setOtp(['', '', '', '', '', '']);
+        
+        if (result.devOTP) {
+          setCurrentDevOTP(result.devOTP);
+        }
         
         alert.success('OTP Resent', 'A new OTP has been sent to your email.');
       } else {
@@ -228,24 +251,6 @@ const EmailOTPVerificationScreen = ({ route, navigation }) => {
         >
           <Text style={styles.backButtonText}>← Change Email</Text>
         </TouchableOpacity>
-
-        {/* Development Skip Button */}
-        {__DEV__ && (
-          <TouchableOpacity
-            style={styles.skipButton}
-            onPress={() => {
-              alert.info(
-                'Skip Verification',
-                'Email confirmation is disabled. Please go back and login with your credentials.',
-                () => {
-                  navigation.navigate('CustomerLogin');
-                }
-              );
-            }}
-          >
-            <Text style={styles.skipButtonText}>Skip (Dev Only - Go to Login)</Text>
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* Custom Alert */}

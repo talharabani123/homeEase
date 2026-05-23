@@ -5,6 +5,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { SERVICE_CATEGORIES, saveDraft, loadDraft } from '../../services/supabaseProviderService';
 import CustomAlert from '../../components/CustomAlert';
 import { useAlert } from '../../hooks/useAlert';
+import { supabase } from '../../config/supabase';
 
 const ServiceSelectionScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
@@ -62,8 +63,19 @@ const ServiceSelectionScreen = ({ route, navigation }) => {
 
     setLoading(false);
 
-    // Check if resuming from draft (user already has account)
-    if (resumeDraft) {
+    // Check if user has an active session
+    let isLoggedIn = false;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        isLoggedIn = true;
+      }
+    } catch (error) {
+      console.warn('Failed to check auth state in ServiceSelection:', error);
+    }
+
+    // Check if resuming from draft or already logged in (user already has account)
+    if (resumeDraft || isLoggedIn) {
       // User is already logged in, skip signup and go to PersonalInfo
       navigation.navigate('PersonalInfo', { 
         selectedServices,

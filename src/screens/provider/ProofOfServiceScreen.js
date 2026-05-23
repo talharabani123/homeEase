@@ -10,13 +10,13 @@ import { useAlert } from '../../hooks/useAlert';
 const ProofOfServiceScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
   const alert = useAlert();
-  const { registrationData } = route.params;
+  const { registrationData } = route.params || {};
   
   const [currentServiceIndex, setCurrentServiceIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [servicesWithProof, setServicesWithProof] = useState(() => {
     // Initialize with proofDocuments array for each service
-    return (registrationData.selectedServices || []).map(service => ({
+    return ((registrationData || {}).selectedServices || []).map(service => ({
       ...service,
       proofDocuments: service.proofDocuments || []
     }));

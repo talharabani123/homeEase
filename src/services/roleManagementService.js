@@ -70,13 +70,13 @@ export const getCurrentMode = async () => {
  */
 export const canSwitchToProvider = async () => {
   try {
-    const roleResult = await getUserRole();
     const providerResult = await getProviderProfile();
-    
-    const hasProviderRole = roleResult.role === 'provider' || roleResult.role === 'both';
-    const isVerified = providerResult.success && providerResult.data && providerResult.data.isVerified;
-    
-    return hasProviderRole && isVerified;
+    if (!providerResult.success || !providerResult.data) return false;
+
+    const profile = providerResult.data;
+    // Accept approved status OR the isVerified camelCase flag
+    const isApproved = profile.status === 'approved' || profile.isVerified === true;
+    return isApproved;
   } catch (error) {
     console.error('Can switch to provider error:', error);
     return false;

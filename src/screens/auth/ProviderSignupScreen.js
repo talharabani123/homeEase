@@ -108,40 +108,17 @@ const ProviderSignupScreen = ({ navigation, route }) => {
       setLoading(false);
       
       if (signupResult.success) {
-        // Check if user has a session (email confirmation disabled)
-        if (signupResult.session) {
-          // User is already logged in, no email verification needed
-          if (isRegistration && selectedServices) {
-            // Part of registration flow - continue to PersonalInfo
-            alert.success(
-              'Account Created!',
-              'Welcome! Now let\'s complete your provider profile.',
-              () => {
-                navigation.navigate('PersonalInfo', { 
-                  selectedServices,
-                  userEmail: formData.email.trim(),
-                  userId: signupResult.user.id
-                });
-              }
-            );
-          } else {
-            // Standalone signup - let AuthContext handle navigation
-            alert.success(
-              'Account Created!',
-              'Welcome! Please complete your provider registration.',
-              () => {
-                // AuthContext will handle navigation automatically
-              }
-            );
-          }
-        } else {
-          // Email confirmation enabled, navigate to OTP verification
-          navigation.navigate('EmailOTPVerification', {
-            email: formData.email.trim(),
-            isRegistration,
-            selectedServices,
-          });
-        }
+        // Always require OTP verification — Resend handles email delivery
+        navigation.navigate('EmailOTPVerification', {
+          email: formData.email.trim(),
+          isRegistration,
+          selectedServices,
+          role: 'provider',
+          // Pass through to PersonalInfo so the provider doesn't re-type them
+          providerFullName: formData.fullName.trim(),
+          providerPhone: formData.phoneNumber,
+          devOTP: signupResult.devOTP,
+        });
       } else {
         // Handle specific error cases
         if (signupResult.error && signupResult.error.includes('already registered')) {

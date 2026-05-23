@@ -6,9 +6,9 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
+import { supabase } from '../config/supabase';
 
-// Storage Keys
-const SERVICE_REQUESTS_KEY = '@marketplace_service_requests';
+// Storage Keys (kept for provider list only)
 const PROVIDERS_KEY = '@marketplace_providers';
 const ACTIVE_JOBS_KEY = '@marketplace_active_jobs';
 
@@ -24,11 +24,11 @@ export const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371; // Earth's radius in km
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
 
@@ -40,12 +40,41 @@ export const calculateTravelFee = (distanceKm) => {
 };
 
 /**
+ * Yango-style PK fair upfront price estimator
+ */
+export const estimateFare = (serviceType, distanceKm) => {
+  const baseFare = 150; // Base fare in PKR
+  const perKmRate = 50;  // PKR per KM
+  
+  const complexityMultiplier = {
+    plumber: 1.5,
+    electrician: 1.6,
+    carpenter: 1.4,
+    painter: 2.0,
+    cleaning: 1.2,
+    ac_repair: 2.2,
+  };
+  
+  const multiplier = complexityMultiplier[serviceType?.toLowerCase()] || 1.0;
+  const travelFee = Math.round(distanceKm * perKmRate);
+  const serviceFee = Math.round(500 * multiplier); // Default service fee scaled by complexity
+  const totalAmount = Math.max(baseFare + travelFee + serviceFee, 400); // Min Rs. 400
+  
+  return {
+    travelDistance: parseFloat(distanceKm.toFixed(2)),
+    travelFee,
+    serviceFee,
+    totalAmount
+  };
+};
+
+/**
  * STEP 1: Customer Creates Service Request
  */
 export const createServiceRequest = async (requestData) => {
   try {
     const requestId = `req_${Date.now()}`;
-    
+
     // Get customer's current location
     let customerLocation = requestData.location;
     if (!customerLocation) {
@@ -60,62 +89,63 @@ export const createServiceRequest = async (requestData) => {
       }
     }
 
+    // Yango upfront pricing estimation
+    let distanceKm = 2.5; // default fallback distance
+    if (requestData.selectedProviderId) {
+      const providers = await getAllProviders();
+      const provider = providers.find(p => p.id === requestData.selectedProviderId);
+      if (provider && provider.currentLocation) {
+        distanceKm = calculateDistance(
+          customerLocation.latitude,
+          customerLocation.longitude,
+          provider.currentLocation.latitude,
+          provider.currentLocation.longitude
+        );
+      }
+    }
+    const pricing = estimateFare(requestData.serviceType, distanceKm);
+
     const serviceRequest = {
       id: requestId,
-      customerId: requestData.customerId,
-      customerName: requestData.customerName,
-      customerPhone: requestData.customerPhone,
-      
-      // Service Details
-      serviceType: requestData.serviceType, // 'plumber', 'electrician', etc.
-      serviceName: requestData.serviceName,
+      customer_id: requestData.customerId,
+      customer_name: requestData.customerName,
+      customer_phone: requestData.customerPhone,
+      service_type: requestData.serviceType,
+      service_name: requestData.serviceName,
       description: requestData.description,
-      
-      // Location
       latitude: customerLocation.latitude,
       longitude: customerLocation.longitude,
       address: customerLocation.address,
-      
-      // Status
-      status: 'searching', // searching → accepted → in_progress → completed → cancelled
-      
-      // Provider Info (filled when accepted)
-      selectedProviderId: null,
-      providerName: null,
-      providerPhone: null,
-      providerLocation: null,
-      
-      // Pricing (calculated when provider accepts)
-      travelDistance: null,
-      travelFee: null,
-      serviceFee: null,
-      totalAmount: null,
-      
-      // Timestamps
-      createdAt: new Date().toISOString(),
-      acceptedAt: null,
-      startedAt: null,
-      completedAt: null,
-      
-      // Rating
-      rating: null,
-      review: null,
+      status: 'searching',
+      selected_provider_id: requestData.selectedProviderId || null,
+      provider_name: requestData.providerName || null,
+      provider_phone: requestData.providerPhone || null,
+      provider_location: null,
+      travel_distance: pricing.travelDistance,
+      travel_fee: pricing.travelFee,
+      service_fee: pricing.serviceFee,
+      total_amount: pricing.totalAmount,
+      created_at: new Date().toISOString(),
     };
 
-    // Save request
-    const requests = await getAllServiceRequests();
-    requests.push(serviceRequest);
-    await AsyncStorage.setItem(SERVICE_REQUESTS_KEY, JSON.stringify(requests));
+    // Save to Supabase (shared across all devices)
+    const { data: inserted, error: insertErr } = await supabase
+      .from('service_requests')
+      .insert(serviceRequest)
+      .select()
+      .single();
 
-    console.log('✅ Service request created:', requestId);
+    if (insertErr) throw insertErr;
 
-    // STEP 2: Trigger provider matching
-    await matchNearbyProviders(serviceRequest);
+    console.log('✅ Service request created in Supabase:', requestId);
+
+    // Normalise for local use (camelCase)
+    const normalised = _normalise(inserted || serviceRequest);
 
     return {
       success: true,
       requestId,
-      request: serviceRequest
+      request: normalised,
     };
   } catch (error) {
     console.error('❌ Create service request error:', error);
@@ -133,21 +163,21 @@ export const createServiceRequest = async (requestData) => {
 export const matchNearbyProviders = async (serviceRequest) => {
   try {
     const providers = await getAllProviders();
-    
+
     const matchedProviders = providers.filter(provider => {
       // Check if provider is online
       if (!provider.isOnline) return false;
-      
+
       // Check if provider is verified
       if (provider.verificationStatus !== 'approved') return false;
-      
+
       // Check if provider offers this service
-      const hasService = provider.services?.some(s => 
-        s.id === serviceRequest.serviceType || 
+      const hasService = provider.services?.some(s =>
+        s.id === serviceRequest.serviceType ||
         s.name?.toLowerCase().includes(serviceRequest.serviceType.toLowerCase())
       );
       if (!hasService) return false;
-      
+
       // Check if provider is within radius
       if (provider.currentLocation) {
         const distance = calculateDistance(
@@ -158,7 +188,7 @@ export const matchNearbyProviders = async (serviceRequest) => {
         );
         return distance <= (serviceRequest.radius || DEFAULT_RADIUS_KM);
       }
-      
+
       return false;
     });
 
@@ -199,78 +229,61 @@ const sendProviderNotification = (providerId, request) => {
  */
 export const acceptServiceRequest = async (requestId, providerId, providerData) => {
   try {
-    const requests = await getAllServiceRequests();
-    const requestIndex = requests.findIndex(r => r.id === requestId);
-    
-    if (requestIndex === -1) {
-      return { success: false, error: 'Request not found' };
-    }
+    // Fetch from Supabase
+    const { data: req, error: fetchErr } = await supabase
+      .from('service_requests')
+      .select('*')
+      .eq('id', requestId)
+      .single();
 
-    const request = requests[requestIndex];
+    if (fetchErr || !req) return { success: false, error: 'Request not found' };
+    if (req.status !== 'searching') return { success: false, error: 'Request already accepted' };
 
-    // Check if already accepted by another provider
-    if (request.status !== 'searching') {
-      return { success: false, error: 'Request already accepted by another provider' };
-    }
-
-    // Get provider's current location
     let providerLocation = providerData.currentLocation;
     if (!providerLocation) {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
-        const location = await Location.getCurrentPositionAsync({});
-        providerLocation = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude
-        };
+        const loc = await Location.getCurrentPositionAsync({});
+        providerLocation = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
       }
     }
 
-    // STEP 4: Calculate Travel Fee
-    const distance = calculateDistance(
-      providerLocation.latitude,
-      providerLocation.longitude,
-      request.latitude,
-      request.longitude
-    );
+    const distance = providerLocation
+      ? calculateDistance(providerLocation.latitude, providerLocation.longitude, req.latitude, req.longitude)
+      : 2.5;
     const travelFee = calculateTravelFee(distance);
 
-    console.log(`💰 Travel calculation: ${distance.toFixed(2)} km × ${RATE_PER_KM} PKR = ${travelFee} PKR`);
+    const updates = {
+      status: 'accepted',
+      selected_provider_id: providerId,
+      provider_name: providerData.name,
+      provider_phone: providerData.phone,
+      provider_location: providerLocation,
+      travel_distance: parseFloat(distance.toFixed(2)),
+      travel_fee: travelFee,
+      accepted_at: new Date().toISOString(),
+    };
 
-    // Update request
-    request.status = 'accepted';
-    request.selectedProviderId = providerId;
-    request.providerName = providerData.name;
-    request.providerPhone = providerData.phone;
-    request.providerLocation = providerLocation;
-    request.travelDistance = parseFloat(distance.toFixed(2));
-    request.travelFee = travelFee;
-    request.acceptedAt = new Date().toISOString();
+    const { data: updated, error: updErr } = await supabase
+      .from('service_requests')
+      .update(updates)
+      .eq('id', requestId)
+      .select()
+      .single();
 
-    requests[requestIndex] = request;
-    await AsyncStorage.setItem(SERVICE_REQUESTS_KEY, JSON.stringify(requests));
+    if (updErr) throw updErr;
 
-    // Mark provider as busy
-    await updateProviderStatus(providerId, { isBusy: true });
-
-    // STEP 5: Start real-time tracking
-    startLocationTracking(requestId, providerId);
-
-    // Notify customer
-    console.log('✅ Customer notified: Provider accepted and is on the way!');
+    console.log(`✅ Request accepted. Travel: ${distance.toFixed(2)} km, Fee: ${travelFee} PKR`);
 
     return {
       success: true,
-      request,
+      request: _normalise(updated),
       travelDistance: distance.toFixed(2),
-      travelFee
+      travelFee,
     };
   } catch (error) {
     console.error('❌ Accept request error:', error);
-    return {
-      success: false,
-      error: 'Failed to accept request'
-    };
+    return { success: false, error: 'Failed to accept request' };
   }
 };
 
@@ -294,11 +307,11 @@ export const startLocationTracking = (requestId, providerId) => {
       if (status !== 'granted') return;
 
       const location = await Location.getCurrentPositionAsync({});
-      
+
       // Update provider location in request
       const requests = await getAllServiceRequests();
       const request = requests.find(r => r.id === requestId);
-      
+
       if (!request || request.status === 'completed' || request.status === 'cancelled') {
         stopLocationTracking(requestId);
         return;
@@ -353,24 +366,17 @@ export const stopLocationTracking = (requestId) => {
  */
 export const startJob = async (requestId) => {
   try {
-    const requests = await getAllServiceRequests();
-    const requestIndex = requests.findIndex(r => r.id === requestId);
-    
-    if (requestIndex === -1) {
-      return { success: false, error: 'Request not found' };
-    }
+    const { data, error } = await supabase
+      .from('service_requests')
+      .update({ status: 'in_progress', started_at: new Date().toISOString() })
+      .eq('id', requestId)
+      .select()
+      .single();
 
-    requests[requestIndex].status = 'in_progress';
-    requests[requestIndex].startedAt = new Date().toISOString();
-
-    await AsyncStorage.setItem(SERVICE_REQUESTS_KEY, JSON.stringify(requests));
-
-    // Stop location tracking
+    if (error) throw error;
     stopLocationTracking(requestId);
-
     console.log('✅ Job started');
-
-    return { success: true, request: requests[requestIndex] };
+    return { success: true, request: _normalise(data) };
   } catch (error) {
     console.error('❌ Start job error:', error);
     return { success: false, error: 'Failed to start job' };
@@ -383,36 +389,19 @@ export const startJob = async (requestId) => {
  */
 export const completeJob = async (requestId, serviceFee) => {
   try {
-    const requests = await getAllServiceRequests();
-    const requestIndex = requests.findIndex(r => r.id === requestId);
-    
-    if (requestIndex === -1) {
-      return { success: false, error: 'Request not found' };
-    }
+    const { data: req } = await supabase.from('service_requests').select('travel_fee').eq('id', requestId).single();
+    const totalAmount = (req?.travel_fee || 0) + (serviceFee || 0);
 
-    const request = requests[requestIndex];
+    const { data, error } = await supabase
+      .from('service_requests')
+      .update({ status: 'completed', service_fee: serviceFee, total_amount: totalAmount, completed_at: new Date().toISOString() })
+      .eq('id', requestId)
+      .select()
+      .single();
 
-    // STEP 8: Calculate Total Amount
-    const totalAmount = (request.travelFee || 0) + (serviceFee || 0);
-
-    request.status = 'completed';
-    request.serviceFee = serviceFee;
-    request.totalAmount = totalAmount;
-    request.completedAt = new Date().toISOString();
-
-    requests[requestIndex] = request;
-    await AsyncStorage.setItem(SERVICE_REQUESTS_KEY, JSON.stringify(requests));
-
-    // Mark provider as available
-    await updateProviderStatus(request.selectedProviderId, { isBusy: false });
-
-    console.log(`✅ Job completed. Total: ${totalAmount} PKR (Travel: ${request.travelFee} + Service: ${serviceFee})`);
-
-    return {
-      success: true,
-      request,
-      totalAmount
-    };
+    if (error) throw error;
+    console.log(`✅ Job completed. Total: ${totalAmount} PKR`);
+    return { success: true, request: _normalise(data), totalAmount };
   } catch (error) {
     console.error('❌ Complete job error:', error);
     return { success: false, error: 'Failed to complete job' };
@@ -427,7 +416,7 @@ export const rateService = async (requestId, rating, review = '') => {
   try {
     const requests = await getAllServiceRequests();
     const requestIndex = requests.findIndex(r => r.id === requestId);
-    
+
     if (requestIndex === -1) {
       return { success: false, error: 'Request not found' };
     }
@@ -458,7 +447,7 @@ export const cancelServiceRequest = async (requestId, cancelledBy, reason = '') 
   try {
     const requests = await getAllServiceRequests();
     const requestIndex = requests.findIndex(r => r.id === requestId);
-    
+
     if (requestIndex === -1) {
       return { success: false, error: 'Request not found' };
     }
@@ -501,53 +490,43 @@ export const cancelServiceRequest = async (requestId, cancelledBy, reason = '') 
  */
 export const getAvailableRequests = async (providerId) => {
   try {
-    const requests = await getAllServiceRequests();
-    const provider = await getProviderById(providerId);
-    
-    if (!provider) {
-      return { success: false, error: 'Provider not found', requests: [] };
-    }
+    // Fetch all searching requests from Supabase (cross-device)
+    const { data, error } = await supabase
+      .from('service_requests')
+      .select('*')
+      .eq('status', 'searching')
+      .or(`selected_provider_id.eq.${providerId},selected_provider_id.is.null`);
 
-    // Filter requests
-    const available = requests.filter(request => {
-      // Only searching requests
-      if (request.status !== 'searching') return false;
-      
-      // Check if provider offers this service
-      const hasService = provider.services?.some(s => 
-        s.id === request.serviceType || 
-        s.name?.toLowerCase().includes(request.serviceType.toLowerCase())
-      );
-      if (!hasService) return false;
-      
-      // Check distance
-      if (provider.currentLocation) {
-        const distance = calculateDistance(
-          provider.currentLocation.latitude,
-          provider.currentLocation.longitude,
-          request.latitude,
-          request.longitude
-        );
-        
-        // Add distance to request for display
-        request.distanceFromProvider = parseFloat(distance.toFixed(2));
-        
-        return distance <= DEFAULT_RADIUS_KM;
-      }
-      
-      return false;
-    });
+    if (error) throw error;
 
-    // Sort by distance
-    available.sort((a, b) => a.distanceFromProvider - b.distanceFromProvider);
-
-    return {
-      success: true,
-      requests: available
-    };
+    const requests = (data || []).map(r => _normalise(r));
+    return { success: true, requests };
   } catch (error) {
     console.error('❌ Get available requests error:', error);
     return { success: false, error: 'Failed to get requests', requests: [] };
+  }
+};
+
+/**
+ * Get a single pending/searching request targeted at this provider.
+ * Used by the Provider Dashboard to show the incoming job card.
+ */
+export const getPendingRequestForProvider = async (providerId) => {
+  try {
+    const { data, error } = await supabase
+      .from('service_requests')
+      .select('*')
+      .eq('status', 'searching')
+      .eq('selected_provider_id', providerId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+    const row = data && data[0] ? _normalise(data[0]) : null;
+    return { success: true, request: row };
+  } catch (error) {
+    console.error('❌ getPendingRequestForProvider error:', error);
+    return { success: false, request: null };
   }
 };
 
@@ -556,16 +535,14 @@ export const getAvailableRequests = async (providerId) => {
  */
 export const getCustomerRequests = async (customerId) => {
   try {
-    const requests = await getAllServiceRequests();
-    const customerRequests = requests.filter(r => r.customerId === customerId);
-    
-    // Sort by created date (newest first)
-    customerRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const { data, error } = await supabase
+      .from('service_requests')
+      .select('*')
+      .eq('customer_id', customerId)
+      .order('created_at', { ascending: false });
 
-    return {
-      success: true,
-      requests: customerRequests
-    };
+    if (error) throw error;
+    return { success: true, requests: (data || []).map(_normalise) };
   } catch (error) {
     console.error('❌ Get customer requests error:', error);
     return { success: false, error: 'Failed to get requests', requests: [] };
@@ -577,80 +554,111 @@ export const getCustomerRequests = async (customerId) => {
  */
 export const getRequestById = async (requestId) => {
   try {
-    const requests = await getAllServiceRequests();
-    const request = requests.find(r => r.id === requestId);
-    
-    if (!request) {
-      return { success: false, error: 'Request not found' };
-    }
+    const { data, error } = await supabase
+      .from('service_requests')
+      .select('*')
+      .eq('id', requestId)
+      .single();
 
-    return { success: true, request };
+    if (error) throw error;
+    return { success: true, request: _normalise(data) };
   } catch (error) {
     console.error('❌ Get request error:', error);
     return { success: false, error: 'Failed to get request' };
   }
 };
 
-// Helper Functions
+// ── Helper Functions ──────────────────────────────────────────────────────────
 
-const getAllServiceRequests = async () => {
-  try {
-    const stored = await AsyncStorage.getItem(SERVICE_REQUESTS_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch (error) {
-    return [];
-  }
-};
+/**
+ * Normalise a snake_case Supabase row → camelCase object used by the UI.
+ */
+const _normalise = (r) => ({
+  ...r,
+  id: r.id,
+  customerId: r.customer_id,
+  customerName: r.customer_name,
+  customerPhone: r.customer_phone,
+  serviceType: r.service_type,
+  serviceName: r.service_name,
+  selectedProviderId: r.selected_provider_id,
+  providerName: r.provider_name,
+  providerPhone: r.provider_phone,
+  providerLocation: r.provider_location,
+  travelDistance: r.travel_distance,
+  travelFee: r.travel_fee,
+  serviceFee: r.service_fee,
+  totalAmount: r.total_amount,
+  createdAt: r.created_at,
+  acceptedAt: r.accepted_at,
+  startedAt: r.started_at,
+  completedAt: r.completed_at,
+  address: r.address,
+  latitude: r.latitude,
+  longitude: r.longitude,
+  status: r.status,
+});
 
 const getAllProviders = async () => {
   try {
-    const stored = await AsyncStorage.getItem(PROVIDERS_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch (error) {
-    return [];
-  }
-};
+    const { data: profiles, error } = await supabase
+      .from('provider_profiles')
+      .select('*')
+      .eq('status', 'approved');
 
-const getProviderById = async (providerId) => {
-  const providers = await getAllProviders();
-  return providers.find(p => p.id === providerId);
-};
-
-const updateProviderStatus = async (providerId, updates) => {
-  try {
-    const providers = await getAllProviders();
-    const index = providers.findIndex(p => p.id === providerId);
-    if (index !== -1) {
-      providers[index] = { ...providers[index], ...updates };
-      await AsyncStorage.setItem(PROVIDERS_KEY, JSON.stringify(providers));
+    if (!error && profiles && profiles.length > 0) {
+      return profiles.map((p, index) => {
+        const services = (p.selected_services || []).map(s => {
+          if (typeof s === 'string') { try { return JSON.parse(s); } catch { return { name: s, id: s, icon: '🔧' }; } }
+          return s;
+        });
+        const distance = 0.8 + (index % 4) * 0.9;
+        const bearing = (2 * Math.PI / Math.max(profiles.length, 1)) * index;
+        const lat = 24.8607 + (distance / 111) * Math.cos(bearing);
+        const lon = 67.0011 + (distance / (111 * Math.cos(24.8607 * Math.PI / 180))) * Math.sin(bearing);
+        const initials = (p.full_name || 'UP').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+        return {
+          id: p.id,
+          name: p.full_name || 'Unknown Provider',
+          serviceType: services[0]?.id || 'plumber',
+          serviceName: services[0]?.name || 'Plumber',
+          rating: p.rating || 4.5,
+          totalReviews: p.total_jobs || 10,
+          pricePerJob: p.base_price || 800,
+          priceLabel: `Rs. ${p.base_price || 800}/job`,
+          distance: parseFloat(distance.toFixed(1)),
+          eta: Math.ceil(distance * 4),
+          isAvailable: true,
+          isOnline: p.is_online || true,
+          avatar: null,
+          initials,
+          completedJobs: p.total_jobs || 10,
+          memberSince: new Date(p.created_at || Date.now()).getFullYear().toString(),
+          bio: p.skills_description || 'Experienced professional',
+          city: p.city || 'Karachi',
+          currentLocation: { latitude: lat, longitude: lon },
+          verificationStatus: p.status,
+        };
+      });
     }
-  } catch (error) {
-    console.error('Update provider status error:', error);
+  } catch (e) {
+    console.error('getAllProviders error:', e);
   }
+
+  return [];
 };
 
 const updateProviderRating = async (providerId, newRating) => {
   try {
-    const providers = await getAllProviders();
-    const index = providers.findIndex(p => p.id === providerId);
-    if (index !== -1) {
-      const provider = providers[index];
-      const totalJobs = (provider.totalJobs || 0) + 1;
-      const currentRating = provider.rating || 0;
-      const newAvgRating = ((currentRating * (totalJobs - 1)) + newRating) / totalJobs;
-      
-      provider.rating = parseFloat(newAvgRating.toFixed(1));
-      provider.totalJobs = totalJobs;
-      
-      await AsyncStorage.setItem(PROVIDERS_KEY, JSON.stringify(providers));
-    }
-  } catch (error) {
-    console.error('Update provider rating error:', error);
-  }
+    const { data: p } = await supabase.from('provider_profiles').select('rating,total_jobs').eq('id', providerId).single();
+    if (!p) return;
+    const totalJobs = (p.total_jobs || 0) + 1;
+    const newAvg = ((p.rating || 0) * (totalJobs - 1) + newRating) / totalJobs;
+    await supabase.from('provider_profiles').update({ rating: parseFloat(newAvg.toFixed(1)), total_jobs: totalJobs }).eq('id', providerId);
+  } catch (e) { console.error('Update provider rating error:', e); }
 };
 
-const applyProviderPenalty = async (providerId) => {
-  // Implement penalty logic
+const applyProviderPenalty = (providerId) => {
   console.log(`⚠️ Penalty applied to provider ${providerId}`);
 };
 
@@ -660,103 +668,66 @@ const applyProviderPenalty = async (providerId) => {
  */
 export const getNearbyProvidersByService = async (serviceType, customerLocation, radiusKm = 10) => {
   try {
-    // Mock providers for Expo Go - replace with Firestore query in production
-    const MOCK_PROVIDERS = [
-      {
-        id: 'p1', name: 'Ahmed Khan', serviceType: 'plumber', serviceName: 'Plumber',
-        rating: 4.8, totalReviews: 124, pricePerJob: 800, priceLabel: 'Rs. 800/job',
-        distance: 1.2, eta: 8, isAvailable: true, isOnline: true,
-        avatar: null, initials: 'AK',
-        completedJobs: 312, memberSince: '2022',
-        bio: 'Expert in pipe fitting, leakage repair, and bathroom installations.',
-        currentLocation: { latitude: customerLocation.latitude + 0.01, longitude: customerLocation.longitude + 0.01 },
-      },
-      {
-        id: 'p2', name: 'Bilal Raza', serviceType: 'plumber', serviceName: 'Plumber',
-        rating: 4.5, totalReviews: 87, pricePerJob: 650, priceLabel: 'Rs. 650/job',
-        distance: 2.4, eta: 14, isAvailable: true, isOnline: true,
-        avatar: null, initials: 'BR',
-        completedJobs: 198, memberSince: '2023',
-        bio: 'Specializes in water heater repair and drainage systems.',
-        currentLocation: { latitude: customerLocation.latitude + 0.02, longitude: customerLocation.longitude - 0.01 },
-      },
-      {
-        id: 'p3', name: 'Hassan Ali', serviceType: 'electrician', serviceName: 'Electrician',
-        rating: 4.9, totalReviews: 203, pricePerJob: 900, priceLabel: 'Rs. 900/job',
-        distance: 0.8, eta: 5, isAvailable: true, isOnline: true,
-        avatar: null, initials: 'HA',
-        completedJobs: 445, memberSince: '2021',
-        bio: 'Certified electrician. Wiring, panel upgrades, and appliance repair.',
-        currentLocation: { latitude: customerLocation.latitude - 0.005, longitude: customerLocation.longitude + 0.008 },
-      },
-      {
-        id: 'p4', name: 'Usman Sheikh', serviceType: 'electrician', serviceName: 'Electrician',
-        rating: 4.3, totalReviews: 56, pricePerJob: 700, priceLabel: 'Rs. 700/job',
-        distance: 3.1, eta: 18, isAvailable: false, isOnline: true,
-        avatar: null, initials: 'US',
-        completedJobs: 89, memberSince: '2023',
-        bio: 'Handles all electrical faults, fan installation, and AC wiring.',
-        currentLocation: { latitude: customerLocation.latitude + 0.03, longitude: customerLocation.longitude + 0.02 },
-      },
-      {
-        id: 'p5', name: 'Tariq Mehmood', serviceType: 'carpenter', serviceName: 'Carpenter',
-        rating: 4.7, totalReviews: 91, pricePerJob: 1200, priceLabel: 'Rs. 1200/job',
-        distance: 1.8, eta: 11, isAvailable: true, isOnline: true,
-        avatar: null, initials: 'TM',
-        completedJobs: 167, memberSince: '2022',
-        bio: 'Custom furniture, door/window repair, and wood polishing.',
-        currentLocation: { latitude: customerLocation.latitude - 0.015, longitude: customerLocation.longitude - 0.01 },
-      },
-      {
-        id: 'p6', name: 'Imran Butt', serviceType: 'painter', serviceName: 'Painter',
-        rating: 4.6, totalReviews: 73, pricePerJob: 1500, priceLabel: 'Rs. 1500/job',
-        distance: 2.9, eta: 17, isAvailable: true, isOnline: true,
-        avatar: null, initials: 'IB',
-        completedJobs: 134, memberSince: '2022',
-        bio: 'Interior and exterior painting. Wall texture and waterproofing.',
-        currentLocation: { latitude: customerLocation.latitude + 0.025, longitude: customerLocation.longitude - 0.02 },
-      },
-      {
-        id: 'p7', name: 'Zubair Malik', serviceType: 'ac_repair', serviceName: 'AC Repair',
-        rating: 4.4, totalReviews: 112, pricePerJob: 1000, priceLabel: 'Rs. 1000/job',
-        distance: 4.2, eta: 22, isAvailable: true, isOnline: false,
-        avatar: null, initials: 'ZM',
-        completedJobs: 278, memberSince: '2021',
-        bio: 'AC installation, gas refilling, and cooling system maintenance.',
-        currentLocation: { latitude: customerLocation.latitude - 0.04, longitude: customerLocation.longitude + 0.03 },
-      },
-      {
-        id: 'p8', name: 'Faisal Qureshi', serviceType: 'cleaning', serviceName: 'Cleaning',
-        rating: 4.2, totalReviews: 45, pricePerJob: 500, priceLabel: 'Rs. 500/job',
-        distance: 1.5, eta: 9, isAvailable: true, isOnline: true,
-        avatar: null, initials: 'FQ',
-        completedJobs: 67, memberSince: '2023',
-        bio: 'Deep cleaning, sofa cleaning, and carpet washing services.',
-        currentLocation: { latitude: customerLocation.latitude + 0.012, longitude: customerLocation.longitude + 0.015 },
-      },
-    ];
+    const { data: profiles, error } = await supabase
+      .from('provider_profiles')
+      .select('*')
+      .eq('status', 'approved');
 
-    // Normalize service type for matching
-    const normalizedType = serviceType?.toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
+    if (!error && profiles && profiles.length > 0) {
+      const normalizedType = (serviceType || '').toLowerCase().replace(/[\s_-]+/g, '');
 
-    // Filter by service type
-    const filtered = MOCK_PROVIDERS.filter(p => {
-      const pType = p.serviceType.toLowerCase();
-      return (
-        pType === normalizedType ||
-        pType.includes(normalizedType) ||
-        normalizedType.includes(pType) ||
-        p.serviceName.toLowerCase().includes(serviceType?.toLowerCase() || '')
-      );
-    });
+      const matched = profiles
+        .filter(p => {
+          const services = (p.selected_services || []).map(s => {
+            if (typeof s === 'string') { try { return JSON.parse(s); } catch { return { name: s, id: s }; } }
+            return s;
+          });
+          return services.some(s => {
+            const sName = (s.name || s.id || '').toLowerCase().replace(/[\s_-]+/g, '');
+            return sName.includes(normalizedType) || normalizedType.includes(sName);
+          });
+        })
+        .map((p, index) => {
+          const services = (p.selected_services || []).map(s => {
+            if (typeof s === 'string') { try { return JSON.parse(s); } catch { return { name: s, id: s, icon: '🔧' }; } }
+            return s;
+          });
+          const distance = 0.8 + (index % 4) * 0.9;
+          const bearing = (2 * Math.PI / Math.max(profiles.length, 1)) * index;
+          const lat = customerLocation.latitude + (distance / 111) * Math.cos(bearing);
+          const lon = customerLocation.longitude + (distance / (111 * Math.cos(customerLocation.latitude * Math.PI / 180))) * Math.sin(bearing);
+          const initials = (p.full_name || 'UP').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+          return {
+            id: p.id,
+            name: p.full_name || 'Unknown Provider',
+            serviceType: services[0]?.id || serviceType,
+            serviceName: services[0]?.name || serviceType,
+            rating: p.rating || parseFloat((4.0 + Math.random() * 0.9).toFixed(1)),
+            totalReviews: p.total_jobs || Math.floor(Math.random() * 150 + 20),
+            pricePerJob: p.base_price || 800,
+            priceLabel: `Rs. ${p.base_price || 800}/job`,
+            distance: parseFloat(distance.toFixed(1)),
+            eta: Math.ceil(distance * 4),
+            isAvailable: true,
+            isOnline: p.is_online || true,
+            avatar: null,
+            initials,
+            completedJobs: p.total_jobs || Math.floor(Math.random() * 200 + 30),
+            memberSince: new Date(p.created_at || Date.now()).getFullYear().toString(),
+            bio: p.skills_description || `Experienced ${services[0]?.name || 'service'} professional in ${p.city || 'Karachi'}.`,
+            city: p.city || 'Karachi',
+            currentLocation: { latitude: lat, longitude: lon },
+          };
+        });
 
-    // Filter by radius
-    const nearby = filtered.filter(p => p.distance <= radiusKm);
+      if (matched.length > 0) {
+        matched.sort((a, b) => a.distance - b.distance);
+        console.log(`✅ Found ${matched.length} real provider(s) for "${serviceType}"`);
+        return { success: true, providers: matched };
+      }
+    }
 
-    // Sort by distance (nearest first)
-    nearby.sort((a, b) => a.distance - b.distance);
-
-    return { success: true, providers: nearby };
+    return { success: true, providers: [] };
   } catch (error) {
     console.error('getNearbyProvidersByService error:', error);
     return { success: false, providers: [], error: error.message };
@@ -764,6 +735,7 @@ export const getNearbyProvidersByService = async (serviceType, customerLocation,
 };
 
 export default {
+  getNearbyProvidersByService,
   createServiceRequest,
   matchNearbyProviders,
   acceptServiceRequest,
@@ -774,6 +746,7 @@ export default {
   rateService,
   cancelServiceRequest,
   getAvailableRequests,
+  getPendingRequestForProvider,
   getCustomerRequests,
   getRequestById,
   calculateDistance,

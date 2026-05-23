@@ -90,13 +90,24 @@ const ActiveJobScreen = ({ route, navigation }) => {
           setDistance(dist);
           setEta(etaMin);
 
-          await AsyncStorage.setItem(`${JOB_LOCATIONS_KEY}${actualId}`, JSON.stringify({
-            latitude:  newLoc.latitude,
-            longitude: newLoc.longitude,
-            distance:  dist,
-            eta:       etaMin,
-            timestamp: new Date().toISOString(),
-          }));
+          if (actualId.startsWith('req_')) {
+            const { supabase } = require('../../config/supabase');
+            await supabase
+              .from('service_requests')
+              .update({
+                provider_location: { latitude: newLoc.latitude, longitude: newLoc.longitude },
+                travel_distance: dist,
+              })
+              .eq('id', actualId);
+          } else {
+            await AsyncStorage.setItem(`${JOB_LOCATIONS_KEY}${actualId}`, JSON.stringify({
+              latitude:  newLoc.latitude,
+              longitude: newLoc.longitude,
+              distance:  dist,
+              eta:       etaMin,
+              timestamp: new Date().toISOString(),
+            }));
+          }
         }
       }
     );

@@ -3,11 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, SafeAr
 import Svg, { Path, Circle } from 'react-native-svg';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { getProviderJobs, acceptJob, rejectJob, completeJob } from '../../services/providerJobService';
 import { acceptJobRequest } from '../../services/realtimeJobFlowService';
 
 const ProviderJobsScreen = ({ navigation }) => {
   const { colors } = useTheme();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('pending'); // pending, active, completed
   const [jobs, setJobs] = useState({ pending: [], active: [], completed: [] });
   const [loading, setLoading] = useState(false);
@@ -44,10 +46,10 @@ const ProviderJobsScreen = ({ navigation }) => {
             // Accept in local service
             const result = await acceptJob(jobId);
             if (result.success) {
-              // Also accept in real-time service for tracking
-              const providerId = 'provider_456'; // Get from auth context in production
+              // Also accept in real-time service for tracking using real user id
+              const providerId = user?.id || 'provider_unknown';
               await acceptJobRequest(jobId, providerId);
-              
+
               Alert.alert('Success', 'Job accepted successfully!', [
                 {
                   text: 'Start Navigation',
@@ -63,6 +65,7 @@ const ProviderJobsScreen = ({ navigation }) => {
       ]
     );
   };
+
 
   const handleRejectJob = (jobId) => {
     Alert.alert(
@@ -200,12 +203,20 @@ Phone: ${job.customerPhone}
           )}
 
           {isActive && (
-            <TouchableOpacity
-              style={[styles.viewButton, { backgroundColor: colors.primary }]}
-              onPress={() => handleViewJob(job)}
-            >
-              <Text style={styles.viewButtonText}>View Details</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                style={[styles.chatButton, { borderColor: colors.primary }]}
+                onPress={() => navigation.navigate('JobChat', { jobId: job.id, userType: 'provider' })}
+              >
+                <Text style={[styles.chatButtonText, { color: colors.primary }]}>Chat</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.viewButton, { backgroundColor: colors.primary }]}
+                onPress={() => navigation.navigate('ActiveJob', { jobId: job.id })}
+              >
+                <Text style={styles.viewButtonText}>Navigate</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           {isCompleted && (
@@ -350,6 +361,8 @@ const styles = StyleSheet.create({
   acceptButtonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   viewButton: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 8 },
   viewButtonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  chatButton: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 8, borderWidth: 1.5 },
+  chatButtonText: { fontSize: 14, fontWeight: '700' },
   completedInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   completedLabel: { fontSize: 12 },
   ratingContainer: { flexDirection: 'row', alignItems: 'center' },

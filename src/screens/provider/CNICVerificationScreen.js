@@ -10,7 +10,7 @@ import { useAlert } from '../../hooks/useAlert';
 const CNICVerificationScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
   const alert = useAlert();
-  const { registrationData } = route.params;
+  const { registrationData } = route.params || {};
   
   const [cnicNumber, setCnicNumber] = useState('');
   const [cnicFrontImage, setCnicFrontImage] = useState(null);

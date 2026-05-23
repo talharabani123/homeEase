@@ -6,6 +6,7 @@ import { TYPOGRAPHY } from '../../constants/typography';
 import { formatPakistaniPhone, cleanPhoneNumber, getPhoneError } from '../../utils/validation';
 import { signInWithEmail, signOut } from '../../services/supabaseAuthService';
 import { sendEmailOTP } from '../../services/emailOTPService';
+import { getProviderProfile } from '../../services/supabaseProviderService';
 import { useAuth } from '../../context/AuthContext';
 import CustomAlert from '../../components/CustomAlert';
 import { useAlert } from '../../hooks/useAlert';
@@ -59,25 +60,31 @@ const ProviderLoginScreen = ({ navigation }) => {
       const result = await signInWithEmail(email.trim(), password);
       
       if (result.success) {
-        // Check if user is a provider
-        if (result.userData?.user_type !== 'provider') {
-          setLoading(false);
-          alert.error('Invalid Account', 'This account is not registered as a service provider. Please use the customer login.');
-          await signOut(); // Sign out to prevent confusion
-          return;
-        }
+        // For demo provider or provider with wrong user_type — allow both 'provider' and any type
+        // as long as they have an approved provider profile
+        const userType = result.userData?.user_type;
+        const isDemo = result.isDemo;
 
         // Sign in to context
         await signIn(result.user, result.userData);
-        
+
         setLoading(false);
-        
-        // Check if provider has completed registration by checking for provider profile
-        // We'll navigate to ProviderRegistrationIntro which will handle the routing
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'ProviderRegistrationIntro' }],
-        });
+
+        // Check if provider already has an approved profile → go to dashboard directly
+        const profileResult = await getProviderProfile(result.user.id);
+        if (
+          profileResult.success &&
+          profileResult.data &&
+          (profileResult.data.status === 'approved' || profileResult.data.isVerified)
+        ) {
+          navigation.reset({ index: 0, routes: [{ name: 'ProviderDashboard' }] });
+        } else if (profileResult.success && profileResult.data) {
+          // Profile exists but pending/rejected
+          navigation.reset({ index: 0, routes: [{ name: 'SubmissionStatus' }] });
+        } else {
+          // No profile yet → start registration
+          navigation.reset({ index: 0, routes: [{ name: 'ProviderRegistrationIntro' }] });
+        }
       } else {
         setLoading(false);
         alert.error('Login Failed', result.error || 'Invalid email or password');

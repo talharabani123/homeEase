@@ -10,7 +10,7 @@ import { useAlert } from '../../hooks/useAlert';
 const SelfieVerificationScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
   const alert = useAlert();
-  const { registrationData } = route.params;
+  const { registrationData } = route.params || {};
   
   const [selfieImage, setSelfieImage] = useState(null);
   const [loading, setLoading] = useState(false);
